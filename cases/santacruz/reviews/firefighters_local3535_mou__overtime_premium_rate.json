@@ -1,0 +1,1136 @@
+{
+  "schema": "skeptic.v1",
+  "rule_id": "firefighters_local3535_mou:overtime_premium_rate",
+  "rule_sha256": "1fa2ba66bce9242d54fbdc37e52644b6cbc2ebb9c9da3ff6ce30b03b16f179e9",
+  "verdict": "challenge",
+  "summary": "The rule reproduces the 1.5x premium for an ordinary premium overtime shift (8 hours -> 640.8) but models neither the 182-hour threshold that conditions the premium, the half-time band for hours between 182 and 192 on p.7, nor the wider regular rate of pay that folds in Special assignment Pay and Education Incentive. Every number in this review came from the engine; approval stays with the human.",
+  "warnings": [
+    {
+      "id": "w1",
+      "severity": "high",
+      "kind": "ignored_condition",
+      "claim": "The rule pays 1.5x on every hour (when hours > 0). The cited clause pays the premium only for time worked or deemed worked in excess of 182 hours in a 24-day work period. The roster and the question carry no fact for hours already worked in the period, so the rule cannot tell an hour inside the 182-hour threshold from one past it; the engine rejected a variant conditioned on that threshold as an unknown fact.",
+      "evidence": [
+        {
+          "doc_id": "firefighters_local3535_mou",
+          "page": 8,
+          "ref": "firefighters_local3535_mou#p8.3",
+          "bbox": [
+            141.41802712,
+            505.66236583536,
+            511.18157728959994,
+            441.458790767472
+          ],
+          "quote": "for all the time worked or deemed to have been worked in excess of 182 hours In a 24-day work period"
+        },
+        {
+          "doc_id": "firefighters_local3535_mou",
+          "page": 7,
+          "ref": "firefighters_local3535_mou#p7.5",
+          "bbox": [
+            142.92,
+            352.32552,
+            516.239910504,
+            247.22426706912006
+          ],
+          "quote": "Central Fire District has established a 24-day work periad and therefore employees are entitled to FLSA-overtime for hours worked (n excess of 182 hours"
+        }
+      ],
+      "counter_example": null,
+      "needs_data": [
+        "hours_in_work_period"
+      ],
+      "suggested_action": "Keep the rule for a premium shift that is known to fall past the threshold, and say so in the answer; add an hours-in-work-period fact before the rule can decide the threshold itself."
+    },
+    {
+      "id": "w2",
+      "severity": "high",
+      "kind": "adjacent_clause",
+      "claim": "Page 7 sets the overtime premium for the hours between 182 and 192 at half-time of the Regular Rate of Pay, because the salary already compensates the scheduled 192 hours. The rule pays 1.5x for those same hours. For a 10-hour scenario the rule as written returns 801.0 while the half-time reading returns 267.0.",
+      "evidence": [
+        {
+          "doc_id": "firefighters_local3535_mou",
+          "page": 7,
+          "ref": "firefighters_local3535_mou#p7.5",
+          "bbox": [
+            142.92,
+            352.32552,
+            516.239910504,
+            247.22426706912006
+          ],
+          "quote": "the overtime premium for the hours between 182 and 192 Is at half-time of the employee's 'Regular Rate of Pay'"
+        },
+        {
+          "doc_id": "firefighters_local3535_mou",
+          "page": 7,
+          "ref": "firefighters_local3535_mou#p7.5",
+          "bbox": [
+            142.92,
+            352.32552,
+            516.239910504,
+            247.22426706912006
+          ],
+          "quote": "The regular scheduled hours worked for our shift employees Is 192 (eight, 24-hour shifts) within a 24-day work period"
+        }
+      ],
+      "counter_example": {
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 10.0
+          }
+        },
+        "rule_set": "variant",
+        "variant": {
+          "compute": "effective_base * 0.5 * hours"
+        },
+        "call_n": 7,
+        "engine_total": 267.0,
+        "baseline_call_n": 6,
+        "baseline_total": 801.0,
+        "why": "10 hours at the rule's 1.5x is 801.0; the same 10 hours at the half-time band the clause describes is 267.0. The rule has no way to know which band the hours fall in."
+      },
+      "needs_data": [
+        "hours_in_work_period"
+      ],
+      "suggested_action": "A second rule for the 182-192 band, gated on an hours-in-work-period fact, was drafted and deliberately not approved; the answer should state that it assumes hours past 192."
+    },
+    {
+      "id": "w3",
+      "severity": "high",
+      "kind": "undefined_term",
+      "claim": "The clause multiplies the employee's regular rate of pay, and page 8 defines that term as all remuneration including base salary plus additional pay such as Special assignment Pay and Education Incentive. The rule multiplies the salary-schedule base rate only. A Firefighter/Paramedic with a Bachelor's Degree receives $300 per month; folding it into the hourly rate at the 2920 assumed hours worked per year moves an 8-hour premium shift from 640.8 to 655.59. The roster holds no education or special-assignment fact.",
+      "evidence": [
+        {
+          "doc_id": "firefighters_local3535_mou",
+          "page": 8,
+          "ref": "firefighters_local3535_mou#p8.1",
+          "bbox": [
+            142.13802712,
+            655.8666107990399,
+            513.7099673408001,
+            552.4045199999999
+          ],
+          "quote": "The 'Regular Rate of Pay' Includes ail remuneration paid to the employee including base salary as defined in the salary schedule plus any additional pay the employee receives such as but not limited to Special assignment Pay and Education Incentive"
+        },
+        {
+          "doc_id": "firefighters_local3535_mou",
+          "page": 9,
+          "ref": "firefighters_local3535_mou#p9.1",
+          "bbox": [
+            156.6,
+            667.40976,
+            382.67901503999997,
+            657.98424
+          ],
+          "quote": "Bachelor's Degree shall receive $300 per month."
+        },
+        {
+          "doc_id": "firefighters_local3535_mou",
+          "page": 7,
+          "ref": "firefighters_local3535_mou#p7.8",
+          "bbox": [
+            176.4,
+            201.20975999999996,
+            432.90117504,
+            151.004569887
+          ],
+          "quote": "2920 is the assumed hours worked per year"
+        }
+      ],
+      "counter_example": {
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "rule_set": "variant",
+        "variant": {
+          "compute": "(effective_base + 300 * 12 / 2920) * 1.5 * hours"
+        },
+        "call_n": 10,
+        "engine_total": 655.59,
+        "baseline_call_n": 5,
+        "baseline_total": 640.8,
+        "why": "As written, 8 hours pays 640.8. With the $300 monthly Bachelor's incentive converted to an hourly amount over the 2920 assumed hours worked per year, the same 8 hours pays 655.59. Special assignment pay would move it further; the search found $500 per month assignments on pages 10 and 11, which this run did not read."
+      },
+      "needs_data": [
+        "subject_education_incentive_monthly",
+        "subject_special_assignment_pay_monthly"
+      ],
+      "suggested_action": "State in the answer that the regular rate is taken as the salary-schedule base; add incentive and assignment facts to the roster before the rule can honour the definition."
+    },
+    {
+      "id": "w4",
+      "severity": "low",
+      "kind": "rounding",
+      "claim": "Overtime compensation is accumulated in one-half hour increments; the rule pays any fraction. A 7.75-hour entry pays 620.78 as written, an amount the clause would not produce.",
+      "evidence": [
+        {
+          "doc_id": "firefighters_local3535_mou",
+          "page": 8,
+          "ref": "firefighters_local3535_mou#p8.4",
+          "bbox": [
+            141.4304564,
+            423.66664719936,
+            469.2488398472001,
+            414.05279314036005
+          ],
+          "quote": "Overtime compensation shall be accumulated in one-half hour Increments."
+        }
+      ],
+      "counter_example": {
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 7.75
+          }
+        },
+        "rule_set": "live",
+        "variant": null,
+        "call_n": 9,
+        "engine_total": 620.78,
+        "baseline_call_n": null,
+        "baseline_total": null,
+        "why": "7.75 hours as written pays 620.78; the clause accumulates overtime in one-half hour increments. The run's engine budget was exhausted before a rounded variant could be run."
+      },
+      "needs_data": [],
+      "suggested_action": "Round hours to the half hour before multiplying, or refuse a fractional entry that is not a half-hour multiple."
+    },
+    {
+      "id": "w5",
+      "severity": "low",
+      "kind": "alternative_outcome",
+      "claim": "The rule always returns a dollar amount. An employee may instead receive earned overtime as compensatory time off, capped at 120 accumulated hours, in which case no premium dollars are paid for the shift.",
+      "evidence": [
+        {
+          "doc_id": "firefighters_local3535_mou",
+          "page": 8,
+          "ref": "firefighters_local3535_mou#p8.6",
+          "bbox": [
+            141.07002260000002,
+            367.50661079904,
+            495.7171106528,
+            331.99775999999997
+          ],
+          "quote": "Bargaining-unit employees are eligible to receive earned overtime in the form of compensatory time off. The maximum accumulated compensatory hours will not exceed 120 hours"
+        }
+      ],
+      "counter_example": null,
+      "needs_data": [],
+      "suggested_action": "Say in the answer that the figure assumes the overtime is paid, not banked as CTO."
+    }
+  ],
+  "rejected": [],
+  "tool_calls": [
+    {
+      "n": 1,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "firefighters_local3535_mou",
+        "page": 8
+      },
+      "result_sha256": "560bdbeed203892a78355ab9a60aef932c03c0cbda129c31f2f75e79efb6ad6a",
+      "summary": "read firefighters_local3535_mou p.8: 12 clause(s)"
+    },
+    {
+      "n": 2,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "firefighters_local3535_mou",
+        "page": 7
+      },
+      "result_sha256": "e4bbe21cdf314f4289e1488fd9f8f614dc579cb9b137584c62d720c8c31333cc",
+      "summary": "read firefighters_local3535_mou p.7: 9 clause(s)"
+    },
+    {
+      "n": 3,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "firefighters_local3535_mou",
+        "page": 9
+      },
+      "result_sha256": "947e0b336291f41c7b4261700fec85bacafda0dd34e0acaa1352e3f9390cbedb",
+      "summary": "read firefighters_local3535_mou p.9: 13 clause(s)"
+    },
+    {
+      "n": 4,
+      "tool": "search_clauses",
+      "input": {
+        "query": "regular rate of pay special assignment pay education incentive",
+        "doc_id": "firefighters_local3535_mou"
+      },
+      "result_sha256": "fb3dd4d836d5284ede02a2358b26101d0c928d4bc6affc58b8a6529e6ad334d1",
+      "summary": "search firefighters_local3535_mou for 'regular rate of pay special assignment pay education incentive': 6 hit(s)"
+    },
+    {
+      "n": 5,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "bed3bfdf35d29ee1bb8c834227102ba8022706b0a4d52379567d629f253d7dd1",
+      "summary": "engine live ['Firefighter/Paramedic (56 hr, top step)'] {'hours': 8.0} -> 640.8"
+    },
+    {
+      "n": 6,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 10.0
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "e66a2ddbf5508987d050429526b4afef3db5787912d7c15d049bfa7c290390fa",
+      "summary": "engine live ['Firefighter/Paramedic (56 hr, top step)'] {'hours': 10.0} -> 801.0"
+    },
+    {
+      "n": 7,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 10.0
+          }
+        },
+        "variant": {
+          "compute": "effective_base * 0.5 * hours"
+        }
+      },
+      "result_sha256": "8a54e55a903a029663e42b4788e21e2915c7b77ee43df1a8741cae25b564f558",
+      "summary": "engine variant ['Firefighter/Paramedic (56 hr, top step)'] {'hours': 10.0} -> 267.0"
+    },
+    {
+      "n": 8,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": {
+          "when": "hours_in_work_period > 182"
+        }
+      },
+      "result_sha256": "b98340de68c41e17c97837c4c629f43dd00d15cc24e5f326e3f0e0e60fb5f36f",
+      "summary": "run_engine: error \u2014 unknown fact(s) ['hours_in_work_period'] in 'hours_in_work_period > 182' \u2014 not in the case's data schema"
+    },
+    {
+      "n": 9,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 7.75
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "e796f69aeb28dcc5edf1eee232114cd752687ec46e4719817bde3c9cff17c76f",
+      "summary": "engine live ['Firefighter/Paramedic (56 hr, top step)'] {'hours': 7.75} -> 620.78"
+    },
+    {
+      "n": 10,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": {
+          "compute": "(effective_base + 300 * 12 / 2920) * 1.5 * hours"
+        }
+      },
+      "result_sha256": "5ddf613af850bb68b93304dfb076b23d3a88b52251f98fcf3af1a8bd75005b2d",
+      "summary": "engine variant ['Firefighter/Paramedic (56 hr, top step)'] {'hours': 8.0} -> 655.59"
+    }
+  ],
+  "steps": [
+    {
+      "n": 1,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "firefighters_local3535_mou",
+        "page": 8
+      },
+      "result_sha256": "560bdbeed203892a78355ab9a60aef932c03c0cbda129c31f2f75e79efb6ad6a",
+      "result": {
+        "doc_id": "firefighters_local3535_mou",
+        "page": 8,
+        "page_count": 40,
+        "clauses": [
+          {
+            "ref": "firefighters_local3535_mou#p8.0",
+            "bbox": [
+              142.92,
+              683.22672,
+              245.16004550399998,
+              675.25128
+            ],
+            "label": "section_header",
+            "text": "2, Regular Rate of Pay",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.1",
+            "bbox": [
+              142.13802712,
+              655.8666107990399,
+              513.7099673408001,
+              552.4045199999999
+            ],
+            "label": "text",
+            "text": "An employee who works overtime will be compensated for those overtime hours ata rate of one- and one-half times the employee's 'Regular Rate of Pay.' The 'Regular Rate of Pay'  Includes ail  remuneration paid to the employee including base salary as defined in the salary schedule plus any additional  pay the employee receives such as but not limited to Special assignment Pay and  Education  Incentive. All included compensation will  be  converted into an  hourly rate to calculate FLSA pay as well as the Overtime Rate of Pay.  Holiday Pay and  Uniform Allowance are not included tn the regular rate of pay.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.2",
+            "bbox": [
+              142.2,
+              532.3867200000001,
+              223.20069696000002,
+              524.41128
+            ],
+            "label": "section_header",
+            "text": "3. Overtime Rate",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.3",
+            "bbox": [
+              141.41802712,
+              505.66236583536,
+              511.18157728959994,
+              441.458790767472
+            ],
+            "label": "text",
+            "text": "Employees shall  be entitled to premium overtime compensation at the rate of one and one  half (1,5) times the employee's 'regular rate of pay', as that term is defined under the  FLSA,  for all  the time worked or deemed to have been worked in excess of 182 hours In  a  24-day work period.  For the purpose of determining overtime, the words 'deemed to have been worked' shall  include all paid  leave time.",
+            "cited": true
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.4",
+            "bbox": [
+              141.4304564,
+              423.66664719936,
+              469.2488398472001,
+              414.05279314036005
+            ],
+            "label": "text",
+            "text": "Overtime compensation shall  be accumulated in  one-half hour Increments.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.5",
+            "bbox": [
+              141.12,
+              395.58671999999996,
+              263.879821584,
+              387.61127999999997
+            ],
+            "label": "section_header",
+            "text": "4. Compensatory Time Off",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.6",
+            "bbox": [
+              141.07002260000002,
+              367.50661079904,
+              495.7171106528,
+              331.99775999999997
+            ],
+            "label": "text",
+            "text": "Bargaining-unit employees are eligible to receive earned overtime in the form of compensatory time off. The maximum accumulated compensatory hours will not exceed 120 hours,",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.7",
+            "bbox": [
+              140.76,
+              313.42236583536,
+              502.54270910080004,
+              291.40452
+            ],
+            "label": "text",
+            "text": "Employees may use accrued CTO hours as time off in  accordance with the vacation time off process set forth In  policy 1014.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.8",
+            "bbox": [
+              140.4,
+              272.10672,
+              486.7074593236,
+              236.68452000000002
+            ],
+            "label": "text",
+            "text": "An employee who is promoted to a  higher position shall have one half of their . ac\u00e9rued CTO hours paid off at the time of the promotional appointment, at the regular rate of pay for the pravious class.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.9",
+            "bbox": [
+              116.28,
+              217.74671999999998,
+              235.441435968,
+              209.77128000000005
+            ],
+            "label": "section_header",
+            "text": "C.  EDUCATION INCENTIVE",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.10",
+            "bbox": [
+              139.9900226,
+              189.30661079904007,
+              505.4304599072,
+              165.79154362895997
+            ],
+            "label": "text",
+            "text": "Employees may pursue additional compensation above thelr individual merit salary step  Increments through the  Employer Education Incentive  Plan.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.11",
+            "bbox": [
+              139.61854768,
+              147.18661079903995,
+              496.4198046784,
+              110.77025321845997
+            ],
+            "label": "text",
+            "text": "A pay rate incentive program recognizing individual educational  initiative shall  be awarded to all employees who possess a college level degree from an accredited college or university, and/or certain State Certification Levels.",
+            "cited": false
+          }
+        ]
+      }
+    },
+    {
+      "n": 2,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "firefighters_local3535_mou",
+        "page": 7
+      },
+      "result_sha256": "e4bbe21cdf314f4289e1488fd9f8f614dc579cb9b137584c62d720c8c31333cc",
+      "result": {
+        "doc_id": "firefighters_local3535_mou",
+        "page": 7,
+        "page_count": 40,
+        "clauses": [
+          {
+            "ref": "firefighters_local3535_mou#p7.0",
+            "bbox": [
+              138.5527723617,
+              678.4012799999999,
+              505.082966544,
+              573.2975057002689
+            ],
+            "label": "text",
+            "text": "Employees who work in a  higher class in  an acting position or temporary upgrade _assignment shall  have.any Out of Class Compensation for regularly scheduled hours reported to CalPERS for pension calculation pursuant to the California  Code of regulations, title 2,  Section 571 as Temporary Upgrade Pay. Premlum compensation for Upgrade Pay for overtime hours is not reportable. Those employees electing to work out of class (downward) shall be compensated at thelr regular rate of pay as working In their normally assigned position,  Out of Class Compensation earned for PEPRA members will not be  reported to CalPERS,",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p7.1",
+            "bbox": [
+              142.16553,
+              556.44552,
+              513.3602603520001,
+              519.471026028
+            ],
+            "label": "text",
+            "text": "Members of 3535 that work in a  higher classification that is  part of the Chief Of\u00cfcers Association Memorandum of Understanding shall  receive the same pay and benefits of the  higher classification while in  the  assignment.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p7.2",
+            "bbox": [
+              126.36,
+              500.34671999999995,
+              189.45993787200004,
+              492.01128
+            ],
+            "label": "section_header",
+            "text": "B. OVERTIME",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p7.3",
+            "bbox": [
+              142.5241512,
+              474.0750750860801,
+              355.68915974080005,
+              463.58426706911996
+            ],
+            "label": "section_header",
+            "text": "1. Fair Labor Standards Act (FLSA) Work Period",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p7.4",
+            "bbox": [
+              142.56,
+              446.64552,
+              515.879138304,
+              369.71110845
+            ],
+            "label": "text",
+            "text": "As set by the  Department of Labor, work periods for public safety employees can vary from seven to 28 days (section 207(k)). Based on the set work period, safety employees are entitled to FLSA overtime for hours actually worked in excess of the threshold set by the Department of Labor. (For FLSA purposes Central  Fire District pays FLSA overtime for all  time worked or 'deemed' to have been worked including all  paid time off).",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p7.5",
+            "bbox": [
+              142.92,
+              352.32552,
+              516.239910504,
+              247.22426706912006
+            ],
+            "label": "text",
+            "text": "Central  Fire  District has established a  24-day work periad and therefore employees are entitled to FLSA-overtime for hours worked  (n excess of 182 hours, The regular scheduled hours worked for our shift employees Is  192 (eight,  24-hour shifts) within a 24-day work period, Since the regular scheduled hours exceed the  182-hour threshold, there are ten  hours of scheduled overtime for safety employees each 24day FLSA work period. Since the employee's salary is  intended to compensate for the scheduled 192 hours,.the overtime premium for the hours between 182 and  192 Is at half-time of the employee's 'Regular Rate of Pay'.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p7.6",
+            "bbox": [
+              176.4,
+              229.92552,
+              433.80146304,
+              220.13747999999998
+            ],
+            "label": "list_item",
+            "text": "\u00a9 There are 15,208 FLSA Cycles a  year (365 / 24 =  15,208).",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p7.7",
+            "bbox": [
+              176.4,
+              215.05824000000007,
+              380.60328038399996,
+              206.35775999999998
+            ],
+            "label": "list_item",
+            "text": "There are typically 26 pay periods per year.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p7.8",
+            "bbox": [
+              176.4,
+              201.20975999999996,
+              432.90117504,
+              151.004569887
+            ],
+            "label": "list_item",
+            "text": "\u00a2 2920 is the assumed hours worked per year (2,080 hours for forty-hour employees) \u00ab  FLSA Pay is  reportable special compensation to CalPERS for pension calculation.",
+            "cited": false
+          }
+        ]
+      }
+    },
+    {
+      "n": 3,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "firefighters_local3535_mou",
+        "page": 9
+      },
+      "result_sha256": "947e0b336291f41c7b4261700fec85bacafda0dd34e0acaa1352e3f9390cbedb",
+      "result": {
+        "doc_id": "firefighters_local3535_mou",
+        "page": 9,
+        "page_count": 40,
+        "clauses": [
+          {
+            "ref": "firefighters_local3535_mou#p9.0",
+            "bbox": [
+              156.6,
+              680.814,
+              378.720486,
+              671.751
+            ],
+            "label": "list_item",
+            "text": "\u00bb Associate Degree shall  receive $200 per month.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.1",
+            "bbox": [
+              156.6,
+              667.40976,
+              382.67901503999997,
+              657.98424
+            ],
+            "label": "list_item",
+            "text": "\u00a2 Bachelor's Degree shall  receive $300 per month.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.2",
+            "bbox": [
+              156.24,
+              653.814,
+              375.47903249999996,
+              644.751
+            ],
+            "label": "list_item",
+            "text": "Master's  Degree shall  receive $400 per month.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.3",
+            "bbox": [
+              140.04,
+              626.17824,
+              468.35842953599996,
+              617.47776
+            ],
+            "label": "text",
+            "text": "Additional incentives for Firefighters,  Firefighter/Paramedics, and  Captains:",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.4",
+            "bbox": [
+              156.24,
+              598.64976,
+              441.35915507999994,
+              589.22424
+            ],
+            "label": "list_item",
+            "text": "\u00ae Company Of\u00cfcer Certification shall  receive $50.00 per month.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.5",
+            "bbox": [
+              156.24,
+              584.60976,
+              422.9991550799999,
+              575.18424
+            ],
+            "label": "list_item",
+            "text": "\u00a2 Chief Of\u00cfcer Certification shall  receive $50.00 per month.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.6",
+            "bbox": [
+              156.24,
+              569.74248,
+              491.03959035599996,
+              547.1172
+            ],
+            "label": "list_item",
+            "text": "\u00a9  .  Managing Of\u00cfcer Program or Executive Fire Of\u00cfcer Certification from the National  Fire Academy shall receive $100.00 per month.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.7",
+            "bbox": [
+              156.24,
+              542.29824,
+              504.35936639999994,
+              506.68452
+            ],
+            "label": "list_item",
+            "text": "e Chief Fire Of\u00cfcer,  Chief Training  Of\u00cfcer, Fire Marshal, or Flre Of\u00cfcer credential from the Center for Public Safety Excellence shall  receive $150.00 per month.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.8",
+            "bbox": [
+              140.04,
+              475.69824,
+              503.64040607999993,
+              413.08452
+            ],
+            "label": "text",
+            "text": "Any Battalion Chief who possess an Associate's, Bachelor's,  or Master's degree, and who also possesses a  Callfornla  Chief Of\u00cfcer Certification, or a  California Certified Chief Of\u00cfcer certificate shall  receive $300 per month. This incentive shall be compounded with certification or credential from the National  Fire Academy and Center for Public Safety Excellence.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.9",
+            "bbox": [
+              139.32,
+              394.59096,
+              499.319679564,
+              359.44452
+            ],
+            "label": "text",
+            "text": "Education Incentive  is reportable special compensation to CalPERS for pension calculation  in accordance with Article 4, Section 571,1 of Chapter 2 of Division  1.  of Title 2  of the CA Code of Regulations.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.10",
+            "bbox": [
+              115.92,
+              341.94671999999997,
+              234.71871926400007,
+              333.97128
+            ],
+            "label": "section_header",
+            "text": "D.  SPECIAL ASSIGNMENTS",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.11",
+            "bbox": [
+              139.32,
+              314.86248,
+              509.868811008,
+              211.21128
+            ],
+            "label": "text",
+            "text": "Bargaining unit employees may be appointed to perform the duties of one or more special  assignments by the  Fire Chief or their designee,  Bargaining unit employees appolnted to a special assignment will be required to meet the minimum requirements of that assignment, Including any continuing education requirements (which generally consist of  a  minimum of 24-hours of continuing education per year, Including didactic and manipulative training,  l.e.,  hands-on, drills, exercises, etc.) The Training Division shall coordinate all courses and/or trainings respective to a  special assignment.",
+            "cited": false
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.12",
+            "bbox": [
+              139.32,
+              192.10248,
+              505.439766,
+              101.68452000000002
+            ],
+            "label": "text",
+            "text": "NOTE: All employees appointed to a special assignment shall complete any Initial or minimum training required, including receipt of any required certifications or passage  of any applicable medical examinations necessary to obtain a certification or license,  Employees who do not meet applicable Federal, State and Local requirements for the position will  not be eligible for initial appointment. Once appointed, employees are required to  maintain all applicable certifications and complete required continuing education  mandates. Employees appointed to a position who are required to attend training off duty to  meet this requirement will be paid overtime compensation for such work.",
+            "cited": false
+          }
+        ]
+      }
+    },
+    {
+      "n": 4,
+      "tool": "search_clauses",
+      "input": {
+        "query": "regular rate of pay special assignment pay education incentive",
+        "doc_id": "firefighters_local3535_mou"
+      },
+      "result_sha256": "fb3dd4d836d5284ede02a2358b26101d0c928d4bc6affc58b8a6529e6ad334d1",
+      "result": {
+        "hits": [
+          {
+            "ref": "firefighters_local3535_mou#p8.1",
+            "page": 8,
+            "bbox": [
+              142.13802712,
+              655.8666107990399,
+              513.7099673408001,
+              552.4045199999999
+            ],
+            "text": "An employee who works overtime will be compensated for those overtime hours ata rate of one- and one-half times the employee's 'Regular Rate of Pay.' The 'Regular Rate of Pay'  Includes ail  remuneration paid to the employee including base salary as defined in the salary schedule plus any additional  pay the employee receives such as but not limited to Special assignment Pay and  Education  Incent",
+            "score": 17.425
+          },
+          {
+            "ref": "firefighters_local3535_mou#p11.6",
+            "page": 11,
+            "bbox": [
+              158.04,
+              169.61400000000003,
+              499.3200972,
+              119.95776000000001
+            ],
+            "text": "Employees who have completed the required specialized classes as stated above will be:eligible to receive special assignment pay, which will be equal to $500 per month.  Rescue Technician incentive pay is  reported as special compensation to CalPERS for pension calculation  purposes,",
+            "score": 12.5391
+          },
+          {
+            "ref": "firefighters_local3535_mou#p8.9",
+            "page": 8,
+            "bbox": [
+              116.28,
+              217.74671999999998,
+              235.441435968,
+              209.77128000000005
+            ],
+            "text": "C.  EDUCATION INCENTIVE",
+            "score": 12.3597
+          },
+          {
+            "ref": "firefighters_local3535_mou#p12.4",
+            "page": 12,
+            "bbox": [
+              159.48,
+              331.88976,
+              510.12051768,
+              309.57804
+            ],
+            "text": "Employees working a temporary light duty assignment are not eligible for Special Assignment pay.",
+            "score": 11.7901
+          },
+          {
+            "ref": "firefighters_local3535_mou#p9.11",
+            "page": 9,
+            "bbox": [
+              139.32,
+              314.86248,
+              509.868811008,
+              211.21128
+            ],
+            "text": "Bargaining unit employees may be appointed to perform the duties of one or more special  assignments by the  Fire Chief or their designee,  Bargaining unit employees appolnted to a special assignment will be required to meet the minimum requirements of that assignment, Including any continuing education requirements (which generally consist of  a  minimum of 24-hours of continuing education per ye",
+            "score": 11.7119
+          },
+          {
+            "ref": "firefighters_local3535_mou#p10.3",
+            "page": 10,
+            "bbox": [
+              158.04,
+              475.88976,
+              512.6395760639999,
+              277.19100000000003
+            ],
+            "text": "g exposure to hazardous materials. Employees appointed to this position will be eligible to receive special assignment pay, which will be equal to $500 per month,  Hazardous Materials Technician incentive pay is reported as spectal  compensation to CalPERS for pension calculation purposes.",
+            "score": 11.3606
+          }
+        ]
+      }
+    },
+    {
+      "n": 5,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "bed3bfdf35d29ee1bb8c834227102ba8022706b0a4d52379567d629f253d7dd1",
+      "result": {
+        "total": 640.8,
+        "rule_set": "live",
+        "lines": [
+          {
+            "subject": "Firefighter/Paramedic (56 hr, top step)",
+            "rule_id": "firefighters_local3535_mou:overtime_premium_rate",
+            "total": 640.8,
+            "math": "effective_base * 1.5 * hours = 640.8"
+          }
+        ]
+      }
+    },
+    {
+      "n": 6,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 10.0
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "e66a2ddbf5508987d050429526b4afef3db5787912d7c15d049bfa7c290390fa",
+      "result": {
+        "total": 801.0,
+        "rule_set": "live",
+        "lines": [
+          {
+            "subject": "Firefighter/Paramedic (56 hr, top step)",
+            "rule_id": "firefighters_local3535_mou:overtime_premium_rate",
+            "total": 801.0,
+            "math": "effective_base * 1.5 * hours = 801.0"
+          }
+        ]
+      }
+    },
+    {
+      "n": 7,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 10.0
+          }
+        },
+        "variant": {
+          "compute": "effective_base * 0.5 * hours"
+        }
+      },
+      "result_sha256": "8a54e55a903a029663e42b4788e21e2915c7b77ee43df1a8741cae25b564f558",
+      "result": {
+        "total": 267.0,
+        "rule_set": "variant",
+        "lines": [
+          {
+            "subject": "Firefighter/Paramedic (56 hr, top step)",
+            "rule_id": "firefighters_local3535_mou:overtime_premium_rate",
+            "total": 267.0,
+            "math": "effective_base * 0.5 * hours = 267.0"
+          }
+        ]
+      }
+    },
+    {
+      "n": 8,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": {
+          "when": "hours_in_work_period > 182"
+        }
+      },
+      "result_sha256": "b98340de68c41e17c97837c4c629f43dd00d15cc24e5f326e3f0e0e60fb5f36f",
+      "result": {
+        "error": "unknown fact(s) ['hours_in_work_period'] in 'hours_in_work_period > 182' \u2014 not in the case's data schema"
+      }
+    },
+    {
+      "n": 9,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 7.75
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "e796f69aeb28dcc5edf1eee232114cd752687ec46e4719817bde3c9cff17c76f",
+      "result": {
+        "total": 620.78,
+        "rule_set": "live",
+        "lines": [
+          {
+            "subject": "Firefighter/Paramedic (56 hr, top step)",
+            "rule_id": "firefighters_local3535_mou:overtime_premium_rate",
+            "total": 620.78,
+            "math": "effective_base * 1.5 * hours = 620.78"
+          }
+        ]
+      }
+    },
+    {
+      "n": 10,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Firefighter/Paramedic (56 hr, top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": {
+          "compute": "(effective_base + 300 * 12 / 2920) * 1.5 * hours"
+        }
+      },
+      "result_sha256": "5ddf613af850bb68b93304dfb076b23d3a88b52251f98fcf3af1a8bd75005b2d",
+      "result": {
+        "total": 655.59,
+        "rule_set": "variant",
+        "lines": [
+          {
+            "subject": "Firefighter/Paramedic (56 hr, top step)",
+            "rule_id": "firefighters_local3535_mou:overtime_premium_rate",
+            "total": 655.59,
+            "math": "(effective_base + 300 * 12 / 2920) * 1.5 * hours = 655.59"
+          }
+        ]
+      }
+    }
+  ],
+  "stopped": "submitted",
+  "provenance": {
+    "mode": "precomputed",
+    "producer": "Claude Code session 2026-10-07",
+    "harness": "2.1.119 (Claude Code)",
+    "model": "claude-fable-5-1 via Claude Code (subscription)",
+    "operator": "kenny",
+    "produced_at": "2026-10-07T16:05:07Z",
+    "api_key_in_env": false,
+    "billing": "subscription",
+    "prompt_sha256": "373cfc22bfc28eab0d0fb765dd8b0092818b3db148cb28f14e632b559f278756",
+    "code_rev": "d84d5f3-dirty",
+    "run_id": "78e9d4229ab7",
+    "tool_calls": 10,
+    "limits": {
+      "tool_calls": 12,
+      "search_clauses": 4,
+      "read_page": 6,
+      "run_engine": 6,
+      "warnings": 8
+    }
+  },
+  "inputs": {
+    "rule_sha256": "1fa2ba66bce9242d54fbdc37e52644b6cbc2ebb9c9da3ff6ce30b03b16f179e9",
+    "doc_sha256": {
+      "firefighters_local3535_mou": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+      "master_salary_schedule": "8123d794d45221c5a97dea1c0043faede605e7a8cc773361189b8b7b814e4f42"
+    },
+    "catalog_doc_sha256": {
+      "firefighters_local3535_mou": "6ad8d3f459f9626b8d6c597ced8060cbb8d99793f41f26fdfcf4f05a0c26d167",
+      "master_salary_schedule": "5a24779c044baa3b9973949add04fa959b59dd9fe982ce58403ab3eb90a5faa2"
+    },
+    "roster_sha256": "935f901ec307b08e0f31aaaf10476a40ca895f55a24583abfc835a5f12d94b31"
+  }
+}

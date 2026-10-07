@@ -26,8 +26,9 @@ from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
 from .pdfview import page_dims, render_page_with_bbox
 from .retriever import CatalogLLMRetriever
-from .ruledsl import SHIFT_BASES, Rule, load_rules, validate_rules
+from .ruledsl import SHIFT_BASES, Rule, RuleError, load_rules, validate_rules
 from . import costing  # costing-correctness (B1, B2, B4)
+from starlette.concurrency import run_in_threadpool
 
 def _load_dotenv() -> None:
     """Load the repo's .env at startup so the server works with a plain `uvicorn`
@@ -48,7 +49,7 @@ def _load_dotenv() -> None:
             continue
         k, v = line.split("=", 1)
         k, v = k.strip(), v.strip().strip('"').strip("'")
-        if v and not os.environ.get(k):
+        if v and k not in os.environ:   # an explicitly EMPTY real variable still wins
             os.environ[k] = v
 
 
@@ -634,7 +635,10 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
             or [s for s in subjects_all if s.get("bargaining_unit") == unit]
         try:
             result = calculate(eng, subjects, rules, case.rounding_places())
-        except ValueError as e:
+        except (ValueError, RuleError, ArithmeticError) as e:   # A4: a rule error is not a 500
+            led.append("costing.blocked", {"reason": "rule evaluation error", "unit": unit,
+                                           "error": f"{type(e).__name__}: {e}"},
+                       actor="engine", query_id=qid)
             led.append("entitlement.fallback", {"reason": f"engine: {e}", "unit": unit},
                        actor="chat", query_id=qid)
             not_covered.append({"unit": unit, "docs": scope})
@@ -757,6 +761,8 @@ def api_case():
     return {"name": case.manifest.get("name"), "department": case.manifest.get("department"),
             "has_api_key": llm.have_key(),
             "retrieval": warm.state()["state"],  # A5: header can say "warming up"
+            "llm_mode": llm.llm_mode(),          # 'claude' | 'off' | 'no-key' (G9)
+            "llm_status": llm.llm_status(),      # 'claude' | 'degraded' | 'none' (A8)
             # Set on the shared deploy. A hosted link gets mistaken for a product; this
             # is a prototype on a synthetic corpus and every viewer must be told so
             # before they read a dollar figure off it.
@@ -811,14 +817,16 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                    "reason": "documents are chosen by governance per bargaining unit"},
                    actor="chat", query_id=qid)
     # Router: costing vs policy Q&A. Both return an answer WITH clickable proof.
-    intent = llm.classify_intent(prompt)
+    intent = await run_in_threadpool(llm.classify_intent, prompt)   # A8: off the loop
     led.append("intent.classify", {"intent": intent}, actor="chat", query_id=qid)
     if intent == "policy":
-        return _policy_answer(case, led, qid, prompt, department)
+        return await run_in_threadpool(_policy_answer, case, led, qid, prompt, department)
     if intent == "lookup":
-        return _policy_answer(case, led, qid, prompt, department, lookup=True)
+        return await run_in_threadpool(_policy_answer, case, led, qid, prompt,
+                                       department, lookup=True)
     if intent == "entitlement":
-        return _entitlement_answer(case, led, qid, prompt, department)
+        return await run_in_threadpool(_entitlement_answer, case, led, qid, prompt,
+                                       department)
 
     # --- costing-correctness (B1, B2, B4) --------------------------------------- #
     # A clarifying answer comes back as {prompt, query_id, clarified: {<field>: value}}.
@@ -829,7 +837,8 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
     # 1. Parse intent (LLM translation layer, with deterministic fallback).
     subjects_all = case.subjects()
     labels_all = [str(s.get("name", "")) for s in subjects_all]
-    params = llm.parse_intent(prompt, extraction_cfg, subjects_all)
+    params = await run_in_threadpool(llm.parse_intent, prompt, extraction_cfg,
+                                     subjects_all)
     led.append("llm.parse_intent", params, actor="chat", query_id=qid)
 
     # A model-extracted number the question doesn't contain never reaches the engine
@@ -2016,8 +2025,8 @@ async def admin_draft_scenario(request: Request):
     needs: list[dict] = []
     with llm.record() as trail:
         for d, clauses in clauses_by_doc.items():
-            rules = llm.draft_rules(clauses, d, case.known_facts(),
-                                    case.field_values(), case.bool_facts())
+            rules = await run_in_threadpool(llm.draft_rules, clauses, d, case.known_facts(),
+                                            case.field_values(), case.bool_facts())
             doc_sha = (cat.get(d) or {}).get("pdf_sha256", "")
             for r in rules:
                 r["_doc_id"] = d
@@ -2502,3 +2511,80 @@ def admin_ledger_tamper_demo(mode: str = "edit", seq: int | None = None,
                                preset=preset)
     except tamper_demo.TamperDemoError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
+
+
+# --- agentic ---------------------------------------------------------------- #
+# Skeptic reviews (DEMO_TICKETS.md G1/G6) and the never-500 backstop (A4/G2).
+# The app serves STORED reviews produced offline; it makes no model call here.
+from . import skeptic as _skeptic  # noqa: E402
+
+
+@app.exception_handler(Exception)
+async def _any_exception(request: Request, exc: Exception):
+    """No turn ends without a terminal event and the page always receives JSON (A4 step
+    6 / G2 step 4). The event carries type and message only, never a traceback."""
+    try:
+        _case().ledger().append("chat.error",
+                                {"type": type(exc).__name__, "message": str(exc)[:500],
+                                 "path": request.url.path}, actor="system")
+    except Exception:
+        pass
+    return JSONResponse({"mode": "blocked",
+                         "message": "Something failed while answering; nothing was "
+                                    "computed. The failure is recorded in the audit "
+                                    "trail."}, status_code=500)
+
+
+def _note_imported(case, art: dict) -> None:
+    """Append skeptic.imported once per artifact hash the first time THIS instance serves
+    a review whose run is not in its own ledger (a baked artifact shipped in git)."""
+    led = case.ledger()
+    sha = art.get("artifact_sha256")
+    run_id = (art.get("provenance") or {}).get("run_id")
+    for ev in led.read():
+        if ev.get("type") == "skeptic.imported" and ev["payload"].get("artifact_sha256") == sha:
+            return
+        if ev.get("type") == "skeptic.finish" and ev["payload"].get("run_id") == run_id:
+            return
+    led.append("skeptic.imported",
+               {"rule_id": art.get("rule_id"), "artifact_sha256": sha,
+                "producer": (art.get("provenance") or {}).get("producer"),
+                "produced_at": (art.get("provenance") or {}).get("produced_at"),
+                "fresh": art.get("fresh")}, actor="skeptic")
+
+
+@app.get("/admin/skeptic")
+def admin_skeptic_index():
+    case = _case()
+    out = {}
+    for rid in _skeptic.list_reviews(case):
+        art = _skeptic.load_review(case, rid) or {}
+        ws = art.get("warnings", [])
+        out[rid] = {"verdict": art.get("verdict"), "warnings": len(ws),
+                    "high": sum(1 for w in ws if w.get("severity") == "high"),
+                    "fresh": art.get("fresh"), "stale_reasons": art.get("stale_reasons", []),
+                    "mode": (art.get("provenance") or {}).get("mode"),
+                    "producer": (art.get("provenance") or {}).get("producer"),
+                    "produced_at": (art.get("provenance") or {}).get("produced_at")}
+    return {"reviews": out}
+
+
+@app.get("/admin/skeptic/trail")
+def admin_skeptic_trail(run_id: str):
+    led = _case().ledger()
+    return {"run_id": run_id,
+            "events": [e for e in led.read() if e.get("type", "").startswith("skeptic.")
+                       and e.get("payload", {}).get("run_id") == run_id]}
+
+
+@app.get("/admin/skeptic/{rule_id:path}")
+def admin_skeptic_review(rule_id: str):
+    case = _case()
+    art = _skeptic.load_review(case, rule_id)
+    if art is None:
+        return JSONResponse(
+            {"error": f"no skeptic review for {rule_id}",
+             "bake": f"env -u ANTHROPIC_API_KEY .venv/bin/python scripts/skeptic.py start "
+                     f"--rule {rule_id} --producer claude-code-session"}, status_code=404)
+    _note_imported(case, art)
+    return art

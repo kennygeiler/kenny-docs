@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 from . import governance
 from .engine import NoRuleApplies, calculate
-from .ruledsl import SHIFT_BASES, Rule
+from .ruledsl import SHIFT_BASES, Rule, RuleError
 
 # Fallback lexicon when the case's extraction.yaml declares none. The case file wins:
 # vocabulary is case data, not code (PRD §4).
@@ -281,9 +281,11 @@ def cost_by_unit(case, cat, led, qid: str, subjects: list[dict], eng_params: dic
             # year of benefits (see engine.calculate basis_scope).
             res = calculate(eng_params, members, rules, case.rounding_places(),
                             basis_scope=SHIFT_BASES)
-        except (NoRuleApplies, ValueError) as e:
+        except (NoRuleApplies, ValueError, RuleError, ArithmeticError) as e:
+            # A4 (agentic): a rule that fails to evaluate is a refusal, never a 500.
             out["status"] = "no_rule_for_scenario"
             out["reason"] = f"The approved rules for {titles} don't cover this scenario ({e})"
+            out["error"] = f"{type(e).__name__}: {e}"
             continue
         used_ids = {li.rule_id for li in res.line_items}
         for li in res.line_items:

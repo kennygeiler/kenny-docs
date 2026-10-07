@@ -26,3 +26,6 @@ cases/*/rules/*.bak
 !cases/santacruz/sources/*.pdf
 !cases/santacruz/catalog.json
 !cases/santacruz/search_index.jsonl
+
+# Skeptic run logs are local records of a bake; the artifact under reviews/ ships.
+cases/*/reviews/.runs/
