@@ -32,3 +32,6 @@ cases/*/reviews/.runs/
 
 # Agent worktrees created by Claude Code sessions
 .claude/worktrees/
+
+# The demo queue ships (railway up honours .gitignore, so a negation is required here)
+!cases/santacruz/rules/rules_proposed.json
