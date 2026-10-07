@@ -11,3 +11,23 @@ output_shape:
   hours: float
   date: str
   holiday_weekday: str
+  pay_type: str
+
+# Which branch of pay a costing question asks for (DEMO_TICKETS B1). Matched
+# deterministically, whole-word, case-insensitive, by core/costing.py::detect_pay_type;
+# the model is never asked for this field. 'no|not|non|without <cue>' negates a cue, and
+# a question that negates every named branch is read as 'regular'. A ratified base rule's
+# `topic` must be one of these keys for the question to reach it.
+pay_types:
+  overtime: [overtime, "over time", "time and a half", "1.5x", ot]
+  regular: [regular, "straight time", "normal shift", "scheduled shift"]
+  holiday: [holiday]
+  callback: [callback, "call back"]
+  standby: [standby, "on call"]
+  out_of_class: ["out of class", acting, upgrade]
+
+# Bounds on what a question may hand the engine (DEMO_TICKETS B4). Above the cap the app
+# asks instead of multiplying.
+limits:
+  hours:
+    max: 96

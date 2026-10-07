@@ -84,6 +84,7 @@ async function confirmDoc(prompt, queryId, docId) {
 
 function render(res, prompt) {
   if (res.mode === 'clarify') { renderClarify(res); return; }
+  if (res.mode === 'refused') { renderRefused(res); return; }  // costing-correctness (B1)
   if (res.mode === 'entitlement') { renderEntitlement(res); return; }
   // 'lookup' renders exactly like 'policy' — same retrieve-and-quote shape, with the
   // answer read from a rate table instead of prose. Listed explicitly rather than
@@ -129,6 +130,7 @@ function render(res, prompt) {
   wrap.appendChild(el(`<div class="route">Governing doc <strong>${esc(res.chosen_doc)}</strong>
     via <strong>${esc(pathLabel)}</strong>${units ? ` · unit: ${esc(units)}` : ''}${res.shift_date ? ` · date: ${esc(res.shift_date)}` : ''}
     · parsed via ${esc(res.params.source)}</div>`));
+  if (res.interpretation) wrap.appendChild(readAsLine(res.interpretation));  // costing-correctness (B4)
   // The headline is honest about what it is. For ONE classification, the total IS the
   // per-member answer. For several, a grand total would be "one member of each class" —
   // a number that corresponds to no real staffing — so the per-member rows are the
@@ -163,6 +165,7 @@ function render(res, prompt) {
     row.append(c1, c2, c3);
     tb.appendChild(row);
   });
+  appendUncoveredRows(tb, r.uncovered);  // costing-correctness (B2)
   wrap.appendChild(table);
 
   r.line_items.filter(li => li.needs_human_confirmation).forEach(li => {
@@ -182,7 +185,7 @@ function renderClarify(res) {
   const row = el('<div class="confirm"></div>');
   (res.options || []).forEach(d => {
     const b = el(`<button class="ghost">${esc(d)}</button>`);
-    b.onclick = () => answerDepartment(res.prompt_echo, res.query_id, d);
+    b.onclick = () => res.field ? answerClarified(res, d) : answerDepartment(res.prompt_echo, res.query_id, d);  // costing-correctness (B1/B4)
     row.appendChild(b);
   });
   wrap.appendChild(row);
@@ -372,3 +375,66 @@ document.addEventListener('keydown', e => {
 });
 
 
+
+
+// --- costing-correctness (B1, B2, B4) ---------------------------------------------- //
+// Every answer opens with what the engine was handed (B4). Plain text, no markdown.
+function readAsLine(interp) {
+  return el(`<div class="route read-as">Read as: <strong>${esc(interp.read_as || '')}</strong></div>`);
+}
+
+// Rows for the classifications that were NOT priced (B2): the reason, no amount button.
+function appendUncoveredRows(tb, uncovered) {
+  (uncovered || []).forEach(u => {
+    const row = document.createElement('tr');
+    const c1 = document.createElement('td'); c1.textContent = u.subject;
+    const c2 = document.createElement('td'); c2.textContent = u.bargaining_unit || '';
+    const c3 = document.createElement('td');
+    const span = document.createElement('span');
+    span.className = 'muted';
+    span.textContent = u.reason || 'Not covered';
+    c3.appendChild(span);
+    row.append(c1, c2, c3);
+    tb.appendChild(row);
+  });
+}
+
+// A clarifying answer goes back as {prompt, query_id, clarified: {<field>: value}} — the
+// server reads only the field it asked for and only a value it can verify.
+async function answerClarified(res, value) {
+  addUser(value);
+  const clarified = {};
+  clarified[res.field] = value;
+  const out = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({prompt: res.prompt_echo, query_id: res.query_id, clarified})}).then(r => r.json());
+  render(out, res.prompt_echo);
+}
+
+// A refusal (B1): the reason, what IS approved for the unit (as a chip that opens the
+// clause), and the closest passages labelled as text — never a dollar figure.
+function renderRefused(res) {
+  const wrap = el('<div></div>');
+  if (res.interpretation) wrap.appendChild(readAsLine(res.interpretation));
+  wrap.appendChild(el(`<div class="flagline">${esc(res.message || res.reason || 'Not computed.')}</div>`));
+  const approved = (res.approved_topics || []).join(', ') || 'none';
+  wrap.appendChild(el(`<div style="margin-top:8px">Approved for this unit: <strong>${esc(approved)}</strong></div>`));
+  (res.approved_clauses || []).forEach(s => {
+    const btn = el(`<button type="button" class="source-chip"><strong>${esc(s.title || s.doc_id)}</strong>
+      <span class="tag">${esc(s.topic || '')}</span> <strong>${esc(s.clause || '')}</strong>
+      <span class="muted"> p.${esc(s.page)}</span><br>
+      <span class="src-text">${esc(s.text || '')}</span></button>`);
+    btn.onclick = () => openSource({...s, score: 'approved rule'});
+    wrap.appendChild(btn);
+  });
+  if (res.nearest && res.nearest.length) {
+    wrap.appendChild(el(`<div class="muted" style="margin:10px 0 4px">${esc(res.nearest_label || 'closest text — not a computed answer')}:</div>`));
+    res.nearest.forEach(s => {
+      const btn = el(`<button type="button" class="source-chip"><strong>${esc(s.title || s.doc_id)}</strong>
+        <span class="muted"> p.${esc(s.page)}</span>${tierChip(s.tier)}<br>
+        <span class="src-text">${esc(s.text || '')}</span></button>`);
+      btn.onclick = () => openSource(s);
+      wrap.appendChild(btn);
+    });
+  }
+  addBot(wrap);
+}
