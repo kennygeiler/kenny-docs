@@ -127,14 +127,19 @@ def test_snapshot_is_write_once(tmp_path):
     snaps = str(tmp_path / "snapshots")
     rule = Rule(id="r", kind="selector", when="True", compute="1",
                 citation=Citation(doc_id="d"))
-    audit.snapshot(snaps, "abcdefabcdef", {"hours": 8}, [rule], {"total": 1})
-    with pytest.raises(FileExistsError):
-        audit.snapshot(snaps, "abcdefabcdef", {"hours": 4}, [rule], {"total": 2})
+    first = audit.snapshot(snaps, "abcdefabcdef", {"hours": 8}, [rule], {"total": 1})
+    bytes1 = open(first, "rb").read()
+    # A second write under the same id never touches the frozen file: since wave1/ledger
+    # (F1) it lands in a suffixed sibling the ledger event names, instead of raising.
+    second = audit.snapshot(snaps, "abcdefabcdef", {"hours": 4}, [rule], {"total": 2})
+    assert second != first and re.match(r"^abcdefabcdef-[0-9a-f]{6}\.json$",
+                                        os.path.basename(second))
+    assert open(first, "rb").read() == bytes1
     with pytest.raises(ValueError):
         audit.snapshot(snaps, "../x", {}, [rule], {})
     with pytest.raises(ValueError):
         audit.snapshot(snaps, "ABCDEFABCDEF", {}, [rule], {})
-    assert sorted(os.listdir(snaps)) == ["abcdefabcdef.json"]
+    assert set(os.listdir(snaps)) == {"abcdefabcdef.json", os.path.basename(second)}
     frozen = json.load(open(os.path.join(snaps, "abcdefabcdef.json")))
     assert frozen["params"] == {"hours": 8}
     assert "quote_sha256" in frozen["rule_versions"][0]["citation"]

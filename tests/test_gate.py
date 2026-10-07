@@ -97,7 +97,7 @@ def test_gate_sees_role_and_pay_basis(env):
     # a bogus HOURLY premium is the thing the gate must now see and refuse
     _propose(case, [_rule(f"{FF}:tk_bogus_25", FF_CIT, role="premium", when="True",
                           compute="25", priority=5)])
-    res = c.post("/admin/ratify", json={}).json()
+    res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert res["ratified"] == [] and res["golden_failed"]["actual"] == 665.8
     assert _total(c, Q8) == ("costing", 640.8)
 
@@ -152,7 +152,7 @@ def test_rule_no_known_answer_exercises_is_refused(env):
     c, case = env
     _propose(case, [_rule("management_mou:tk_99x", MGMT_CIT,
                           compute="effective_base * 99 * hours")])
-    res = c.post("/admin/ratify", json={"rule_ids": ["management_mou:tk_99x"]}).json()
+    res = c.post("/admin/ratify", json={"rule_ids": ["management_mou:tk_99x"], "approver": "tester"}).json()
     assert res["ratified"] == [] and res["uncovered"] == ["management_mou:tk_99x"]
     assert "no known answer exercises" in res["warning"]
     assert len(_library(case)) == N_LIVE
@@ -163,7 +163,7 @@ def test_unexercised_branch_of_a_covered_unit_is_refused(env):
     c, case = env
     _propose(case, [_rule(f"{FF}:tk_long_shift", FF_CIT, priority=50, when="hours > 8",
                           compute="effective_base * 100 * hours")])
-    res = c.post("/admin/ratify", json={}).json()
+    res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert res["ratified"] == [] and res["uncovered"] == [f"{FF}:tk_long_shift"]
     assert _total(c, Q8.replace("an 8-hour", "a 12-hour")) == ("costing", 961.2)
 
@@ -172,7 +172,7 @@ def test_replacing_a_proven_rule_so_its_known_answer_goes_unanswered_is_refused(
     c, case = env
     _propose(case, [_rule(FF_OT, FF_CIT, when="hours > 8",
                           compute="effective_base * 100 * hours")])
-    res = c.post("/admin/ratify", json={}).json()
+    res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert res["ratified"] == [], res
     assert "no longer be answered" in res["warning"]
     assert _total(c, Q8) == ("costing", 640.8)
@@ -182,7 +182,7 @@ def test_untagged_wrong_rule_into_empty_library_is_refused(env):
     c, case = env
     _set_library(case, [])
     _propose(case, [_rule(FF_OT, FF_CIT, compute="effective_base * 2.0 * hours")])
-    res = c.post("/admin/ratify", json={}).json()
+    res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert res["ratified"] == [] and res["golden_failed"]["actual"] == 854.4
     assert _library(case) == []
 
@@ -229,10 +229,10 @@ def test_malformed_rule_is_a_validation_error_not_a_500(env):
     c, case = env
     _set_library(case, [])
     _propose(case, [_rule(FF_OT, FF_CIT, role="zzz")])
-    res = c.post("/admin/ratify", json={}).json()
+    res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert res["ratified"] == [] and FF_OT in res["rejected"]
     _propose(case, [_rule(FF_OT, FF_CIT, priority="high")])
-    res = c.post("/admin/ratify", json={}).json()
+    res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert res["ratified"] == [] and FF_OT in res["rejected"]
     assert c.get("/admin/proposed").status_code == 200
     assert c.get("/admin/verification").status_code == 200

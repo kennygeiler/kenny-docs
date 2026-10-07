@@ -14,6 +14,9 @@ from core.caseio import load_case
 from core.ledger import Ledger
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# live rules shipped in the case (data-goldens added longevity_10yr as the fifth)
+N_LIVE = len(json.load(open(os.path.join(ROOT, "cases", "santacruz", "rules",
+                                         "rules_ratified.json")))["rules"])
 OT_ID = "firefighters_local3535_mou:overtime_premium_rate"
 
 
@@ -96,13 +99,17 @@ def test_backfill_empty_ledger(case_dir):
     rules_path = os.path.join(case_dir, "rules", "rules_ratified.json")
     rules_bytes = open(rules_path, "rb").read()
     res = approvals.backfill(load_case(case_dir))
-    assert len(res["appended"]) == 4
+    assert len(res["appended"]) == N_LIVE
     evs = [e for e in _events(case_dir) if e["type"] == "authoring.ratify"]
-    assert len(evs) == 4
+    assert len(evs) == N_LIVE
+    lib = {r["id"]: r for r in json.loads(rules_bytes)["rules"]}
     for e in evs:
         pl = e["payload"]
         assert pl["backfilled"] is True and pl["original_event"] is None
-        assert pl["approver"] == "kenny" and pl["approved_at"] == "2026-07-18T14:26:28Z"
+        # the approver/time are copied from the library entry (four rules say kenny,
+        # 2026-07-18; data-goldens' longevity_10yr still carries its agent approver)
+        assert pl["approver"] == lib[pl["rule_id"]]["approver"]
+        assert pl["approved_at"] == lib[pl["rule_id"]]["approved_at"]
         assert e["actor"] == "system"
         assert "not captured at the moment of approval" in pl["basis"]
         assert pl["known_answers"] and pl["known_answers"][0]["status"] == "pass"
@@ -110,8 +117,8 @@ def test_backfill_empty_ledger(case_dir):
     assert ok, msg
     # idempotent, and the shipped rule file is byte-identical
     res2 = approvals.backfill(load_case(case_dir))
-    assert res2["appended"] == [] and len(res2["skipped"]) == 4
-    assert len([e for e in _events(case_dir) if e["type"] == "authoring.ratify"]) == 4
+    assert res2["appended"] == [] and len(res2["skipped"]) == N_LIVE
+    assert len([e for e in _events(case_dir) if e["type"] == "authoring.ratify"]) == N_LIVE
     assert open(rules_path, "rb").read() == rules_bytes
 
 
@@ -127,7 +134,7 @@ def test_backfill_links_originals(case_dir):
     approvals.backfill(load_case(case_dir))
     full = [e for e in _events(case_dir)
             if e["type"] == "authoring.ratify" and e["payload"].get("rule_sha256")]
-    assert len(full) == 4
+    assert len(full) == N_LIVE
     for e in full:
         assert e["payload"]["original_event"]["seq"] == thin[e["payload"]["rule_id"]]
 
@@ -141,7 +148,7 @@ def test_backfill_script_is_idempotent(case_dir):
     out = subprocess.run([sys.executable, script, case_dir, "--approvals"],
                          capture_output=True, text=True, env=env)
     assert out.returncode == 0, out.stdout + out.stderr
-    assert out.stdout.count("appended authoring.ratify") == 4
+    assert out.stdout.count("appended authoring.ratify") == N_LIVE
     n = len(_events(case_dir))
     out = subprocess.run([sys.executable, script, case_dir, "--approvals"],
                          capture_output=True, text=True, env=env)
@@ -154,7 +161,7 @@ def test_backfill_script_is_idempotent(case_dir):
 def test_approvals_endpoint(client, case_dir):
     approvals.backfill(load_case(case_dir))
     rows = client.get("/admin/approvals").json()["approvals"]
-    assert len(rows) == 4
+    assert len(rows) == N_LIVE
     assert all(r["matches_live"] for r in rows)
     assert all(r["approval"]["backfilled"] for r in rows)
     rules_path = os.path.join(case_dir, "rules", "rules_ratified.json")

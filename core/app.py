@@ -1108,7 +1108,7 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                                     for li in line_items]}
     audit.record_answer(case, led, qid, eng_params, covered_subjects, rules_used,
                         engine_result, basis_scope=SHIFT_BASES,
-                        extra={"partial": bool(uncovered)})
+                        extra={"partial": bool(uncovered), "uncovered": uncovered})
 
     result_dict = _enrich_citations(cat, result_dict)
     chosen_docs = []

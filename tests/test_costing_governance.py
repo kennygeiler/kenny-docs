@@ -76,10 +76,14 @@ def test_mixed_units_price_each_under_its_own_contract(client, case_dir):
     assert "costing.uncovered" in types
     assert "answer.snapshot" in types
     # the snapshot froze only the rules that were used — not the whole library
+    # (schema 2 since wave1/ledger: `rules`, engine-shaped result; the uncovered rows
+    # are recorded on the answer.snapshot event so the frozen result stays replayable)
     snap = json.load(open(case_dir / "snapshots" / f"{res['query_id']}.json"))
-    assert [r["id"] for r in snap["rule_versions"]] == [
+    assert [r["id"] for r in snap["rules"]] == [
         "firefighters_local3535_mou:overtime_premium_rate"]
-    assert snap["result"]["uncovered"][0]["subject"] == FM
+    ev = [e for e in _events(res["query_id"]) if e["type"] == "answer.snapshot"][-1]
+    assert ev["payload"]["partial"] is True
+    assert ev["payload"]["uncovered"][0]["subject"] == FM
 
 
 # (b) every line item is priced by a rule from the subject's own unit's document ------
