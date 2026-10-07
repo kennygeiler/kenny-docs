@@ -8,6 +8,7 @@ engine does all math.
 """
 from __future__ import annotations
 
+import copy
 import os
 import re
 import threading
@@ -660,6 +661,11 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
     matches: list[dict] = []
     not_covered: list[dict] = []
     all_scope: list[str] = []
+    # F1 (KEN-102): the engine's own result over the subjects and rules it actually used,
+    # frozen by audit.record_answer so GET /chat/replay recomputes it like a costing.
+    raw_items: list[dict] = []
+    covered_subjects: list[dict] = []
+    rules_used: list = []
     for unit in units:
         gov = governance.resolve([unit], date_iso or None, case.manifest.get("sources", []))
         _titles_by_id = {s.get("id"): s.get("title") or s.get("id")
@@ -706,7 +712,13 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
                        actor="chat", query_id=qid)
             not_covered.append({"unit": unit, "docs": scope})
             continue
-        rd = _enrich_citations(cat, result.to_dict())
+        raw = result.to_dict()
+        raw_items += copy.deepcopy(raw.get("line_items", []))   # enrichment mutates in place
+        used_ids = {li.rule_id for li in result.line_items}
+        covered_subjects += [s for s in subjects if s not in covered_subjects]
+        rules_used += [r for r in rules if r.id in used_ids
+                       and r.id not in {u.id for u in rules_used}]
+        rd = _enrich_citations(cat, raw)
         items = rd.get("line_items", [])
         if not any(s.get("bargaining_unit") == unit for s in named_rows) and items \
                 and len({(li.get("total"), li.get("rule_id")) for li in items}) == 1:
@@ -729,12 +741,17 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
     total = line_items[0]["total"] if len(line_items) == 1 else \
         round(sum(float(li.get("total") or 0) for li in line_items), case.rounding_places())
     rd = {"total": total, "line_items": line_items}
-    # The Audit tab's history reads result_type from this snapshot and defaulted it to
-    # currency, so "3 shifts" of bereavement showed as "$3.00".
-    led.append("answer.snapshot", {"total": total, "intent": "entitlement",
-                                   "result_type": line_items[0].get("result_type"),
-                                   "unit_label": line_items[0].get("result_type")},
-               actor="engine", query_id=qid)
+    # Same path as the costing branch: schema-2 snapshot bound to the chain. The frozen
+    # result is the engine's shape (uncollapsed rows, pre-enrichment) so a replay
+    # recomputes it byte-for-byte; the response keeps its own collapsed `rd`.
+    engine_result = {"total": costing.sum_lines(raw_items, case.rounding_places()),
+                     "line_items": raw_items}
+    audit.record_answer(case, led, qid, eng, covered_subjects, rules_used, engine_result,
+                        # The Audit tab's history reads result_type from this snapshot
+                        # and defaulted it to currency ("3 shifts" showed as "$3.00").
+                        extra={"intent": "entitlement",
+                               "result_type": line_items[0].get("result_type"),
+                               "unit_label": line_items[0].get("result_type")})
     depts = sorted({(case.source_by_id(d) or {}).get("department") or "" for d in all_scope})
     return {"query_id": qid, "needs_confirmation": False, "mode": "entitlement",
             "department": ", ".join(d for d in depts if d) or None,

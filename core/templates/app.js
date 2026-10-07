@@ -569,6 +569,9 @@ async function openAudit(queryId, li, res) {
   const sub = el('<div class="muted"></div>');
   sub.textContent = `Rule applied: ${under}`;
   body.appendChild(sub);
+  // F1 (KEN-102): "Replay" recomputes this answer from its frozen snapshot via
+  // GET /chat/replay/{qid} and reports inline under the header. Read-only.
+  body.appendChild(replayControl(queryId, li));
 
   // --- decision trace (wave 2: search tree + replay button extend THIS block) ---
   // search-tree (C1/I13 + L3): the sum as a person writes it, each factor a button
@@ -624,6 +627,46 @@ async function openAudit(queryId, li, res) {
   openDrawer();
   // --- AI involvement (section 5) --------------------------------------------
   renderAiTrail(queryId, body, li.result_type === 'currency' ? 'costing' : 'entitlement');
+}
+
+// --- replay control (drawer header, F1 / KEN-102) ---------------------------------
+// One button, one line of result: green "Replayed: $640.80 — matches (6 checks)",
+// red with the failing check names, grey "not replayable: <reason>".
+function replayControl(queryId, li) {
+  const wrap = el('<div class="replay"><button type="button" class="ghost replay-btn">Replay</button><span class="replay-out" aria-live="polite"></span></div>');
+  const btn = wrap.querySelector('.replay-btn');
+  const out = wrap.querySelector('.replay-out');
+  btn.onclick = async () => {
+    btn.disabled = true;
+    out.className = 'replay-out';
+    out.textContent = 'Replaying…';
+    try {
+      const r = await fetch(`/chat/replay/${encodeURIComponent(queryId || '')}`);
+      const j = await r.json();
+      renderReplay(out, j, li);
+    } catch (e) {
+      out.className = 'replay-out replay-none';
+      out.textContent = 'not replayable: request failed';
+    }
+    btn.disabled = false;
+  };
+  return wrap;
+}
+
+function renderReplay(out, j, li) {
+  const checks = j.checks || [];
+  if (j.status === 'match') {
+    const total = (j.recomputed && j.recomputed.total != null) ? j.recomputed.total : (li && li.total);
+    out.className = 'replay-out replay-ok';
+    out.textContent = `Replayed: ${fmtVal(total, li ? li.result_type : 'currency')} — matches (${checks.length} checks)`;
+  } else if (j.status === 'mismatch') {
+    const failing = checks.filter(c => !c.ok).map(c => c.name);
+    out.className = 'replay-out replay-bad';
+    out.textContent = `Replay failed: ${failing.join(', ') || 'unknown check'}`;
+  } else {
+    out.className = 'replay-out replay-none';
+    out.textContent = `not replayable: ${j.reason || j.message || 'unknown reason'}`;
+  }
 }
 
 // --- search-tree helpers (used only inside the .trace-block region above) ----------
