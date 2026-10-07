@@ -57,7 +57,7 @@ Four rules, enforced in the architecture rather than promised in prose:
    cannot go live; (R5) a live rule outside the selection that was proven before must
    still be proven. What it does not check: whether the rule reads the clause correctly
    beyond that one known answer's inputs — each rule is proved at one set of inputs
-   only, and the six shipped known answers are analyst-derived from the documents, not
+   only, and the twenty-two shipped known answers are analyst-derived from the documents, not
    payroll. *Try to break it* (Rule library) mutates a rule in memory and shows which
    deliberate errors the known answers catch and which survive.
 4. **Every answer is traceable and replayable.** Each figure clicks through to the exact
@@ -173,8 +173,9 @@ no pay-type cue asks which pay type you mean instead of guessing.
 The engine, rule DSL, governance and ledger in `core/` are case-agnostic: `CASE=<dir>`
 points the app at another bundle. The demo UI is still Santa Cruz-specific (example
 prompts in `chat.html`, tour targets in `tour.js`, department cue words in `llm.py`). The
-eleven known answers (the six known answers the live rules reproduce, plus five
-vacation-accrual tiers pending the queued rules' approval) are analyst-derived from the
+twenty-two known answers (the six known answers the live rules reproduce plus the 9- and
+10-year longevity edges, and fourteen vacation-tier answers — five tiers and nine E10
+boundary answers — pending the queued rules' approval) are analyst-derived from the
 documents, not from payroll, and are
 asserted by `pytest` through the gate and through `/chat` (`tests/test_demo_smoke.py`);
 each proves its rule at one set of inputs only:
@@ -203,7 +204,9 @@ Marshal, for instance) is refused with a reason.
   chat/admin templates.
 - **`cases/santacruz/`** — the bundle: `sources/` PDFs, `data/roster.csv`, `rules/`,
   `reviews/` (skeptic), `cell_checks.json`, `catalog.json`, `search_index.jsonl`,
-  `case.yaml` (eleven known answers: six reproduced, five pending approval), `taxonomy.yaml`, `prompt/`.
+  `case.yaml` (twenty-two known answers: six money/leave scenarios and two longevity
+  boundary answers reproduced by the live rules; five vacation tiers and nine vacation-tier
+  boundary answers pending the queued rules' approval), `taxonomy.yaml`, `prompt/`.
 - **`scripts/`** — `demo_smoke.py` (the demo table), `skeptic.py` (zero-spend bake and
   re-verification), `verify_cells.py`, the back-fills (`backfill_quote_sha.py`,
   `backfill_provenance.py`, `backfill_text_origin.py`), `prepare_deploy.py`, `replay.py`.

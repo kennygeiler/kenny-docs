@@ -213,11 +213,11 @@ def chk_verification(client, ctx):
     observed = (f"all_passing={v.get('all_passing')} pass={n['pass']} pending={n['pending']} "
                 f"fail={n['fail']} of {len(goldens)} rules={v.get('rule_count')} "
                 f"unverified={v.get('unverified')}")
-    # The five vacation-accrual known answers are PENDING until the owner approves the
+    # The fourteen vacation-accrual known answers (five tiers + nine E10 edges) are PENDING until the owner approves the
     # queued tiers in Review (demo step) — pending is honest, not a failure.
-    expected = ("all_passing=False pass=6 pending=5 fail=0 of 11 rules=5 unverified=[] "
+    expected = ("all_passing=False pass=8 pending=14 fail=0 of 22 rules=5 unverified=[] "
                 "(vacation tiers pending until approved)")
-    ok = (status == 200 and len(goldens) == 11 and n["pass"] == 6 and n["pending"] == 5
+    ok = (status == 200 and len(goldens) == 22 and n["pass"] == 8 and n["pending"] == 14
           and n["fail"] == 0 and v.get("rule_count") == 5 and v.get("unverified") == [])
     return ok, observed, expected
 
@@ -283,7 +283,7 @@ CHECKS = [
     ("heat_pump_out_of_scope", "heat-pump rebate -> out_of_scope naming the 5 documents", chk_off_corpus),
     ("regular_shift_refused", "regular shift -> refused, only overtime approved", chk_regular_refused),
     ("mixed_units_partial", "firefighter + Fire Marshal -> $640.80 + not-covered row", chk_mixed_units),
-    ("verification_all_passing", "/admin/verification -> 6 known answers pass, 5 pending (vacation tiers), 5 rules", chk_verification),
+    ("verification_all_passing", "/admin/verification -> 8 of 22 known answers pass, 14 pending (vacation tiers), 5 rules", chk_verification),
     ("replay_match", "/chat/replay/{640.80} -> match on every check", chk_replay),
     ("p22_disputed_cells", "/doc/.../clauses?page=22 -> 6 disputed cells", chk_p22_cells),
     ("skeptic_two_reviews", "/admin/skeptic -> two fresh precomputed reviews", chk_skeptic),

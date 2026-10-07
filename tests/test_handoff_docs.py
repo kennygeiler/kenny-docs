@@ -44,7 +44,7 @@ def test_readme_states_what_the_gate_checks_and_who_wrote_the_rules():
                  "one set of inputs", "produced none of them", "longevity_10yr",
                  "has not yet been ratified by a human", "KENNY_LLM=off",
                  "/chat/replay/", "Try to break it", "OCR'd scan", "Skeptic",
-                 "STATUS.md", "DEMO_TICKETS.md", "six known answers"):
+                 "STATUS.md", "DEMO_TICKETS.md", "twenty-two known answers"):
         assert must in readme, must
 
 

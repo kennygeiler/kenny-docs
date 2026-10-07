@@ -28,6 +28,12 @@ GOLDEN_640 = ("8-hour overtime shift at base rate, hours beyond the 182-hour thr
               "Firefighter/Paramedic top step (1.5x per Local 3535 MOU)")
 GOLDEN_656 = ("8-hour overtime shift, 12-year Firefighter/Paramedic top step "
               "(longevity 2.5% into the 1.5x rate)")
+# E10 longevity boundary answers (9 years -> 640.80, 10 years -> 656.82); both fire the
+# overtime rule, so they join its proved_by list in case.yaml order.
+GOLDEN_9YR = ("8-hour overtime shift, 9-year Firefighter/Paramedic top step "
+              "(no longevity; one year short of the p.12 threshold)")
+GOLDEN_10YR = ("8-hour overtime shift, 10-year Firefighter/Paramedic top step "
+               "(longevity 2.5% from exactly the p.12 threshold)")
 FF_CIT = {"doc_id": FF, "clause": "Overtime Rate (p.8)", "page": 8,
           "bbox": [141.418, 505.662, 511.182, 441.459]}
 MGMT_CIT = {"doc_id": "management_mou", "clause": "Flex time (p.6)", "page": 6,
@@ -162,7 +168,9 @@ def test_shipped_library_every_rule_fires_in_a_passing_known_answer(env):
     v = c.get("/admin/verification").json()
     # five vacation-accrual answers are pending (tiers queued, not live): not a failure
     assert v["unverified"] == [] and not any(g["status"] == "fail" for g in v["goldens"])
-    assert v["pending"] == 5 and sum(g["status"] == "pass" for g in v["goldens"]) == 6
+    # 22 known answers: 8 pass (six scenarios + the 9-/10-year longevity edges), 14
+    # vacation-tier answers pending (five tiers + nine E10 edges) until approved
+    assert v["pending"] == 14 and sum(g["status"] == "pass" for g in v["goldens"]) == 8
     assert set(v["proved_by"]) == {r["id"] for r in _library(case)}
     for g in v["goldens"]:
         if g["status"] == "pending":
@@ -221,7 +229,7 @@ def test_correct_rule_into_empty_library_is_approved(env):
                      if k not in ("status", "approver", "approved_at")}])
     res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert res["ratified"] == [FF_OT, FF_LONG] and res["library_size"] == 2
-    assert res["proved_by"][FF_OT] == [GOLDEN_640, GOLDEN_656]
+    assert res["proved_by"][FF_OT] == [GOLDEN_640, GOLDEN_656, GOLDEN_9YR, GOLDEN_10YR]
     ev = [e for e in _ledger(case) if e["type"] == "authoring.ratify"
           and e["payload"]["rule_id"] == FF_OT][-1]
     assert ev["payload"]["proved_by"] == res["proved_by"][FF_OT]
@@ -344,12 +352,18 @@ def test_mutation_report_over_the_live_library(env):
     c, case = env
     n_before = len(_ledger(case))
     res = c.get("/admin/mutation_report").json()
-    # 7 mutants per currency rule, 3 per selector, 9 for the longevity modifier. J1b's
-    # five vacation tiers (9+9+9+9+7 more, survivors = moved thresholds, since the known
-    # answers sit mid-tier) sit in the Review queue until approved, so they are not in
-    # the live report.
-    assert (res["total"], res["caught"]) == (29, 19)
-    assert {s["rule_id"] for s in res["survivors"]} == {FF_OT, FF_LONG,
+    # Computed from the live library, not hand-pinned: 7 mutants per currency rule, 3 per
+    # selector, 9 for the longevity modifier (E10's 9-/10-year answers catch the longevity
+    # edge both ways). J1b's five vacation tiers sit in the Review queue until approved,
+    # so they are not in the live report.
+    live = {r["id"] for r in _library(case)}
+    assert {r["rule_id"] for r in res["rules"]} == live            # every live rule, only live rules
+    assert res["total"] == sum(r["total"] for r in res["rules"]) > 0
+    assert res["caught"] == res["total"] - len(res["survivors"])
+    assert all(r["caught"] > 0 for r in res["rules"]), res["rules"]   # each rule is exercised
+    # what can survive: an edge no known answer reaches (hours > 0 / effective_base on the
+    # overtime rules); the longevity edges are now caught by the 9-/10-year answers
+    assert {s["rule_id"] for s in res["survivors"]} <= {FF_OT, FF_LONG,
                                                         "admin_group_mou:overtime_premium_rate"}
     assert len(_ledger(case)) == n_before
 

@@ -120,10 +120,10 @@ def test_shipped_library_has_no_vacation_rule_and_their_known_answers_read_pendi
     by_status = {}
     for g in v["goldens"]:
         by_status.setdefault(g["status"], []).append(g["name"])
-    assert len(by_status.get("pass", [])) == 6 and "fail" not in by_status
+    assert len(by_status.get("pass", [])) == 8 and "fail" not in by_status
     assert sorted(by_status["pending"]) == sorted(
-        g["name"] for g in v["goldens"] if g["name"].startswith("vacation accrual"))
-    assert v["pending"] == 5 and v["rule_count"] == 5 and v["all_passing"] is False
+        g["name"] for g in v["goldens"] if "vacation" in g["name"].lower())
+    assert v["pending"] == 14 and v["rule_count"] == 5 and v["all_passing"] is False
 
 
 def test_rule_values_are_the_reread_not_the_stored_text():
