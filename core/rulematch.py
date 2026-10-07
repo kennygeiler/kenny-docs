@@ -497,15 +497,72 @@ def compose_quote(hits: list[dict], title_of: Callable[[str], str],
     """No-key wording for a policy or lookup answer: 'From <title>, p.<page>: <text>'
     when the clause label is empty, '§<clause>' kept when the ingest found one. A
     lookup quotes up to `max_rows` rows so both the 56-hour and 40-hour rates of a
-    classification are visible."""
+    classification are visible.
+
+    A bare heading is never the answer: "Designated Holidays are as follows: -",
+    "XIIL. Sick Leave", "D. Longevity" were quoted verbatim as the whole reply. Such a
+    hit (a handful of tokens, or ending in ':' or '-') is skipped for the next
+    substantive hit — or, when the next hit sits on the same page of the same
+    document, the heading is kept as a lead-in to that chunk."""
     def one(h: dict) -> str:
         clause = str(h.get("clause") or "").strip()
-        head = f"Per §{clause}" if clause else f"From {title_of(h.get('doc_id', ''))}"
+        head = f"Per §{clause}" if clause_label_ok(clause) else \
+            f"From {title_of(h.get('doc_id', ''))}"
         if h.get("page") is not None:
             head += f", p.{h['page']}"
         return f"{head}: {h.get('text', '')}"
+    if not lookup:   # a lookup's rows are short by nature ("Step C $52.10"); keep them
+        hits = substantive_hits(hits)
     if not hits:
         return ""
     if lookup:
         return "\n".join(one(h) for h in hits[:max_rows])
     return one(hits[0])
+
+
+# A clause label that is only a number with an optional two-decimal fraction is a
+# captured dollar or percent figure ("300.00" from a uniform-allowance table), not a
+# section — "Per §300.00" read as a citation to nowhere. Real labels carry letters or
+# dotted section numbers ("12.1", "XIII", "D").
+_FIGURE_LABEL_RE = re.compile(r"^\d+(\.\d{2})?$")
+HEADING_MAX_TOKENS = 6
+
+
+def clause_label_ok(clause: str) -> bool:
+    clause = (clause or "").strip()
+    return bool(clause) and not _FIGURE_LABEL_RE.match(clause)
+
+
+def is_heading(hit: dict) -> bool:
+    """A hit that is only a heading: very short, or trailing a ':' or '-' lead-in."""
+    text = str(hit.get("text") or "").strip()
+    if not text:
+        return True
+    if text.endswith((":", "-", "–", "—")):
+        return True
+    return len(text.split()) < HEADING_MAX_TOKENS
+
+
+def substantive_hits(hits: list[dict]) -> list[dict]:
+    """The quotable hits, in rank order: heading-only hits are dropped, except that a
+    heading immediately followed (in rank) by a chunk on the same page of the same
+    document is merged into that chunk as its lead-in. The chunk's label, page and
+    box are kept so the citation still points at the substantive text."""
+    out: list[dict] = []
+    skip = False
+    for i, h in enumerate(hits):
+        if skip:
+            skip = False
+            continue
+        if not is_heading(h):
+            out.append(h)
+            continue
+        nxt = hits[i + 1] if i + 1 < len(hits) else None
+        if nxt and not is_heading(nxt) and nxt.get("doc_id") == h.get("doc_id") \
+                and nxt.get("page") == h.get("page"):
+            lead = str(h.get("text") or "").strip()
+            out.append(dict(nxt, text=f"{lead} {str(nxt.get('text') or '').strip()}"))
+            skip = True
+    if not out and hits:
+        return list(hits)   # nothing but headings: quote them rather than nothing
+    return out

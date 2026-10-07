@@ -693,7 +693,11 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
     total = line_items[0]["total"] if len(line_items) == 1 else \
         round(sum(float(li.get("total") or 0) for li in line_items), case.rounding_places())
     rd = {"total": total, "line_items": line_items}
-    led.append("answer.snapshot", {"total": total, "intent": "entitlement"},
+    # The Audit tab's history reads result_type from this snapshot and defaulted it to
+    # currency, so "3 shifts" of bereavement showed as "$3.00".
+    led.append("answer.snapshot", {"total": total, "intent": "entitlement",
+                                   "result_type": line_items[0].get("result_type"),
+                                   "unit_label": line_items[0].get("result_type")},
                actor="engine", query_id=qid)
     depts = sorted({(case.source_by_id(d) or {}).get("department") or "" for d in all_scope})
     return {"query_id": qid, "needs_confirmation": False, "mode": "entitlement",

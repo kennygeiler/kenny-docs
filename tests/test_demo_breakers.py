@@ -119,6 +119,79 @@ def test_callback_pay_question_is_policy_not_costing(monkeypatch, client):
     assert res.get("question") is None
 
 
+# ---- F5: a bare heading is never the whole quote ----
+def _hit(text, page=1, doc="mou", clause=""):
+    return {"doc_id": doc, "page": page, "clause": clause, "text": text, "score": 1.0}
+
+
+def test_compose_quote_skips_heading_only_hits():
+    body = "Employees with ten or more years of service receive a 2.5% longevity differential."
+    hits = [_hit("D. Longevity", page=12), _hit(body, page=13)]
+    out = rulematch.compose_quote(hits, lambda d: "The MOU")
+    assert out == f"From The MOU, p.13: {body}"
+    hits = [_hit("Designated Holidays are as follows: -", page=20),
+            _hit("XIIL. Sick Leave", page=22), _hit(body, page=13)]
+    assert rulematch.compose_quote(hits, lambda d: "The MOU").endswith(body)
+
+
+def test_compose_quote_keeps_heading_as_lead_in_to_same_page_chunk():
+    hits = [_hit("Designated Holidays are as follows: -", page=20),
+            _hit("There are 13 designated holidays (312 hours), paid in the pay period "
+                 "the holiday occurs.", page=20)]
+    out = rulematch.compose_quote(hits, lambda d: "The MOU")
+    assert out.startswith("From The MOU, p.20: Designated Holidays are as follows: - There are 13")
+
+
+def test_compose_quote_falls_back_when_only_headings_exist():
+    hits = [_hit("D. Longevity", page=12)]
+    assert rulematch.compose_quote(hits, lambda d: "The MOU") == "From The MOU, p.12: D. Longevity"
+
+
+def test_compose_quote_lookup_rows_are_not_filtered():
+    hits = [_hit("Step C $52.10", page=3, clause="12.1"), _hit("Step D $54.70", page=3)]
+    out = rulematch.compose_quote(hits, lambda d: "Schedule", lookup=True)
+    assert out.splitlines() == ["Per §12.1, p.3: Step C $52.10", "From Schedule, p.3: Step D $54.70"]
+
+
+# ---- F6: entitlement snapshot carries its unit ----
+def test_history_shows_bereavement_as_shifts_not_dollars(client):
+    res = _ask(client, "How much bereavement leave does a firefighter get?")
+    assert res["mode"] == "entitlement", res
+    rows = audit.history(load_case(client.case_dir).ledger())
+    row = next(r for r in rows if r["query_id"] == res["query_id"])
+    assert row["total"] == 3 and row["result_type"] == "shifts"
+    snap = [e for e in load_case(client.case_dir).ledger().read()
+            if e.get("query_id") == res["query_id"] and e["type"] == "answer.snapshot"]
+    assert snap[0]["payload"]["result_type"] == "shifts"
+    assert snap[0]["payload"]["unit_label"] == "shifts"
+
+
+def test_history_never_defaults_an_entitlement_to_currency(tmp_path):
+    from core.ledger import Ledger
+    led = Ledger(str(tmp_path / "ledger.jsonl"))
+    led.append("chat.prompt", {"text": "bereavement?"}, actor="user", query_id="q1")
+    led.append("answer.snapshot", {"total": 3, "intent": "entitlement"},
+               actor="engine", query_id="q1")
+    led.append("chat.prompt", {"text": "cost?"}, actor="user", query_id="q2")
+    led.append("answer.snapshot", {"total": 640.8}, actor="engine", query_id="q2")
+    rows = {r["query_id"]: r for r in audit.history(led)}
+    assert rows["q1"]["result_type"] != "currency"
+    assert rows["q2"]["result_type"] == "currency"
+
+
+# ---- F9: a captured figure in the clause slot is not a section label ----
+def test_figure_in_clause_slot_cites_document_and_page():
+    assert not rulematch.clause_label_ok("300.00")
+    assert not rulematch.clause_label_ok("12")
+    assert rulematch.clause_label_ok("12.1") and rulematch.clause_label_ok("XIII") \
+        and rulematch.clause_label_ok("D")
+    hits = [_hit("Uniform allowance of $300.00 per year for all sworn members.",
+                 page=40, clause="300.00")]
+    out = rulematch.compose_quote(hits, lambda d: "Firefighters MOU")
+    assert out.startswith("From Firefighters MOU, p.40:")
+    assert "§300.00" not in out
+
+
 # ---- F10: a matched rank never derives the department from its own words ----
 def test_rank_match_does_not_derive_department_from_rank_words():
     subs = load_case(CASE_DIR).subjects()
