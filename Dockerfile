@@ -23,6 +23,10 @@ COPY . .
 
 # Generate the reference PDFs, then parse the whole corpus and cache the models INTO the
 # image. Runs with no API key: reproducible, free, and nothing secret lands in a layer.
+# KENNY_RELEASE_ALLOW_PENDING=1 lets the release gate accept known answers whose rules
+# are queued in the Review queue (approved live by the owner); see scripts/prepare_deploy.
+ARG KENNY_RELEASE_ALLOW_PENDING=0
+ENV KENNY_RELEASE_ALLOW_PENDING=${KENNY_RELEASE_ALLOW_PENDING}
 RUN python -m scripts.prepare_deploy cases/santacruz
 
 # --------------------------------------------------------------------------- #

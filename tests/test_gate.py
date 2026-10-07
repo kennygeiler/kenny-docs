@@ -162,6 +162,27 @@ def test_release_gate_refuses_pending_tiers_and_passes_once_they_are_approved(en
     assert prepare_deploy._goldens_fail("cases/santacruz") is False
 
 
+def test_release_gate_allows_pending_only_when_flagged_and_queued(env, monkeypatch):
+    """KENNY_RELEASE_ALLOW_PENDING=1 ships a build whose pending answers have a queued
+    rule of the same topic (the owner approves live). Pending with no queued rule, or
+    without the flag, is still refused."""
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import prepare_deploy
+    c, case = env
+    monkeypatch.delenv("KENNY_RELEASE_ALLOW_PENDING", raising=False)
+    assert prepare_deploy._goldens_fail("cases/santacruz") is True
+    monkeypatch.setenv("KENNY_RELEASE_ALLOW_PENDING", "1")
+    assert prepare_deploy._goldens_fail("cases/santacruz") is False
+    # empty the queue: the same pending answers are now pending-by-omission -> refused
+    queue = os.path.join(case, "rules", "rules_proposed.json")
+    with open(queue) as f:
+        data = json.load(f)
+    data["rules"] = []
+    with open(queue, "w") as f:
+        json.dump(data, f)
+    assert prepare_deploy._goldens_fail("cases/santacruz") is True
+
+
 # ---------------- E1: coverage ----------------
 def test_shipped_library_every_rule_fires_in_a_passing_known_answer(env):
     c, case = env

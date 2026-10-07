@@ -123,14 +123,31 @@ def _goldens_fail(case_rel: str) -> bool:
     # a half-built library must still be approvable one unit at a time. A RELEASE must
     # not: pending means unproven, and shipping a demo whose Verification tab is amber
     # for every visitor is the failure this gate exists to stop. Require an explicit pass.
+    # One deliberate exception: KENNY_RELEASE_ALLOW_PENDING=1 lets a build ship with
+    # PENDING answers whose rules sit in the Review queue, so the owner can approve them
+    # in the live instance (the demo's human-gate beat). A pending answer with NO queued
+    # rule is still a failure — pending-by-omission is not the same as pending-by-queue.
+    allow_pending = os.environ.get("KENNY_RELEASE_ALLOW_PENDING", "") in ("1", "true", "yes")
+    queued_topics = _queued_topics(case) if allow_pending else set()
+
     failed = []
+    pending_ok = []
     for g in goldens:
         _ok, detail = _check_golden(case, _live_dicts(case), g)
         status = detail.get("status", "fail")
         print(f"[prepare] golden {status.upper()}: {g.get('name')} "
               f"(expected {detail.get('expected')}, got {detail.get('actual')})")
-        if status != "pass":
-            failed.append((g.get("name"), detail))
+        if status == "pass":
+            continue
+        if status == "pending" and allow_pending and _golden_topic(g) in queued_topics:
+            pending_ok.append(g.get("name"))
+            continue
+        failed.append((g.get("name"), detail))
+
+    if pending_ok:
+        print(f"[prepare] NOTE: KENNY_RELEASE_ALLOW_PENDING=1 — shipping with "
+              f"{len(pending_ok)} pending known answer(s) whose rules are queued for "
+              f"approval in the Review queue: {pending_ok}", file=sys.stderr)
 
     if failed:
         print(f"\n[prepare] FAILED: {len(failed)} of {len(goldens)} golden cases do not "
@@ -141,9 +158,28 @@ def _goldens_fail(case_rel: str) -> bool:
                   f"{' — ' + d['error'] if d.get('error') else ''}", file=sys.stderr)
         return True
 
-    print(f"[prepare] all {len(goldens)} golden cases pass against "
-          f"{len(rules)} ratified rules")
+    print(f"[prepare] all {len(goldens) - len(pending_ok)} checkable golden cases pass "
+          f"against {len(rules)} ratified rules")
     return False
+
+
+def _golden_topic(g: dict) -> str:
+    """A golden's topic, as the ratify gate reads it (explicit `topic`, else the first
+    word of its name — 'vacation accrual ...' -> 'vacation')."""
+    return (g.get("topic") or str(g.get("name", "")).split(" ")[0]).strip().lower()
+
+
+def _queued_topics(case) -> set[str]:
+    """Topics of the rules waiting in rules_proposed.json. A pending golden may only
+    ship when a queued rule of its topic exists for the owner to approve."""
+    import json
+    path = case.path("proposed_rules") or os.path.join(case.dir, "rules", "rules_proposed.json")
+    if not os.path.exists(path):
+        return set()
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    rules = data.get("rules", data) if isinstance(data, dict) else data
+    return {str(r.get("topic", "")).strip().lower() for r in rules if r.get("topic")}
 
 
 if __name__ == "__main__":
