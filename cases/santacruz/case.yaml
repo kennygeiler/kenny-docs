@@ -156,7 +156,7 @@ golden_cases:
   - name: bereavement leave, Battalion Chief (Local 3535 Art. XIV)
     source: "analyst-derived: Battalion Chief listed in Local 3535 Recognition p.3; 'three (3) shifts paid bereavement leave', Article XIV p.21"
     branch_query: "bereavement leave death immediate family shifts"
-    result_type: days
+    result_type: shifts
     subjects: ["Battalion Chief (56 hr top step)"]
     params: {hours: 0}
     expected_total: 3

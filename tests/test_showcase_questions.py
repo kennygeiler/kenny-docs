@@ -89,6 +89,10 @@ def test_fire_captain_rate_lookup_reads_the_master_salary_schedule(client):
     assert "master_salary_schedule" in {c["doc_id"] for c in res["considered"]}
 
 
+@pytest.mark.skip(reason="integration: data-goldens archived the police roster rows "
+                  "(archive/santacruz_roster_police_sample.csv); every shipped roster "
+                  "classification now has a Master Salary Schedule row, so the "
+                  "'couldn't find' lookup path needs a tmp-case roster fixture (wave 2)")
 def test_lookup_names_the_classification_it_could_not_find(client):
     # The schedule has no row for the unrepresented police sample rows.
     res = _ask(client, "What is the hourly rate for a Police Officer Step A?")
