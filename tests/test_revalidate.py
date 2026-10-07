@@ -27,6 +27,9 @@ GOLDEN = ("What does an 8-hour overtime shift cost for a "
           "Firefighter/Paramedic (56 hr, top step)?")
 OT_RULE = "firefighters_local3535_mou:overtime_premium_rate"
 FIRE = "firefighters_local3535_mou"
+# number of live (ratified) rules shipped in the case; data-goldens added a fifth
+N_LIVE = len(json.load(open(os.path.join(ROOT, "cases", "santacruz", "rules",
+                                         "rules_ratified.json")))["rules"])
 
 
 @pytest.fixture
@@ -80,7 +83,7 @@ def test_iou_and_text_sha():
 def test_shipped_rules_survive_own_catalog(case_copy):
     case, cat, led = _load(case_copy)
     assert _revalidate_citations(case, cat, _all_docs(case), led) == []
-    assert len(case.rules()) == 4
+    assert len(case.rules()) == N_LIVE
     assert "authoring.stale" not in _types(led)
     for r in _raw_ratified(case):
         assert r["status"] == "ratified"
@@ -105,9 +108,9 @@ def test_reingest_identical_extraction_keeps_library(case_copy, monkeypatch):
         time.sleep(0.05)
     assert body["status"] == "done", body
     assert body["result"]["stale_rules"] == []
-    assert body["result"]["rules_rechecked"] == 4
+    assert body["result"]["rules_rechecked"] == N_LIVE
     assert c.get("/admin/proposed").json()["stale_rules"] == []
-    assert c.get("/admin/verification").json()["rule_count"] == 4
+    assert c.get("/admin/verification").json()["rule_count"] == N_LIVE
     assert c.post("/chat", json={"prompt": GOLDEN}).json()["result"]["total"] == 640.8
 
 
@@ -124,10 +127,12 @@ def test_missing_passage_goes_stale(case_copy):
     assert "p.8" in stale[0]["reason"] and "no longer exists" in stale[0]["reason"]
     assert [e["payload"]["rule_id"] for e in led.read()
             if e["type"] == "authoring.stale"] == [OT_RULE]
-    assert len(case.rules()) == 3
+    assert len(case.rules()) == N_LIVE - 1
     res = TestClient(core_app.app).post("/chat", json={"prompt": GOLDEN}).json()
     assert res["mode"] == "blocked", res
-    assert "re-verification" in res["message"]
+    # With the overtime rule stale the doc is either empty ("re-verification") or, since
+    # data-goldens added longevity_10yr, left with a modifier only ("don't cover").
+    assert "re-verification" in res["message"] or "cover" in res["message"], res["message"]
 
 
 def test_jitter_is_not_stale(case_copy):
@@ -138,7 +143,7 @@ def test_jitter_is_not_stale(case_copy):
                 cl["bbox"] = [v + 1.0 for v in cl["bbox"]]
         cat.upsert(entry)
     assert _revalidate_citations(case, cat, _all_docs(case), led) == []
-    assert len(case.rules()) == 4
+    assert len(case.rules()) == N_LIVE
 
 
 def test_text_change_under_bound_quote_is_stale(case_copy):
@@ -176,7 +181,7 @@ def test_moved_box_same_text_rebinds(case_copy):
     rebound = [e for e in led.read() if e["type"] == "authoring.rebound"]
     assert len(rebound) == 1 and rebound[0]["payload"]["rule_id"] == OT_RULE
     assert rebound[0]["payload"]["from"]["bbox"] == cit_before["bbox"]
-    assert len(case.rules()) == 4
+    assert len(case.rules()) == N_LIVE
 
 
 def test_unchanged_pdf_is_skipped(case_copy, monkeypatch):
@@ -249,7 +254,7 @@ def test_backfill_script_is_idempotent_and_minimal(case_copy):
     before = json.load(open(path))
     baks_before = {f for f in os.listdir(os.path.dirname(path)) if f.endswith(".bak")}
     n1 = backfill_quote_sha.run(case_copy)
-    assert n1 == 4
+    assert n1 == N_LIVE
     after = json.load(open(path))
     for b, a in zip(before["rules"], after["rules"]):
         a = copy.deepcopy(a)
