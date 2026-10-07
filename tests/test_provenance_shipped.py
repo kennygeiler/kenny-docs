@@ -41,6 +41,21 @@ def test_every_shipped_doc_is_hashed():
         assert sha == file_sha256(pdf), entry["doc_id"]
 
 
+def test_stamping_doc_sha256_does_not_change_the_rule_for_the_skeptic():
+    """The baked skeptic reviews hash the rule they reviewed; arming the citation's
+    doc_sha256 is bookkeeping, not a rule change (same exclusion as the approval
+    fingerprint in core/provenance.py)."""
+    from core import provenance, skeptic
+    rule = next(r for r in _ratified() if r["id"] == f"{FIRE}:overtime_premium_rate")
+    unbound = json.loads(json.dumps(rule))
+    unbound["citation"].pop("doc_sha256")
+    assert skeptic.rule_sha256(rule) == skeptic.rule_sha256(unbound)
+    assert provenance.rule_fingerprint(rule) == provenance.rule_fingerprint(unbound)
+    changed = json.loads(json.dumps(rule))
+    changed["compute"] = "effective_base * 2 * hours"
+    assert skeptic.rule_sha256(changed) != skeptic.rule_sha256(rule)
+
+
 def test_ratified_citations_are_bound():
     hashes = {d["doc_id"]: d["pdf_sha256"] for d in _catalog()}
     rules = [r for r in _ratified() if r.get("status") == "ratified"]

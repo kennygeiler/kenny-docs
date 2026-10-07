@@ -89,7 +89,13 @@ RULE_HASH_FIELDS = ("id", "kind", "role", "result_type", "pay_basis", "when", "c
 
 
 def rule_sha256(rule: dict) -> str:
-    return _sha({k: rule.get(k) for k in RULE_HASH_FIELDS})
+    d = {k: rule.get(k) for k in RULE_HASH_FIELDS}
+    if isinstance(d.get("citation"), dict):
+        # citation.doc_sha256 is bookkeeping the system stamps after approval (C7), not
+        # the rule's substance — same exclusion as provenance.rule_fingerprint. The
+        # review binds the PDF bytes through its own doc_sha256 inputs.
+        d["citation"] = {k: v for k, v in d["citation"].items() if k != "doc_sha256"}
+    return _sha(d)
 
 
 def _raw_rules(path: str | None) -> list[dict]:
