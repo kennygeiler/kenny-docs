@@ -49,6 +49,27 @@ def test_admin_page_ships_the_tour_resume_hook(client):
     assert "styles.css?v=12" in html
 
 
+def test_no_foreign_legal_pages(client):
+    """DEMO_TICKETS I8: the privacy/terms pages described a different product (a
+    call-screening SMS service). They live in that project now; this app must not
+    serve them, and nothing in core/ or tests/ may reference them."""
+    assert client.get("/privacy").status_code == 404
+    assert client.get("/terms").status_code == 404
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for sub in ("core", "tests"):
+        for dirpath, _dirs, files in os.walk(os.path.join(root, sub)):
+            for f in files:
+                if not f.endswith((".py", ".js", ".html", ".css", ".txt", ".yaml")):
+                    continue
+                with open(os.path.join(dirpath, f), encoding="utf-8") as fh:
+                    text = fh.read().lower()
+                for needle in ("twilio", "a2p", "/privacy", "/terms"):
+                    # this test is the one legitimate mention
+                    if f == "test_tour.py":
+                        continue
+                    assert needle not in text, f"{sub}/{f} still mentions {needle!r}"
+
+
 def test_tour_js_defines_both_step_lists_and_the_handoff(client):
     js = client.get("/static/tour.js").text
     assert "chat: [" in js and "admin: [" in js, "per-page step lists"
