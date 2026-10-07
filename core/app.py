@@ -887,7 +887,8 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                {"adapter": case.manifest.get("data", {}).get("adapter"),
                 "rows": [s.get("name") for s in subjects],
                 "bargaining_units": units, "shift_date": date_iso,
-                "fields": list((subjects[0].keys() if subjects else []))},
+                "fields": list((subjects[0].keys() if subjects else [])),
+                "records": subjects, "data_sha256": audit.data_sha256(case)},
                actor="chat", query_id=qid)
 
     # 3. Hours (B4): the number the question STATES, with roster labels masked so the
@@ -1069,7 +1070,7 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
     for o in ok:
         for li in o["trace_items"]:
             for step in li.trace:
-                if step.kind in ("modifier", "selector-considered", "selector-chosen", "math", "flag"):
+                if step.kind in ("modifier", "selector-considered", "selector-chosen", "math", "flag", "premium"):
                     led.append(f"rule.{step.kind.replace('-', '_')}",
                                {"subject": li.subject, "rule_id": step.rule_id,
                                 "detail": step.detail, "value": step.value,
@@ -1096,11 +1097,18 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                                  "reason": o["reason"], "governing_docs": o["doc_ids"],
                                  "rules": [r.id for r in o["rules_used"]],
                                  "subjects": o["subjects"]} for o in outcomes]}
-    snap = audit.snapshot(case.path("snapshots", "snapshots"), qid, eng_params, rules_used,
-                          result_dict)
-    led.append("answer.snapshot", {"total": total, "snapshot": os.path.basename(snap),
-                                   "partial": bool(uncovered)},
-               actor="engine", query_id=qid)
+    # Schema-2 snapshot bound to the chain (F1). The frozen result is the engine's own
+    # shape over the covered subjects and the rules actually used, so a replay recomputes
+    # it exactly; the uncovered rows and per-unit detail live in the response only.
+    covered_names = {n for o in ok for n in o["subjects"]}
+    covered_subjects = [sd for sd in subjects if str(sd.get("name")) in covered_names]
+    engine_result = {"total": total,
+                     "line_items": [{k: v for k, v in li.items()
+                                     if k not in ("bargaining_unit", "governing_docs")}
+                                    for li in line_items]}
+    audit.record_answer(case, led, qid, eng_params, covered_subjects, rules_used,
+                        engine_result, basis_scope=SHIFT_BASES,
+                        extra={"partial": bool(uncovered)})
 
     result_dict = _enrich_citations(cat, result_dict)
     chosen_docs = []
@@ -1715,9 +1723,10 @@ def _gate_verdict(case, selected: list[dict], approver: str, led=None,
                         **({"attempt": attempt} if attempt else {}), **extra},
                        actor="admin")
         return {"approved": False, "response": {"ratified": [], **response},
-                "proved_by": {}, "checks": checks}
+                "proved_by": {}, "checks": checks, "ledger_checks": ledger_checks}
 
     checks: list[dict] = []
+    ledger_checks: list[tuple[int | None, dict]] = []   # (golden_check seq, detail) for F2
     before_st, proved_before = _coverage(case, _live_dicts(case))
     before = {n: d.get("status") for n, d in before_st.items()}
     candidate = _with_live(case, selected)
@@ -1730,7 +1739,8 @@ def _gate_verdict(case, selected: list[dict], approver: str, led=None,
         ok = status in ("pass", "pending")
         checks.append(detail)
         if led is not None:
-            led.append("authoring.golden_check", {"passed": ok, **detail}, actor="admin")
+            gev = led.append("authoring.golden_check", {"passed": ok, **detail}, actor="admin")
+            ledger_checks.append((gev["seq"], detail))
         was = before.get(name)
         # R1: a wrong number where there was a right one, or none.
         if status == "fail" and was != "fail":
@@ -1782,7 +1792,8 @@ def _gate_verdict(case, selected: list[dict], approver: str, led=None,
                                     "answer that uses it, or untick it."},
                       uncovered=uncovered, orphaned=orphaned)
     return {"approved": True, "response": None,
-            "proved_by": {i: proved_after[i] for i in sel_ids}, "checks": checks}
+            "proved_by": {i: proved_after[i] for i in sel_ids}, "checks": checks,
+            "ledger_checks": ledger_checks}
 
 
 def _extraction_stats(entry: dict) -> dict:
@@ -2155,7 +2166,10 @@ async def admin_ratify(request: Request):
     sufficient.
     """
     body = await request.json()
-    approver = body.get("approver", "admin")
+    approver = (body.get("approver") or "").strip()
+    if not approver:  # F2: a record of who approved must name someone
+        return {"ratified": [], "warning": "Nothing was approved — enter the approver's "
+                "name first. The approval record names the person who made it."}
     approved_ids = body.get("rule_ids")  # None -> approve all
     case = _case()
     led = case.ledger()
@@ -2193,6 +2207,7 @@ async def admin_ratify(request: Request):
     if not verdict["approved"]:
         return verdict["response"]
     proved_by = verdict["proved_by"]
+    checks = verdict["ledger_checks"]   # (golden_check seq, detail) — cited by F2 approvals
 
     import time
     newly = []
@@ -2215,12 +2230,12 @@ async def admin_ratify(request: Request):
         merged[r["id"]] = r
     library = list(merged.values())
 
-    for r in newly:
-        led.append("authoring.ratify",
-                   {"rule_id": r.get("id"), "approver": approver,
-                    # which known answer(s) this rule fired in and reproduced — the
-                    # evidence the approval rests on, recorded with it
-                    "proved_by": proved_by.get(r.get("id"), [])}, actor="admin")
+    # Full approval record: rule text + fingerprint, clause, source hash, known answers
+    # (F2) plus the gate's proved_by (E1). Appended first, then approval:{seq, hash} is
+    # stamped on the library entry.
+    approvals.record_approvals(case, led, newly, approver, checks,
+                               extra_by_rule={r.get("id"): {"proved_by": proved_by.get(r.get("id"), [])}
+                                              for r in newly})
     _write_ratified(case, library)
     return {"ratified": [r.get("id") for r in newly],
             "library_size": len(library),
@@ -2230,8 +2245,11 @@ async def admin_ratify(request: Request):
 @app.get("/admin/ledger")
 def admin_ledger():
     led = _case().ledger()
-    ok, msg = led.verify()
-    return {"verified": ok, "verify_message": msg, "events": list(led.read())}
+    d = led.verify_detail()
+    events = list(led.read()) if d["reason"] != "unreadable_line" else []
+    return {"verified": d["ok"], "verify_message": d["message"], "events": events,
+            "count": len(events), "head": led.head() if events else None,
+            "keyed": d["keyed"], "failed_seq": d["failed_seq"], "reason": d["reason"]}
 
 
 @app.get("/admin/ledger/export")
@@ -2442,3 +2460,45 @@ def admin_mutation_report():
         survivors.extend({"rule_id": out["rule_id"], "label": s} for s in out["survivors"])
     return {"total": sum(r["total"] for r in rules), "caught": sum(r["caught"] for r in rules),
             "survivors": survivors, "rules": rules}
+
+
+# --- ledger --------------------------------------------------------------- #
+# DEMO_TICKETS.md F1/F2/F3: replay an answer from its frozen inputs, read who approved
+# which rule text, and break the chain on a scratch copy. Nothing here writes to the
+# ledger or the rule file.
+from . import approvals, tamper_demo  # noqa: E402  (end-of-file block, see ownership plan)
+
+_QID_RE = re.compile(r"^[A-Za-z0-9_-]{6,64}$")
+
+
+@app.get("/chat/replay/{query_id}")
+def chat_replay(query_id: str):
+    """Recompute a costing answer from its snapshot and compare hashes. Read-only; the
+    snapshot file name is taken from the ledger event, never from the URL."""
+    if not _QID_RE.match(query_id):
+        return JSONResponse({"status": "not_replayable", "query_id": query_id,
+                             "reason": "malformed query id"}, status_code=400)
+    case = _case()
+    return audit.replay(case, case.ledger(), query_id)
+
+
+@app.get("/admin/approvals")
+def admin_approvals():
+    """Per live rule: the newest full approval event and whether the live text still
+    matches the fingerprint that was approved."""
+    case = _case()
+    return {"approvals": approvals.report(case, case.ledger(), _raw_ratified(case))}
+
+
+@app.get("/admin/ledger/tamper-demo")
+def admin_ledger_tamper_demo(mode: str = "edit", seq: int | None = None,
+                             field: str | None = None, value: str | None = None,
+                             preset: str | None = None):
+    """Tamper with one event in a COPY of the ledger and report which entry fails and
+    why. GET because nothing durable changes: the copy is deleted before returning."""
+    led = _case().ledger()
+    try:
+        return tamper_demo.run(led.path, mode=mode, seq=seq, field=field, value=value,
+                               preset=preset)
+    except tamper_demo.TamperDemoError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
