@@ -232,8 +232,9 @@ authority); scenario-scoped drafting and verification; human approval as a regre
 tamper-evident ledger with export; deployable behind two-role auth with a rate limit.
 
 **Runs on a deterministic fallback where the model is absent** — proving the model is not
-load-bearing. **Uses hand-seeded known answers and a synthetic sample corpus** for demonstration;
-production replaces both with the customer's real contracts and payroll.
+load-bearing. **Uses analyst-derived known answers over a real, public corpus** (the Central Fire
+District's published MOUs, OCR'd, and its salary schedule) for demonstration; production replaces
+the analyst's figures with the customer's payroll.
 
 **Designed, not built:** payroll-export import with per-paycheck reconciliation (§7); an in-product
 form to create a scenario without editing config; conversational resolution of missing parameters;
@@ -259,8 +260,8 @@ move.**
 ## 12. Guided test path (live demo, current corpus)
 
 The deployed instance serves the **real published labor corpus of the Central Fire District of
-Santa Cruz County** — four MOUs (all arrived as scans; OCR'd) and the master salary schedule. One
-login opens both surfaces. A reviewer can verify every claim in this document in ten minutes:
+Santa Cruz County** — four MOUs (all arrived as scans; OCR'd) and the master salary schedule. No
+sign-in: both surfaces are open. A reviewer can verify every claim in this document in ten minutes:
 
 1. **Ask the pre-filled question** — *"Cost an 8-hour overtime shift for a Firefighter/Paramedic
    (56 hr, top step)"* → **$640.80**, computed by the deterministic engine from an approved rule
@@ -271,10 +272,10 @@ login opens both surfaces. A reviewer can verify every claim in this document in
    performed, which were deterministic.
 3. **Ask an entitlement** — *"How much bereavement leave does a firefighter get?"* → the
    contract's own words: *three (3) shifts* (Article XIV).
-4. **Admin → Verification** — two known answers, both green, each naming its analyst-derived
-   source. **Rule library** — the two approved rules, each citing its clause, plus what was
-   *declined* (the drafted FLSA 182-hour cycle rules were reviewed and not approved — a
-   different pay branch).
+4. **Admin → Verification** — six known answers, all green, each naming its analyst-derived
+   source and the rules that fired. **Rule library** — the five live rules, each citing its
+   clause and approver, plus what was *declined* (the drafted FLSA 182-hour cycle rules were
+   reviewed and not approved — a different pay branch) and the two skeptic reviews.
 5. **Ask something unanswerable** — a costing question for a unit with no approved rules →
    Kenny **refuses with a reason** rather than guessing.
 6. **Audit** — every step of everything above, in the tamper-evident ledger.
