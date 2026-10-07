@@ -4,9 +4,9 @@
 [`STATUS.md`](STATUS.md).** Open backlog: [`DEMO_TICKETS.md`](DEMO_TICKETS.md).
 
 **Live link: <https://kenny-production.up.railway.app>** — no sign-in; chat at `/`, ops at
-`/admin`. **It runs the August 2026 build, not this one** (see STATUS.md for the redeploy
-commands). The 2026-10-07 demo runs from a laptop on the `demo-2026-10-07` branch; the
-footer of every page shows the commit it is running (`build <sha>`).
+`/admin`. Since 2026-10-07 it runs this branch (`demo-2026-10-07`, deployed from commit
+`2802ad9` with the model on); the footer of every page shows the commit it is running
+(`build <sha>`). Demo walkthrough and talking points: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md).
 
 Kenny answers HR costing and policy questions directly from contract PDFs — with
 **deterministic math**, **clause-level bounding-box citations**, a **human approval
