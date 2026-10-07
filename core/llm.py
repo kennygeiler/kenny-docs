@@ -472,7 +472,11 @@ def _normalize_intent(out: dict, subjects: list[dict], prompt: str = "") -> dict
     # stub can only echo the prompt, but the model path could invent. Any numeric param
     # absent from the prompt is stripped and reported for a clarifying question.
     if out.get("source") == "claude" and prompt:
-        stated = {float(n) for n in re.findall(r"\d+(?:\.\d+)?", prompt)}
+        # B4: 'stated' is the set of HOUR candidates the question contains with roster
+        # labels masked — not every number in the prompt. The '56' in '(56 hr, top
+        # step)' is a label, and a model that returns hours=56 is wrong, not verified.
+        from .costing import extract_hours
+        stated = set(extract_hours(prompt, list(labels))["candidates"])
         unverified: dict[str, float] = {}
         try:
             h = float(out.get("hours") or 0.0)

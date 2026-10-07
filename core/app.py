@@ -27,6 +27,7 @@ from .engine import NoRuleApplies, calculate
 from .pdfview import page_dims, render_page_with_bbox
 from .retriever import CatalogLLMRetriever
 from .ruledsl import SHIFT_BASES, Rule, load_rules, validate_rules
+from . import costing  # costing-correctness (B1, B2, B4)
 
 def _load_dotenv() -> None:
     """Load the repo's .env at startup so the server works with a plain `uvicorn`
@@ -642,20 +643,33 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
     led.append("chat.prompt", {"text": prompt, "department": department,
                                "doc_id": forced_doc, "continues": continues},
                actor="chat", query_id=qid)
-    if not forced_doc:
-        # Router: costing vs policy Q&A. Both return an answer WITH clickable proof.
-        intent = llm.classify_intent(prompt)
-        led.append("intent.classify", {"intent": intent}, actor="chat", query_id=qid)
-        if intent == "policy":
-            return _policy_answer(case, led, qid, prompt, department)
-        if intent == "lookup":
-            return _policy_answer(case, led, qid, prompt, department, lookup=True)
-        if intent == "entitlement":
-            return _entitlement_answer(case, led, qid, prompt, department)
+    if forced_doc:
+        # B2: a caller-supplied document never replaces governance on the costing path.
+        # The question is still recorded (chat.prompt above) and still routed — it just
+        # cannot pick its own contract.
+        led.append("costing.doc_id_ignored", {"doc_id": forced_doc,
+                   "reason": "documents are chosen by governance per bargaining unit"},
+                   actor="chat", query_id=qid)
+    # Router: costing vs policy Q&A. Both return an answer WITH clickable proof.
+    intent = llm.classify_intent(prompt)
+    led.append("intent.classify", {"intent": intent}, actor="chat", query_id=qid)
+    if intent == "policy":
+        return _policy_answer(case, led, qid, prompt, department)
+    if intent == "lookup":
+        return _policy_answer(case, led, qid, prompt, department, lookup=True)
+    if intent == "entitlement":
+        return _entitlement_answer(case, led, qid, prompt, department)
+
+    # --- costing-correctness (B1, B2, B4) --------------------------------------- #
+    # A clarifying answer comes back as {prompt, query_id, clarified: {<field>: value}}.
+    # Only the field the server asked for is read, and only a value it can verify.
+    clarified = body.get("clarified") if isinstance(body.get("clarified"), dict) else {}
+    extraction_cfg = _extraction(case)
 
     # 1. Parse intent (LLM translation layer, with deterministic fallback).
     subjects_all = case.subjects()
-    params = llm.parse_intent(prompt, _extraction(case), subjects_all)
+    labels_all = [str(s.get("name", "")) for s in subjects_all]
+    params = llm.parse_intent(prompt, extraction_cfg, subjects_all)
     led.append("llm.parse_intent", params, actor="chat", query_id=qid)
 
     # A model-extracted number the question doesn't contain never reaches the engine
@@ -674,9 +688,14 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
     #    who it is for (TICKETS.md B4) — silently costing the entire roster turned a
     #    vague question into one large confident total.
     named = set(params.get("subjects") or [])
+    chosen_subject = clarified.get("subject")
+    if chosen_subject in labels_all:
+        named = {chosen_subject}
+        params["subjects"] = [chosen_subject]
     subjects = [s for s in subjects_all if s.get("name") in named]
+    asks_everyone = bool(_ASKS_EVERYONE_RE.search(prompt))
     if not subjects:
-        if _ASKS_EVERYONE_RE.search(prompt):
+        if asks_everyone:
             subjects = subjects_all
         else:
             led.append("costing.clarify", {"reason": "no subject named"},
@@ -684,10 +703,26 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
             examples = ", ".join(str(s.get("name")) for s in subjects_all[:3])
             return _clarify(qid, prompt,
                             "Who is this for? Name a classification (e.g. "
-                            f"{examples}) — or say 'all classifications' to cost the "
-                            "whole roster.")
+                            f"{examples}).")
+    # B4: a description that matches several classifications is a question, not a sum —
+    # unless a label was typed verbatim or the question asked for a group.
+    if len(subjects) > 1 and not asks_everyone and not chosen_subject:
+        pl = prompt.lower()
+        verbatim = any(str(s.get("name", "")).lower() in pl for s in subjects)
+        ranks = {str(s.get("rank", "")).lower() for s in subjects if s.get("rank")}
+        plural = any(re.search(rf"\b{re.escape(r)}s\b", pl) for r in ranks if r)
+        if not verbatim and not plural:
+            opts = [str(s.get("name")) for s in subjects]
+            led.append("costing.clarify", {"reason": "several classifications match",
+                                           "options": opts},
+                       actor="chat", query_id=qid)
+            res = _clarify(qid, prompt, "Which classification? That description matches "
+                           f"{len(opts)} rows on the roster.", opts)
+            res["field"] = "subject"
+            return res
     units = sorted({s.get("bargaining_unit") for s in subjects if s.get("bargaining_unit")})
     date_iso = governance.parse_date(params.get("date"), default_year=DEFAULT_YEAR)
+    year_stated = bool(re.search(r"\b(19|20)\d{2}\b", str(params.get("date") or "")))
     led.append("data.read",
                {"adapter": case.manifest.get("data", {}).get("adapter"),
                 "rows": [s.get("name") for s in subjects],
@@ -695,142 +730,228 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                 "fields": list((subjects[0].keys() if subjects else []))},
                actor="chat", query_id=qid)
 
-    # 3. Resolve the governing document(s). PRIMARY path = deterministic governance
-    #    (unit + date -> MOU). FALLBACK = LLM retrieval when governance can't resolve.
-    sources = case.manifest.get("sources", [])
-    routing_path = None
-    if forced_doc:
-        chosen_docs = [forced_doc]
-        routing_path = "user-confirmed"
-        led.append("retrieval.select", {"chosen": forced_doc, "confirmed_by_user": True},
+    # 3. Hours (B4): the number the question STATES, with roster labels masked so the
+    #    '56' in '(56 hr, top step)' is never a shift length. One clean candidate goes
+    #    to the engine; anything else is asked about, never guessed.
+    hx = costing.extract_hours(prompt, labels_all)
+    cands = hx["candidates"]
+    hours_max = costing.hours_limit(extraction_cfg)
+    hours = None
+    picked = clarified.get("hours")
+    if picked is not None:
+        try:
+            pv = float(picked)
+        except (TypeError, ValueError):
+            pv = None
+        if pv is not None and pv in cands and 0 < pv <= hours_max:
+            hours = pv
+    if hours is None and len(cands) == 1 and not hx["invalid"] and 0 < cands[0] <= hours_max:
+        hours = cands[0]
+    if hours is None:
+        if not cands and not hx["invalid"]:
+            led.append("costing.clarify", {"reason": "no hours stated"},
+                       actor="chat", query_id=qid)
+            res = _clarify(qid, prompt, "How many hours? The question doesn't state the "
+                           "length of the shift.")
+            res["field"] = "hours"
+            return res
+        valid = [c for c in cands if 0 < c <= hours_max]
+        led.append("costing.clarify",
+                   {"reason": "hours ambiguous", "candidates": cands,
+                    "invalid": hx["invalid"], "max": hours_max},
                    actor="chat", query_id=qid)
-    else:
-        gov = governance.resolve(units, date_iso, sources)
-        led.append("governance.resolve",
-                   {"units": gov.units, "date": gov.date, "resolved": gov.resolved,
-                    "matched": gov.matched, "reason": gov.reason},
-                   actor="chat", query_id=qid)
-        if gov.resolved:
-            chosen_docs = gov.doc_ids
-            routing_path = "governance"
+        if valid:
+            q = ("Which of these is the length of the shift? I read "
+                 + ", ".join(f"{c:g} hours" for c in cands)
+                 + (f" (and could not read: {', '.join(hx['invalid'])})" if hx["invalid"] else "")
+                 + ".")
         else:
-            routing = _retriever().route(prompt, cat, _backend(case))
-            led.append("retrieval.shortlist",
-                       {"candidates": routing.candidates, "reason": routing.reason},
-                       actor="chat", query_id=qid)
-            if routing.needs_confirmation:
-                led.append("retrieval.confirm",
-                           {"candidates": routing.candidates, "reason": routing.reason},
-                           actor="chat", query_id=qid)
-                options = [
-                    {"doc_id": c["doc_id"],
-                     "title": (cat.get(c["doc_id"]) or {}).get("title", c["doc_id"]),
-                     "score": c.get("score")}
-                    for c in routing.candidates
-                ]
-                return {"query_id": qid, "needs_confirmation": True,
-                        "reason": routing.reason, "options": options,
-                        "message": "I couldn't determine the governing document from the "
-                                   "employees' bargaining unit. Which document should I use?"}
-            chosen_docs = [routing.chosen_doc_id]
-            routing_path = "retrieval-fallback"
-            led.append("retrieval.select",
-                       {"chosen": routing.chosen_doc_id,
-                        "within_doc_matches": routing.within_doc_matches},
-                       actor="chat", query_id=qid)
+            q = ("How many hours? I could not read a usable shift length from the "
+                 "question" + (f" ({', '.join(hx['invalid'])})" if hx["invalid"] else "")
+                 + (f"; the longest shift I will cost is {hours_max:g} hours" if cands else "")
+                 + ".")
+        res = _clarify(qid, prompt, q, [f"{c:g}" for c in valid])
+        res["field"] = "hours"
+        return res
+    params["hours"] = hours
 
-    chosen = ", ".join(chosen_docs)
+    # 4. Pay type (B1): which branch of pay the question asks for — read from the case's
+    #    lexicon, never from the model. Nothing asked -> ask, listing what is approved.
+    lexicon = costing.pay_type_lexicon(extraction_cfg)
+    pt = costing.detect_pay_type(prompt, lexicon)
+    asked = list(pt["asked"])
+    if clarified.get("pay_type") in lexicon:
+        asked = [clarified["pay_type"]]
+    approved_all = costing.base_topics([r for r in case.rules()
+                                        if r.citation.doc_id in {
+                                            s.get("id") for s in case.manifest.get("sources", [])
+                                            if s.get("bargaining_unit") in units}])
+    if not asked:
+        led.append("costing.clarify", {"reason": "pay type not stated",
+                                       "approved_topics": approved_all,
+                                       "negated": pt["negated"]},
+                   actor="chat", query_id=qid)
+        res = _clarify(qid, prompt, "Which kind of pay? Approved for this unit: "
+                       + (", ".join(approved_all) or "none yet") + ".", approved_all)
+        res["field"] = "pay_type"
+        return res
+    pay_type = asked[0] if len(asked) == 1 else "+".join(asked)
+    params["pay_type"] = pay_type
+    interp = costing.interpretation(
+        hours, pay_type, [str(s.get("name")) for s in subjects], date_iso, year_stated,
+        str(params.get("source") or "stub"),
+        checks=[{"field": "hours", "deterministic": hours,
+                 "model": params.get("hours") if params.get("source") == "claude" else None,
+                 "agree": True},
+                {"field": "pay_type", "deterministic": pay_type, "model": None, "agree": True}])
+    led.append("chat.interpretation", interp, actor="chat", query_id=qid)
 
-    # 4. Deterministic engine — rules from the governing document(s) only.
-    rules = [r for r in case.rules()
-             if (not r.citation.doc_id) or (r.citation.doc_id in chosen_docs)]
-    # Costing answers a MONEY question: only currency rules compete. Leave/deadline
-    # rules live in the same library and are answered by the entitlement handler.
-    rules = [r for r in rules if r.result_type == "currency"]
-    # An amendment replaces clauses of its base MOU. Without this, both the base rule
-    # and the amending rule load and STACK (see governance.apply_supersession).
-    rules, dropped = governance.apply_supersession(
-        rules, case.manifest.get("sources", []), chosen_docs)
-    if dropped:
-        led.append("governance.supersession", {"dropped": dropped},
-                   actor="engine", query_id=qid)
-    if not rules:
-        # No human-ratified rules for this document yet — never guess a number. If rules
-        # exist but were marked STALE (their cited evidence changed on re-ingest), say
-        # that: the fix is re-verification, not authoring from scratch.
-        stale = [r.get("id") for r in _raw_ratified(case)
-                 if r.get("status") == "stale"
-                 and (r.get("citation") or {}).get("doc_id") in chosen_docs]
-        led.append("costing.blocked",
-                   {"reason": "rules pending re-verification" if stale
-                    else "no ratified rules", "doc": chosen_docs, "stale": stale},
-                   actor="engine", query_id=qid)
-        if stale:
-            return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
-                    "chosen_doc": chosen, "message":
-                        f"I can't cost this right now: the rules for **{chosen}** are "
-                        f"pending re-verification ({len(stale)} rule(s) were marked "
-                        "stale because their source document changed since they were "
-                        "ratified). Re-verify them in Admin → Rule review before "
-                        "costing resumes."}
-        return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
-                "chosen_doc": chosen, "message":
-                    f"I can't cost this yet: **{chosen}** has no human-ratified rules. "
-                    "Policy questions still work (I can quote the document). To enable "
-                    "costing, go to Admin → Ingest, review the drafted rules, and "
-                    "approve them — nothing computes until a human ratifies it."}
-    problems = _doc_integrity(case, cat, chosen_docs, rules)
-    if problems:
-        led.append("costing.blocked", {"reason": "provenance mismatch",
-                                       "problems": problems},
-                   actor="engine", query_id=qid)
-        return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
-                "chosen_doc": chosen, "message":
-                    "I can't cost this: the source documents no longer match what the "
-                    "rules were ratified against. Re-ingest and re-verify before "
-                    "answering. Details: " + "; ".join(problems)}
-    eng_params = {"hours": params.get("hours", 0.0),
+    # 5. Per-unit governance + engine (B2). Each bargaining unit resolves to ITS contract
+    #    and ITS ratified rules; an uncovered unit gets a reason, never another unit's rule.
+    eng_params = {"hours": hours,
                   "date": params.get("date", ""),
                   "date_iso": date_iso or "",
-                  "holiday_weekday": params.get("holiday_weekday", "")}
+                  "holiday_weekday": params.get("holiday_weekday", ""),
+                  "pay_type": pay_type}
     eng_params.update(queryfacts.engine_extras(case, params))  # J1a: years_of_service etc.
-    try:
-        # A shift-cost question includes hourly and per-shift pay only — never a year of
-        # benefits. Annual/monthly/per-period terms are the wrong unit for "what does this
-        # shift cost?" and are filtered out (they answer a different question).
-        result = calculate(eng_params, subjects, rules, case.rounding_places(),
-                           basis_scope=SHIFT_BASES)
-    except ValueError as e:
-        led.append("costing.blocked", {"reason": str(e), "doc": chosen_docs},
+    outcomes = costing.cost_by_unit(case, cat, led, qid, subjects, eng_params, date_iso,
+                                    asked, _doc_integrity, _raw_ratified)
+    ok = [o for o in outcomes if o["status"] == "ok"]
+    refused = [o for o in outcomes if o["status"] != "ok"]
+    uncovered = [{"subject": n, "bargaining_unit": o["bargaining_unit"],
+                  "status": o["status"], "reason": o["reason"],
+                  "governing_docs": o["doc_ids"], "approved_topics": o["approved_topics"]}
+                 for o in refused for n in o["subjects"]]
+    for o in refused:
+        led.append("costing.uncovered",
+                   {"bargaining_unit": o["bargaining_unit"], "subjects": o["subjects"],
+                    "status": o["status"], "reason": o["reason"], "doc": o["doc_ids"],
+                    "stale": o["stale"], "approved_topics": o["approved_topics"]},
                    actor="engine", query_id=qid)
-        return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
-                "chosen_doc": chosen, "message":
-                    f"The ratified rules for **{chosen}** don't cover this scenario "
-                    f"({e}). Approve the rules that do in Admin → Rule review, or ask a "
-                    "policy question — I can still quote the document."}
 
-    # 5. Ledger: decision logic + math + citations, straight from the engine trace.
-    for li in result.line_items:
-        for step in li.trace:
-            if step.kind in ("modifier", "selector-considered", "selector-chosen", "math", "flag"):
-                led.append(f"rule.{step.kind.replace('-', '_')}",
-                           {"subject": li.subject, "rule_id": step.rule_id,
-                            "detail": step.detail, "value": step.value},
-                           actor="engine", query_id=qid)
-        for c in li.citations:
-            led.append("citation", {"subject": li.subject, **c},
+    if not ok:
+        gov_docs = sorted({d for o in refused for d in o["doc_ids"]})
+        chosen = ", ".join(gov_docs)
+        statuses = {o["status"] for o in refused}
+        if statuses & {"no_rule_for_pay_type", "no_rule_for_scenario"}:
+            # B1: the unit has approved rules, just not for THIS branch of pay. Refuse
+            # with the reason, what IS approved, and the closest clause — labelled as
+            # text, not as an answer. No snapshot: nothing was computed.
+            approved = sorted({t for o in refused for t in o["approved_topics"]})
+            reason = "; ".join(o["reason"] for o in refused)
+            nearest = _nearest_clauses(case, cat, prompt, gov_docs)
+            # The clause(s) that ARE approved for the unit, as chips that open the page:
+            # the visitor sees what the unit's rulebook covers instead of this question.
+            approved_clauses = []
+            for o in refused:
+                for ar in o.get("approved_rules", []):
+                    c = ar["citation"]
+                    approved_clauses.append({**_doc_meta(case, c.get("doc_id", "")),
+                                             "rule_id": ar["rule_id"], "topic": ar["topic"],
+                                             "clause": c.get("clause", ""),
+                                             "page": c.get("page", 0), "bbox": c.get("bbox", []),
+                                             "text": ar["human_readable"]})
+            led.append("costing.refused",
+                       {"asked": asked, "approved_topics": approved, "units": units,
+                        "reason": reason, "doc": gov_docs,
+                        "nearest": [{"doc_id": n["doc_id"], "page": n["page"]} for n in nearest]},
                        actor="engine", query_id=qid)
+            return {"query_id": qid, "needs_confirmation": False, "mode": "refused",
+                    "chosen_doc": chosen, "bargaining_units": units, "shift_date": date_iso,
+                    "asked": asked, "approved_topics": approved, "reason": reason,
+                    "message": ("I can't compute that: " + reason + ". "
+                                "The closest clause is shown below as text — it is not a "
+                                "computed answer."),
+                    "nearest": nearest, "nearest_label": "closest text — not a computed answer",
+                    "approved_clauses": approved_clauses,
+                    "uncovered": uncovered, "interpretation": interp, "params": params}
+        # No unit could be costed for a structural reason (no contract, no rules, stale,
+        # provenance). Single unit keeps the long-standing message; several list each.
+        o = refused[0]
+        led.append("costing.blocked",
+                   {"reason": {"no_contract": "no governing contract",
+                               "stale": "rules pending re-verification",
+                               "no_rules": "no ratified rules",
+                               "integrity": "provenance mismatch"}.get(o["status"], o["status"]),
+                    "doc": gov_docs, "stale": [s for r in refused for s in r["stale"]],
+                    "units": units, "per_unit": [{"bargaining_unit": r["bargaining_unit"],
+                                                  "status": r["status"], "reason": r["reason"]}
+                                                 for r in refused]},
+                   actor="engine", query_id=qid)
+        if len(refused) == 1:
+            if o["status"] == "no_contract":
+                message = (o["reason"] + ". I only cost a classification under a contract "
+                           "that governs its bargaining unit on the shift date.")
+            elif o["status"] == "stale":
+                message = (f"I can't cost this right now: the rules for **{chosen}** are "
+                           f"pending re-verification ({len(o['stale'])} rule(s) were marked "
+                           "stale because their source document changed since they were "
+                           "ratified). Re-verify them in Admin → Rule review before "
+                           "costing resumes.")
+            elif o["status"] == "integrity":
+                message = ("I can't cost this: the source documents no longer match what the "
+                           "rules were ratified against. Re-ingest and re-verify before "
+                           "answering. Details: " + o["reason"])
+            else:
+                message = (f"I can't cost this yet: **{chosen}** has no human-ratified rules. "
+                           "Policy questions still work (I can quote the document). To enable "
+                           "costing, go to Admin → Ingest, review the drafted rules, and "
+                           "approve them — nothing computes until a human ratifies it.")
+        else:
+            message = ("I can't cost any of these: " + "; ".join(
+                f"{', '.join(r['subjects'])}: {r['reason']}" for r in refused) + ".")
+        return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
+                "chosen_doc": chosen, "bargaining_units": units, "shift_date": date_iso,
+                "message": message, "uncovered": uncovered, "interpretation": interp}
 
-    # 6. Snapshot + answer.
-    snap = audit.snapshot(case.path("snapshots", "snapshots"), qid, eng_params, rules,
-                          result.to_dict())
-    led.append("answer.snapshot", {"total": result.total, "snapshot": os.path.basename(snap)},
+    # 6. Ledger: decision logic + math + citations, straight from the engine trace.
+    #    (rule.* and citation payloads keep their shape; bargaining_unit is added.)
+    for o in ok:
+        for li in o["trace_items"]:
+            for step in li.trace:
+                if step.kind in ("modifier", "selector-considered", "selector-chosen", "math", "flag"):
+                    led.append(f"rule.{step.kind.replace('-', '_')}",
+                               {"subject": li.subject, "rule_id": step.rule_id,
+                                "detail": step.detail, "value": step.value,
+                                "bargaining_unit": o["bargaining_unit"]},
+                               actor="engine", query_id=qid)
+            for c in li.citations:
+                led.append("citation", {"subject": li.subject, **c},
+                           actor="engine", query_id=qid)
+
+    # 7. Snapshot + answer. Covered lines only; the uncovered rows ride alongside with
+    #    their reasons, and the total is the sum of what was actually computed.
+    line_items = [li for o in ok for li in o["line_items"]]
+    total = costing.sum_lines(line_items, case.rounding_places())
+    rules_used: list = []
+    seen_rule_ids: set[str] = set()
+    for o in ok:
+        for r in o["rules_used"]:
+            if r.id not in seen_rule_ids:
+                seen_rule_ids.add(r.id)
+                rules_used.append(r)
+    result_dict = {"total": total, "line_items": line_items, "uncovered": uncovered,
+                   "partial": bool(uncovered),
+                   "per_unit": [{"bargaining_unit": o["bargaining_unit"], "status": o["status"],
+                                 "reason": o["reason"], "governing_docs": o["doc_ids"],
+                                 "rules": [r.id for r in o["rules_used"]],
+                                 "subjects": o["subjects"]} for o in outcomes]}
+    snap = audit.snapshot(case.path("snapshots", "snapshots"), qid, eng_params, rules_used,
+                          result_dict)
+    led.append("answer.snapshot", {"total": total, "snapshot": os.path.basename(snap),
+                                   "partial": bool(uncovered)},
                actor="engine", query_id=qid)
 
-    result_dict = _enrich_citations(_catalog(case), result.to_dict())
+    result_dict = _enrich_citations(cat, result_dict)
+    chosen_docs = []
+    for o in ok:
+        for d in o["doc_ids"]:
+            if d not in chosen_docs:
+                chosen_docs.append(d)
     return {"query_id": qid, "needs_confirmation": False, "mode": "costing",
-            "chosen_doc": chosen, "routing_path": routing_path, "bargaining_units": units,
-            "shift_date": date_iso, "params": params, "result": result_dict}
+            "chosen_doc": ", ".join(chosen_docs), "routing_path": "governance",
+            "bargaining_units": units, "shift_date": date_iso, "params": params,
+            "partial": bool(uncovered), "interpretation": interp, "result": result_dict}
 
 
 @app.get("/chat/audit/{query_id}")
@@ -1911,3 +2032,29 @@ def _cited_rule_count(case, doc_id: str) -> int:
 # case/backend/catalog factories the request path uses, registered here so the warm
 # module never imports this one.
 warm.configure(case=_case, backend=_backend, catalog=_catalog)
+
+
+# --- costing-correctness ----------------------------------------------------- #
+def _nearest_clauses(case, cat, prompt: str, doc_ids: list[str], k: int = 2) -> list[dict]:
+    """The closest passages in the governing document(s) to a refused costing question
+    (B1). Shown as TEXT next to the refusal, never as an answer. An empty scope or a
+    missing index yields [] rather than a search over other units' contracts."""
+    if not doc_ids:
+        return []
+    # Search on the question MINUS its roster labels and parentheticals: 'Firefighter/
+    # Paramedic (56 hr, top step)' would otherwise outscore the pay clause being asked
+    # about. 'pay' and 'rate' anchor the query to the compensation articles.
+    labels = [str(s.get("name", "")) for s in case.subjects()]
+    query = re.sub(r"\s+", " ", costing.mask_labels(prompt, labels)).strip()
+    query = f"{query} pay rate".strip()
+    try:
+        hits = _backend(case).search(query, doc_ids=doc_ids, k=k)
+    except Exception:
+        return []
+    out = []
+    for h in hits[:k]:
+        try:
+            out.append(_source_entry(case, cat, h))
+        except Exception:
+            continue
+    return out
