@@ -99,7 +99,10 @@ def llm_mode() -> str:
 # --------------------------------------------------------------------------- #
 # classify_intent — is this a costing question or a policy question?
 # --------------------------------------------------------------------------- #
-_COST_CUES = ("cost", "calculate", "how much", "total ", "pay for", "what will it",
+# "pay for" is NOT a cue: "What is the callback PAY FOR firefighters?" is a policy
+# question, and the cue routed it to costing, which asked back for hours. An actual
+# ask to compute ("overtime pay for 8 hours") is caught by _COMPUTE_RE instead.
+_COST_CUES = ("cost", "calculate", "how much", "total ", "what will it",
               "price", "budget", "dollar")
 # Strong cues force a 'policy' classification regardless of cost words in the prompt.
 _POLICY_STRONG = ("eligible", "what does", "say about", "allowed", "explain", "define",
@@ -167,20 +170,22 @@ def classify_intent(prompt: str) -> str:
     _note("classify_intent", "fallback", rule="keyword router")
     p = prompt.lower()
     # Order matters, and it is not the order the cue lists suggest:
-    #   1. entitlement — "how many days" is never a rate and never a cost.
-    #   2. lookup      — mentions rates and dollars, so it must be tested before the cost
-    #                    cues claim it.
-    #   3. an explicit ASK TO COMPUTE outranks the policy phrasing wrapped around it.
+    #   1. an explicit ASK TO COMPUTE outranks every phrasing wrapped around it.
     #      "What does an 8-hour holiday shift cost?" opens with "what does", a _POLICY_
     #      STRONG cue, and was routed to policy — so with no API key the clearest costing
     #      question in the corpus never reached the engine. The verb governs, not the
-    #      preamble.
-    if _ENTITLEMENT_RE.search(p):
-        return "entitlement"
-    if _LOOKUP_RE.search(p) and not _COMPUTE_RE.search(p):
-        return "lookup"
+    #      preamble. It also outranks the entitlement pattern: "How much would it COST
+    #      ... to work 8 HOURS of overtime?" matched "how much … hours" and was refused
+    #      as out of scope, when it is the headline costing question reworded.
+    #   2. entitlement — "how many days" is never a rate and never a cost.
+    #   3. lookup      — mentions rates and dollars, so it must be tested before the cost
+    #                    cues claim it.
     if _COMPUTE_RE.search(p):
         return "costing"
+    if _ENTITLEMENT_RE.search(p):
+        return "entitlement"
+    if _LOOKUP_RE.search(p):
+        return "lookup"
     if any(c in p for c in _POLICY_STRONG):
         return "policy"
     if any(c in p for c in _COST_CUES):
@@ -839,6 +844,23 @@ def _resolve_classifications(text: str, subjects: list[dict]) -> list[str]:
                      if s.get(f) and _mentioned(str(s.get(f)), plural_ok=(f == "rank"))}
         if mentioned:
             field_vals[f] = mentioned
+    if "rank" in field_vals:
+        # A matched rank is the whole mention: "Fire Inspector" must not also read as
+        # department=fire when the roster files that rank under admin (the AND across
+        # fields then matched nobody and the chat asked "Who is this for?"). Re-read the
+        # other fields with the rank words blanked out.
+        masked = tl
+        for rank in field_vals["rank"]:
+            masked = re.sub(rf"\b{re.escape(rank.lower())}s?\b", " ", masked)
+        for f in _CLASS_FIELDS:
+            if f == "rank":
+                continue
+            kept = {v for v in field_vals.get(f, set())
+                    if re.search(rf"\b{re.escape(v.lower())}\b", masked)}
+            if kept:
+                field_vals[f] = kept
+            else:
+                field_vals.pop(f, None)
     if not field_vals:
         return []
     return [s["name"] for s in subjects
@@ -906,8 +928,8 @@ def _normalize_intent(out: dict, subjects: list[dict], prompt: str = "") -> dict
             out["years_of_service"] = 0.0
         # Years are checked against the year-cued numbers in the question (the B4 hour
         # candidates above deliberately exclude them).
-        stated_years = {float(n) for n in re.findall(
-            r"(\d+(?:\.\d+)?)\s*-?\s*(?:year|yr)s?\b", prompt.lower())}
+        stated_years = {float(d) if d else float(_NUMBER_WORDS[w])
+                        for d, w in _YEARS_RE.findall(prompt.lower())}
         if y and y not in stated_years:
             unverified["years_of_service"] = y
             out["years_of_service"] = 0.0
@@ -928,6 +950,20 @@ def _normalize_intent(out: dict, subjects: list[dict], prompt: str = "") -> dict
     return out
 
 
+# Years of service are spelled out as often as typed: "ten years of service" read as
+# NO years (digit-only regex) and silently costed $640.80 instead of $656.82.
+_NUMBER_WORDS = {w: i for i, w in enumerate(
+    ("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+     "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split())}
+_NUMBER_WORDS.update({f"twenty-{w}": 20 + i for w, i in list(_NUMBER_WORDS.items())[1:10]})
+_NUMBER_WORDS.update({f"twenty {w}": 20 + i for w, i in list(_NUMBER_WORDS.items())[1:10]})
+_NUMBER_WORDS["thirty"] = 30
+_YEARS_RE = re.compile(
+    r"(?:(\d+(?:\.\d+)?)|\b(" + "|".join(sorted(map(re.escape, _NUMBER_WORDS), key=len,
+                                               reverse=True))
+    + r"))\s*-?\s*(?:year|yr)s?\b")
+
+
 def _parse_intent_stub(prompt: str, names: list[str]) -> dict:
     p = prompt.lower()
     # Exact label mentions only; class DESCRIPTIONS ("graveyard police") are resolved by
@@ -940,9 +976,14 @@ def _parse_intent_stub(prompt: str, names: list[str]) -> dict:
     # J1a: completed years of service, only when the question states them ("12 years of
     # service", "a 12-year firefighter"). Absent -> 0.0; a rule keyed on it then skips.
     years = 0.0
-    ym = re.search(r"(\d+(?:\.\d+)?)\s*-?\s*(?:year|yr)s?\b", p)
+    years_note = ""
+    ym = _YEARS_RE.search(p)
     if ym:
-        years = float(ym.group(1))
+        years = float(ym.group(1)) if ym.group(1) else float(_NUMBER_WORDS[ym.group(2)])
+    elif re.search(r"\b(?:year|yr)s?\b", p):
+        # "with several years of service": tenure was raised but no number can be read.
+        # Say so rather than silently costing at zero years (longevity off).
+        years_note = "years of service mentioned, no number read — costed without longevity"
     weekday = ""
     for word, abbr in _WEEKDAYS.items():
         if word in p:
@@ -955,7 +996,8 @@ def _parse_intent_stub(prompt: str, names: list[str]) -> dict:
         date = dm.group(0)
     _note("parse_intent", "fallback", rule="regex + roster name matching")
     return {"subjects": matched, "hours": hours, "date": date,
-            "holiday_weekday": weekday, "years_of_service": years, "source": "stub"}
+            "holiday_weekday": weekday, "years_of_service": years, "source": "stub",
+            **({"years_note": years_note} if years_note else {})}
 
 
 # --------------------------------------------------------------------------- #

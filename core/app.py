@@ -729,7 +729,11 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
     total = line_items[0]["total"] if len(line_items) == 1 else \
         round(sum(float(li.get("total") or 0) for li in line_items), case.rounding_places())
     rd = {"total": total, "line_items": line_items}
-    led.append("answer.snapshot", {"total": total, "intent": "entitlement"},
+    # The Audit tab's history reads result_type from this snapshot and defaulted it to
+    # currency, so "3 shifts" of bereavement showed as "$3.00".
+    led.append("answer.snapshot", {"total": total, "intent": "entitlement",
+                                   "result_type": line_items[0].get("result_type"),
+                                   "unit_label": line_items[0].get("result_type")},
                actor="engine", query_id=qid)
     depts = sorted({(case.source_by_id(d) or {}).get("department") or "" for d in all_scope})
     return {"query_id": qid, "needs_confirmation": False, "mode": "entitlement",
@@ -1038,7 +1042,9 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
         checks=[{"field": "hours", "deterministic": hours,
                  "model": params.get("hours") if params.get("source") == "claude" else None,
                  "agree": True},
-                {"field": "pay_type", "deterministic": pay_type, "model": None, "agree": True}])
+                {"field": "pay_type", "deterministic": pay_type, "model": None, "agree": True}],
+        years_of_service=params.get("years_of_service"),
+        years_note=params.get("years_note"))
     led.append("chat.interpretation", interp, actor="chat", query_id=qid)
 
     # 5. Per-unit governance + engine (B2). Each bargaining unit resolves to ITS contract

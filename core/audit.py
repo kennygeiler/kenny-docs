@@ -443,7 +443,10 @@ def history(ledger) -> list[dict]:
             row["ts"] = ev.get("ts")
         if ev["type"] == "answer.snapshot":
             row["total"] = ev["payload"].get("total")
-            row["result_type"] = ev["payload"].get("result_type") or "currency"
+            # Default to currency only for the costing path; an entitlement snapshot
+            # without a type must not render "3 shifts" as "$3.00".
+            row["result_type"] = ev["payload"].get("result_type") or (
+                "units" if ev["payload"].get("intent") == "entitlement" else "currency")
     for qid, row in prompts.items():
         seen = types.get(qid, set())
         if row["total"] is not None:

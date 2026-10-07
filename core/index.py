@@ -27,6 +27,8 @@ except Exception:  # pragma: no cover - non-POSIX
 
 _MODEL = None
 _MODEL_NAME = "all-MiniLM-L6-v2"
+# CPU only: see embedder() — torch's MPS backend livelocks under concurrent first use.
+_DEVICE = "cpu"
 # One load per process (A5): a request that arrives while the warm-up thread is loading
 # waits on this lock instead of starting a second multi-second load of its own.
 _MODEL_LOCK = threading.Lock()
@@ -65,7 +67,13 @@ def embedder():
     The loader used to contact the Hugging Face hub on every cold start (A5) — a
     network round-trip inside the first policy question. The cached copy is tried
     first with local_files_only=True; only when there is no cached copy at all does it
-    go online, once, with a warning. HF_HUB_OFFLINE=1 is respected either way."""
+    go online, once, with a warning. HF_HUB_OFFLINE=1 is respected either way.
+
+    Pinned to the CPU: on Apple Silicon torch picks the MPS backend, whose Metal
+    shader cache is not thread-safe on first use — the kenny-warm thread and a policy
+    question arriving during warm-up both entered it and the server livelocked. A
+    384-dim MiniLM on CPU answers in well under a second, and _MODEL_LOCK makes the
+    second caller wait for the first load instead of starting its own."""
     global _MODEL
     if _MODEL is not None:
         return _MODEL
@@ -73,7 +81,8 @@ def embedder():
         if _MODEL is None:
             from sentence_transformers import SentenceTransformer
             try:
-                _MODEL = SentenceTransformer(_MODEL_NAME, local_files_only=True)
+                _MODEL = SentenceTransformer(_MODEL_NAME, local_files_only=True,
+                                             device=_DEVICE)
             except Exception as e:
                 if os.environ.get("HF_HUB_OFFLINE", "").strip() not in ("", "0"):
                     raise
@@ -81,7 +90,7 @@ def embedder():
                 logging.getLogger(__name__).warning(
                     "embedding model %s not in the local cache (%s); downloading once",
                     _MODEL_NAME, e)
-                _MODEL = SentenceTransformer(_MODEL_NAME)
+                _MODEL = SentenceTransformer(_MODEL_NAME, device=_DEVICE)
     return _MODEL
 
 

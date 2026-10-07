@@ -335,8 +335,13 @@ def sum_lines(line_items: list[dict], places: int = 2) -> float:
 
 def interpretation(hours: float | None, pay_type: str | None, subjects: list[str],
                    date_iso: str | None, year_stated: bool, parsed_via: str,
-                   checks: list[dict] | None = None) -> dict:
-    """The 'Read as:' payload (B4): what the engine was actually handed."""
+                   checks: list[dict] | None = None, years_of_service: float | None = None,
+                   years_note: str | None = None) -> dict:
+    """The 'Read as:' payload (B4): what the engine was actually handed.
+
+    Years of service switch the longevity differential on, so the line says which
+    tenure was read ("12 years of service (from the question)") — or, when the question
+    raised tenure without a number, that none was read and longevity is off."""
     if date_iso:
         date_note = date_iso if year_stated else f"{date_iso} (year assumed)"
     else:
@@ -348,7 +353,17 @@ def interpretation(hours: float | None, pay_type: str | None, subjects: list[str
         who = ", ".join(subjects)
     else:
         who = f"{len(subjects)} classifications"
-    read_as = " · ".join([h, pay_type or "pay type not stated", who, date_note])
+    parts = [h, pay_type or "pay type not stated", who, date_note]
+    try:
+        yrs = float(years_of_service or 0.0)
+    except (TypeError, ValueError):
+        yrs = 0.0
+    if yrs:
+        parts.append(f"{yrs:g} years of service (from the question)")
+    elif years_note:
+        parts.append(years_note)
+    read_as = " · ".join(parts)
     return {"hours": hours, "pay_type": pay_type, "subjects": list(subjects),
             "date_iso": date_iso, "date_note": date_note, "parsed_via": parsed_via,
-            "checks": checks or [], "read_as": read_as}
+            "checks": checks or [], "read_as": read_as,
+            "years_of_service": yrs or None, "years_note": years_note or None}
