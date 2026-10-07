@@ -77,3 +77,11 @@ def test_tour_js_defines_both_step_lists_and_the_handoff(client):
     assert "tour=1" in js and "startTour" in js, "admin resume hook"
     css = client.get("/static/styles.css").text
     assert ".tour-card" in css and ".tour-glow" in css and ".tour-start" in css
+
+
+def test_tour_no_longer_claims_a_scan_would_say_recovered_layout(client):
+    """D1: a scan with an OCR layer says "OCR'd scan", not "recovered layout" or
+    "page-level" — the tour's tier-chip step must describe the chip that exists."""
+    js = client.get("/static/tour.js").text
+    assert "a scanned document would say" not in js
+    assert "OCR\\'d scan" in js or "OCR'd scan" in js

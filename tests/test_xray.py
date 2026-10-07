@@ -90,3 +90,39 @@ def test_admin_page_ships_the_table_xray(client):
     assert "styles.css?v=12" in html
     css = c.get("/static/styles.css").text
     assert ".xtable" in css and ".xtable-wrap" in css
+
+
+# --------------------------------------------------------------------------- #
+# D4: Compare opens on a requested page; p.22 is a grid with flagged cells
+# --------------------------------------------------------------------------- #
+def test_compare_deep_link_opens_requested_page(client):
+    c, _ = client
+    html = c.get("/admin").text
+    assert "openCompare = (docId, page" in html, "Compare takes a page argument"
+    assert "function openViewer(mode, docId, page" in html
+    assert "function compareDeepLink(" in html
+    assert "compare=" in html and "p.get('p')" in html, "#documents?compare=<doc>&p=<n>"
+    assert "/^compare=([^:&]+)(?::(\\d+))?$/" in html, "#compare=<doc>:<page>"
+    assert "Showcase: p." in html, "one-click button on the Documents tab"
+    assert "function tableModels(" in html, "every >=2-row table group gets a grid"
+    assert "xcell-disputed" in html and "xcell-unverified" in html and "xreread" in html
+
+
+def test_p22_renders_a_grid_with_flagged_cells(client):
+    c, _ = client
+    body = c.get("/doc/firefighters_local3535_mou/clauses", params={"page": 22}).json()
+    rows = [cl for cl in body["clauses"] if cl["kind"] == "table-row"]
+    assert len(rows) == 6
+    assert len({tuple(r["bbox"]) for r in rows}) == 1, "one group -> one grid"
+    flagged = [cl for cl in rows if cl["cell_status"] == "disputed"]
+    assert len(flagged) == 4
+    disputed = [x for cl in flagged for x in cl["cells"] if x["status"] == "disputed"]
+    assert {(x["stored"], x["reread"]) for x in disputed} == {
+        ("0) £5", "10.15"), ("fd", "11"), ("A468", "468"), ("fs 13,85", "13.85"),
+        ("45", "15"), ("; 14,78", "14.78")}
+    cov = c.get("/admin/coverage").json()
+    assert cov["showcase"]["doc"] == "firefighters_local3535_mou"
+    assert cov["showcase"]["page"] == 22 and "10.15" in cov["showcase"]["label"]
+    fire = next(d for d in cov["documents"] if d["doc_id"] == "firefighters_local3535_mou")
+    assert fire["text_origin"] == "ocr-layer" and "OCRmyPDF" in fire["producer"]
+    assert fire["verified_pages"] == [{"page": 22, "disputed": 6, "rows": 5}]

@@ -115,9 +115,10 @@
       {
         title: 'Where the cited text came from',
         body: 'Every citation wears an extraction-tier chip: "text layer" means it was '
-          + 'read from the PDF’s digital text layer with exact clause positions; a '
-          + 'scanned document would say "recovered layout" or "page-level" instead. The '
-          + 'trust signal, stated at the moment of reading.',
+          + 'read from the PDF’s digital text layer with exact clause positions; '
+          + '"OCR\'d scan" means the page is scanned paper whose text came from OCR '
+          + 'and can hold misread characters. The trust signal, stated at the moment '
+          + 'of reading.',
         target: '#drawer .tier-chip',
       },
       {

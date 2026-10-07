@@ -5,6 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kenny Admin — contract library, rule review and audit</title>
   <link rel="stylesheet" href="/static/styles.css?v=12">
+  <!-- ocr chunk (D1/D2/D4): origin badge, disputed/unverified cells, showcase button.
+       Kept inline so the shared stylesheet stays untouched. -->
+  <style id="ocr-cells">
+    .score-origin { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11.5px;
+      border: 1px solid #c9d4e3; background: #f3f6fa; color: #2a3f5a; }
+    .score-origin.origin-ocr { background: #fdf3e2; color: #7b4a12; border-color: #e3b778; }
+    .score-origin.origin-digital { background: #e8f5ec; color: #1f5a33; border-color: #9fd1ae; }
+    .score-verified { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11.5px;
+      background: #fdf3e2; color: #7b4a12; border: 1px solid #e3b778; }
+    .btn-showcase { font-weight: 600; border-color: #e3b778 !important; color: #7b4a12 !important; }
+    .xtable td.xcell-disputed { background: #fde7b8; outline: 2px solid #d9962b; outline-offset: -2px; }
+    .xtable td.xcell-unverified { background: repeating-linear-gradient(135deg, #f7f7f7 0 4px, #e6e6e6 4px 8px); }
+    .xtable td.xcell-verified { background: #f0faf2; }
+    .xtable td .xreread { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 8px;
+      background: #7b4a12; color: #fff; font-size: 11px; white-space: nowrap; }
+    .xtable td .xreread::before { content: 'read: '; opacity: .8; }
+    .xbox.xdisputed { border-color: #d9962b !important; background: rgba(217, 150, 43, .18) !important; }
+    .xcell-note { margin: 2px 0 6px; font-size: 12px; color: #7b4a12; }
+  </style>
 </head>
 <body data-page="admin">
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -245,10 +264,11 @@
     });
 
     /* ---------------- documents + coverage ---------------- */
-    let COVERAGE = [];
+    let COVERAGE = [], SHOWCASE = null;
     async function loadDocs() {
       const res = await fetch('/admin/coverage').then(r => r.json());
       COVERAGE = res.documents;
+      SHOWCASE = res.showcase || null;   // D4: the page Compare opens on from one click
       $('cnt-docs').textContent = COVERAGE.length;
       const byDept = {};
       COVERAGE.forEach(d => (byDept[d.department || 'unassigned'] ||= []).push(d));
@@ -272,6 +292,27 @@
                         empty: ['tier-bad', 'empty']};
     const parseTier = src => PARSE_TIER[src] || ['tier-amber', src || 'unknown'];
 
+    // Text origin (D1): what the parse tier cannot say — whether the text docling
+    // read was a digital layer or an invisible OCR layer stamped over a scan.
+    const ORIGIN = {'ocr-layer': ['origin-ocr', "OCR'd scan",
+                      'Scanned paper with an invisible OCR text layer: the text can contain misread characters; check the page image'],
+                    digital: ['origin-digital', 'digital text', 'Born-digital text layer'],
+                    'image-only': ['origin-ocr', 'image only, no text', 'A scan with no text layer at all'],
+                    mixed: ['origin-ocr', 'mixed scan/digital', 'Some pages are scans with an OCR layer, some are digital']};
+    function originBadge(d) {
+      const o = ORIGIN[d.text_origin];
+      if (!o) return '';
+      const prod = d.producer ? ` — ${d.producer}` : '';
+      return `<span class="score-origin ${o[0]}" title="${esc(o[2] + prod)}">${esc(o[1])}</span>`;
+    }
+    function verifiedBadge(d) {
+      const pages = d.verified_pages || [];
+      if (!pages.length) return '';
+      const disputed = pages.reduce((n, p) => n + (p.disputed || 0), 0);
+      const list = pages.map(p => `p.${p.page} (${p.disputed} disputed)`).join(', ');
+      return `<span class="score-verified" title="Numeric table cells re-read by a second OCR engine and checked against their column arithmetic: ${esc(list)}">${disputed} cell${disputed === 1 ? '' : 's'} disputed on ${pages.length} verified page${pages.length === 1 ? '' : 's'}</span>`;
+    }
+
     function scorecard(d) {
       const [cls, word] = parseTier(d.parse_source);
       const kinds = d.kinds || {};
@@ -282,6 +323,7 @@
       const s = n => n === 1 ? '' : 's';
       return `<p class="score">
         <span class="score-tier ${cls}" title="Parse tier: how the text was extracted from the PDF">${esc(word)}</span>
+        ${originBadge(d)}${verifiedBadge(d)}
         <span class="score-stat">${d.clauses || 0} clause${s(d.clauses || 0)}</span>
         <span class="score-stat">${rows} table row${s(rows)}</span>
         ${rec ? `<span class="score-badge score-recovered" title="docling's layout model classified the page as a Picture; the spans were regrouped into rows from raw geometry">${rec} page${s(rec)} recovered from layout misclassification</span>` : ''}
@@ -332,7 +374,10 @@
             X-ray</button>
           <button type="button" class="ghost small" onclick="openCompare('${esc(d.doc_id)}')"
                   title="Page image beside its extracted text — hover either side to check the extraction by eye">
-            Compare</button></p>
+            Compare</button>${SHOWCASE && SHOWCASE.doc === d.doc_id ? `
+          <button type="button" class="ghost small btn-showcase" onclick="openCompare('${esc(d.doc_id)}', ${Number(SHOWCASE.page)})"
+                  title="${esc(SHOWCASE.label)}: open Compare on the page where a second OCR read disagrees with what was stored">
+            Showcase: p.${Number(SHOWCASE.page)}</button>` : ''}</p>
         ${scorecard(d)}
         ${d.declared_title && d.declared_title !== d.title
           ? `<p class="muted">Filed in this case as “${esc(d.declared_title)}”.</p>` : ''}
@@ -1008,11 +1053,13 @@
         + (parts.length ? ` (${parts.join(', ')})` : '');
     }
 
-    const openXray = docId => openViewer('xray', docId);
-    const openCompare = docId => openViewer('compare', docId);
-    function openViewer(mode, docId) {
+    const openXray = (docId, page = 1) => openViewer('xray', docId, page);
+    // D4: Compare takes a page so the showcase button, the tour and the deep link
+    // #compare=<doc>:<page> (also #documents?compare=<doc>&p=<page>) land on it.
+    const openCompare = (docId, page = 1) => openViewer('compare', docId, page);
+    function openViewer(mode, docId, page = 1) {
       XRAY_FOCUS = document.activeElement;
-      XRAY_DOC = docId; XRAY_PAGE = 1; XRAY_MODE = mode;
+      XRAY_DOC = docId; XRAY_PAGE = Math.max(1, Number(page) || 1); XRAY_MODE = mode;
       $('xrayTitle').textContent = `${mode === 'compare' ? 'Compare' : 'X-ray'} — ${docTitle(docId)}`;
       $('xray').classList.toggle('compare', mode === 'compare');
       $('xrayText').hidden = mode !== 'compare';
@@ -1069,62 +1116,78 @@
         c._g = g.gi;
       });
       const compare = XRAY_MODE === 'compare';
-      // Table X-ray (OCR-5): on a majority-table page the count strip names the mode
-      // and, in Compare, the right pane renders the rows as the grid they were.
-      const model = compare ? tableModel(res.clauses) : null;
+      // Table X-ray (OCR-5, widened by D4): in Compare every table on the page —
+      // each group of >= 2 table rows sharing a box — renders as the grid it was,
+      // and the count strip names the mode. The salary schedule (one box per
+      // page) behaves exactly as before.
+      const models = compare ? tableModels(res.clauses) : [];
+      const model = models.length === 1 ? models[0] : null;
+      const nrows = models.reduce((n, m) => n + m.rows.length, 0);
+      const ncols = Math.max(0, ...models.map(m => m.cols));
       // Low OCR confidence (OCR-7): the server flags the PAGE (docling reports
       // confidence per page, not per word) and every clause on it — the count strip
       // names the condition once, each box/row wears the amber tint.
+      // Disputed cells (D2): the second OCR read disagrees with the stored text.
+      const disputed = Number(res.disputed_cells || 0);
       $('xrayCounts').textContent = xrayCounts(res.clauses)
-        + (model ? ` · table page — ${model.rows.length} row${model.rows.length === 1 ? '' : 's'}`
-                 + ` × ${model.cols} column${model.cols === 1 ? '' : 's'}` : '')
-        + (res.low_confidence ? ` · low OCR confidence on this page (score ${Number(res.ocr_confidence).toFixed(2)})` : '');
+        + (models.length ? ` · table page — ${nrows} row${nrows === 1 ? '' : 's'}`
+                 + ` × ${ncols} column${ncols === 1 ? '' : 's'}` : '')
+        + (res.low_confidence ? ` · low OCR confidence on this page (score ${Number(res.ocr_confidence).toFixed(2)})` : '')
+        + (disputed ? ` · ${disputed} cell${disputed === 1 ? '' : 's'} disputed by a second OCR read` : '');
       const boxes = [...groups.values()].map(({gi, clauses: g}) => {
         const c = g[0], [l, t, r, b] = c.bbox;
+        const dis = g.some(x => x.cell_status === 'disputed');
         // t is the TOP edge's distance from the page bottom, hence (H - t) from the top.
         // Compare needs no tooltip: the full text sits in the right pane, and the tip
         // would cover the very rows the hover is pointing at.
         const tip = compare ? '' : `<span class="xtip">${esc(
-          (c.low_confidence ? 'low OCR confidence on this page · ' : '')
+          (dis ? 'disputed cells: a second OCR read disagrees with the stored text · ' : '')
+          + (c.low_confidence ? 'low OCR confidence on this page · ' : '')
           + (g.length > 1 ? `${g.length} clauses share this box · ` : '')
           + (c.clause ? `§${c.clause} — ` : '') + (c.text || '').slice(0, 200))}</span>`;
-        return `<div class="xbox ${xrayKind(c.kind)}${c.low_confidence ? ' xlow' : ''}" tabindex="0" data-g="${gi}"
+        return `<div class="xbox ${xrayKind(c.kind)}${c.low_confidence ? ' xlow' : ''}${dis ? ' xdisputed' : ''}" tabindex="0" data-g="${gi}"
           style="left:${(l / W * 100).toFixed(3)}%;top:${((H - t) / H * 100).toFixed(3)}%;width:${((r - l) / W * 100).toFixed(3)}%;height:${((t - b) / H * 100).toFixed(3)}%">${tip}</div>`;
       }).join('');
       stage.innerHTML = `<img src="/doc/${encodeURIComponent(XRAY_DOC)}/page/${XRAY_PAGE}"
         alt="Page ${XRAY_PAGE} of ${esc(XRAY_DOC)}, with every extracted clause boxed">` + boxes;
-      if (compare) renderComparePane(res.clauses, model);
+      if (compare) renderComparePane(res.clauses, models);
     }
 
     // Right pane (OCR-2): the page's clauses in reading order. bbox `t` is measured
     // from the page BOTTOM, so descending t = top of the page first; the sort is
     // stable, so merged table rows keep their catalog order within a shared box.
     // Clauses with no bbox cannot be placed on the page and go last, unmarked.
-    function renderComparePane(clauses, model) {
+    function renderComparePane(clauses, models) {
       const placed = clauses.filter(c => c._g != null).sort((a, b) => b.bbox[1] - a.bbox[1]);
       const loose = clauses.filter(c => c._g == null);
-      const row = c => `<div class="xrow ${xrayKind(c.kind)}${c.low_confidence ? ' xlow' : ''}"${c._g != null ? ` data-g="${c._g}"` : ''} tabindex="0"${c.low_confidence ? ' title="low OCR confidence on this page — the text may contain misread characters"' : ''}>
+      const cellTitle = c => c.cell_status === 'disputed'
+        ? ' title="a second OCR read disagrees with the stored text of this row — see the amber cells"'
+        : c.low_confidence ? ' title="low OCR confidence on this page — the text may contain misread characters"' : '';
+      const row = c => `<div class="xrow ${xrayKind(c.kind)}${c.low_confidence ? ' xlow' : ''}${c.cell_status === 'disputed' ? ' xcell-disputed' : ''}"${c._g != null ? ` data-g="${c._g}"` : ''} tabindex="0"${cellTitle(c)}>
           <i class="xdot ${xrayKind(c.kind)}" aria-hidden="true"></i>
           <div class="xrow-body">${c.clause ? `<span class="xrow-no">§${esc(c.clause)}</span> ` : ''}<span class="xrow-text">${esc(c.text || '')}</span></div>
         </div>`;
-      if (!model) {
+      if (!models.length) {
         $('xrayText').innerHTML = placed.map(row).join('')
           + (loose.length ? `<p class="muted xrow-loose-head">No position recorded on the page for:</p>`
              + loose.map(row).join('') : '');
         return;
       }
-      // Table page (OCR-5): the structured table replaces the table rows in the pane;
-      // the page's other clauses keep their reading-order position above or below the
-      // table band (its top edge = the highest table-row bbox top).
-      const topT = Math.max(-Infinity, ...model.rows.filter(r => r.c.bbox).map(r => r.c.bbox[1]));
-      const prose = placed.filter(c => !isTableKind(c.kind));
-      const looseProse = loose.filter(c => !isTableKind(c.kind));
-      $('xrayText').innerHTML =
-        prose.filter(c => c.bbox[1] >= topT).map(row).join('')
-        + renderXTable(model)
-        + prose.filter(c => c.bbox[1] < topT).map(row).join('')
-        + (looseProse.length ? `<p class="muted xrow-loose-head">No position recorded on the page for:</p>`
-           + looseProse.map(row).join('') : '');
+      // Table page (OCR-5 / D4): each structured table replaces its table rows in
+      // the pane, at the reading-order position of its box; the page's other
+      // clauses keep their place above, between and below the tables. Grouped rows
+      // that did not make a grid stay plain rows.
+      const gridded = new Set(models.flatMap(m => m.rows.map(r => r.c)));
+      const items = placed.filter(c => !gridded.has(c)).map(c => ({t: c.bbox[1], html: row(c)}));
+      models.forEach(m => {
+        const t = Math.max(-Infinity, ...m.rows.filter(r => r.c.bbox).map(r => r.c.bbox[1]));
+        items.push({t, html: renderXTable(m)});
+      });
+      items.sort((a, b) => b.t - a.t);
+      const looseLeft = loose.filter(c => !gridded.has(c));
+      $('xrayText').innerHTML = items.map(i => i.html).join('')
+        + (looseLeft.length ? `<p class="muted xrow-loose-head">No position recorded on the page for:</p>`
+           + looseLeft.map(row).join('') : '');
     }
 
     // ---- table X-ray (OCR_TICKETS.md OCR-5) ----
@@ -1134,9 +1197,22 @@
     // "<caption> (table: H1, H2; N rows)". Rebuild the table from those strings.
     const isTableKind = k => k === 'table-row' || k === 'recovered-row';
 
-    function tableModel(clauses) {
-      const trows = clauses.filter(c => isTableKind(c.kind));
-      if (!trows.length || trows.length * 2 <= clauses.length) return null;  // majority rule
+    // D4: every table on the page gets a grid — each group of >= 2 table rows
+    // sharing a bbox (docling gives every row of a table the whole-table box), in
+    // page order. The old majority rule hid the p.22 vacation table (6 rows among
+    // 14 clauses) as plain rows, where no cell could be coloured.
+    function tableModels(clauses) {
+      const groups = new Map();
+      clauses.filter(c => isTableKind(c.kind)).forEach(c => {
+        const k = c.bbox && c.bbox.length === 4 ? c.bbox.join(',') : `loose-${clauses.indexOf(c)}`;
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(c);
+      });
+      return [...groups.values()].filter(g => g.length >= 2).map(tableModel).filter(Boolean);
+    }
+
+    function tableModel(trows) {
+      if (!trows || !trows.length) return null;
       let caption = null, headers = null, body = trows;
       const sum = /^(.*?)\s*\(table:\s*(.+);\s*\d+\s+rows?\)$/.exec(trows[0].text || '');
       if (sum) {
@@ -1193,12 +1269,28 @@
       const showHead = model.headers && model.headers.some(h => /[^\d\s]/.test(h));
       const line = (r, tag) => Array.from({length: model.cols},
         (_, i) => `<${tag}>${esc(r[i] ?? '')}</${tag}>`).join('');
+      // D2: a verified row carries one record per cell (same column index as the
+      // grid, the server rebuilds it with the same parser). Disputed: amber, with
+      // the second read beside the stored text — never in place of it. Unverified:
+      // hatched. The stored text stays exactly what the catalog holds.
+      const cellTd = (c, cells) => Array.from({length: model.cols}, (_, i) => {
+        const rec = (c.cells || [])[i];
+        if (!rec) return `<td>${esc(cells[i] ?? '')}</td>`;
+        const st = rec.status || 'unverified';
+        const tip = st === 'disputed'
+          ? `stored ${JSON.stringify(rec.stored)}; re-read ${JSON.stringify(rec.reread ?? '—')}${rec.score != null ? ` (score ${Number(rec.score).toFixed(2)})` : ''}${(rec.flags || []).length ? ` · ${rec.flags.join(', ')}` : ''}`
+          : st === 'unverified' ? 'the second OCR read produced no token for this cell'
+          : `stored ${JSON.stringify(rec.stored)}; re-read agrees${rec.score != null ? ` (score ${Number(rec.score).toFixed(2)})` : ''}`;
+        const reread = st === 'disputed' && rec.reread != null ? `<span class="xreread">${esc(rec.reread)}</span>` : '';
+        return `<td class="xcell-${st}" title="${esc(tip)}">${esc(cells[i] ?? '')}${reread}</td>`;
+      }).join('');
+      const anyDisputed = model.rows.some(({c}) => c.cell_status === 'disputed');
       return `<div class="xtable-wrap"><table class="xtable">
         ${model.caption ? `<caption>${esc(model.caption)}</caption>` : ''}
         ${showHead ? `<thead><tr>${line(model.headers, 'th')}</tr></thead>` : ''}
         <tbody>${model.rows.map(({c, cells}) =>
-          `<tr class="${xrayKind(c.kind)}${c.low_confidence ? ' xlow' : ''}"${c._g != null ? ` data-g="${c._g}"` : ''} tabindex="0"${c.low_confidence ? ' title="low OCR confidence on this page — the text may contain misread characters"' : ''}>${line(cells, 'td')}</tr>`).join('')}</tbody>
-      </table></div>`;
+          `<tr class="${xrayKind(c.kind)}${c.low_confidence ? ' xlow' : ''}"${c._g != null ? ` data-g="${c._g}"` : ''} tabindex="0"${c.low_confidence ? ' title="low OCR confidence on this page — the text may contain misread characters"' : ''}>${cellTd(c, cells)}</tr>`).join('')}</tbody>
+      </table>${anyDisputed ? `<p class="xcell-note">Amber cells: a second OCR engine (RapidOCR) read the page image and disagrees with the stored text; its reading is shown beside the stored value, never written over it. Hatched cells could not be re-read.</p>` : ''}</div>`;
     }
 
     // Shared hover: a right-side row (plain .xrow or an OCR-5 table <tr> — anything
@@ -1404,8 +1496,26 @@
       $('caseName').textContent = c.name || 'Contract library, rule review and audit';
       if (c.banner) { const b = $('demoBanner'); b.textContent = c.banner; b.hidden = false; }
     });
-    loadDocs(); loadRules(); loadVerify(); loadLedger();
+    // D4 deep link: #compare=<doc>:<page> or #documents?compare=<doc>&p=<page> opens
+    // Compare on that page once the Documents tab has loaded (the viewer needs the
+    // document titles). The tab part of the hash still selects the tab.
+    function compareDeepLink(hash) {
+      const h = (hash || '').replace(/^#/, '');
+      let m = /^compare=([^:&]+)(?::(\d+))?$/.exec(h);
+      if (m) return {doc: decodeURIComponent(m[1]), page: Number(m[2] || 1), tab: 'docs'};
+      const [tab, query] = h.split('?');
+      if (!query) return null;
+      const p = new URLSearchParams(query);
+      if (!p.get('compare')) return null;
+      return {doc: p.get('compare'), page: Number(p.get('p') || 1), tab: tab || 'docs'};
+    }
+    const DEEP = compareDeepLink(location.hash);
+    const docsLoaded = loadDocs(); loadRules(); loadVerify(); loadLedger();
     if (location.hash && TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1), false);
+    if (DEEP) {
+      if (TABS.includes(DEEP.tab)) showTab(DEEP.tab, false);
+      docsLoaded.then(() => openCompare(DEEP.doc, DEEP.page));
+    }
   </script>
   <!-- Guided demo tour: resumes here when chat hands off with ?tour=1. -->
   <script src="/static/tour.js?v=2"></script>

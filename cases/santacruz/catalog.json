@@ -9418,7 +9418,51 @@
     }
    ],
    "parse_source": "docling",
-   "tag_source": "claude"
+   "tag_source": "claude",
+   "text_origin": "ocr-layer",
+   "text_origin_pages": {
+    "1": "ocr-layer",
+    "2": "ocr-layer",
+    "3": "ocr-layer",
+    "4": "ocr-layer",
+    "5": "ocr-layer",
+    "6": "ocr-layer",
+    "7": "ocr-layer",
+    "8": "ocr-layer",
+    "9": "ocr-layer",
+    "10": "ocr-layer",
+    "11": "ocr-layer",
+    "12": "ocr-layer",
+    "13": "ocr-layer",
+    "14": "ocr-layer",
+    "15": "ocr-layer",
+    "16": "ocr-layer",
+    "17": "ocr-layer",
+    "18": "ocr-layer",
+    "19": "ocr-layer",
+    "20": "ocr-layer",
+    "21": "ocr-layer",
+    "22": "ocr-layer",
+    "23": "ocr-layer",
+    "24": "ocr-layer",
+    "25": "ocr-layer",
+    "26": "ocr-layer",
+    "27": "ocr-layer",
+    "28": "ocr-layer",
+    "29": "ocr-layer",
+    "30": "ocr-layer",
+    "31": "ocr-layer",
+    "32": "ocr-layer",
+    "33": "ocr-layer",
+    "34": "ocr-layer",
+    "35": "digital",
+    "36": "digital",
+    "37": "digital",
+    "38": "digital",
+    "39": "digital",
+    "40": "digital"
+   },
+   "producer": "OCRmyPDF 17.8.0 / OCRmyPDF fpdf2 + Tesseract OCR 5.5.2 / pikepdf 10.9.1"
   },
   {
    "doc_id": "admin_group_mou",
@@ -17749,7 +17793,41 @@
     }
    ],
    "parse_source": "docling",
-   "tag_source": "claude"
+   "tag_source": "claude",
+   "text_origin": "ocr-layer",
+   "text_origin_pages": {
+    "1": "ocr-layer",
+    "2": "ocr-layer",
+    "3": "ocr-layer",
+    "4": "ocr-layer",
+    "5": "ocr-layer",
+    "6": "ocr-layer",
+    "7": "ocr-layer",
+    "8": "ocr-layer",
+    "9": "ocr-layer",
+    "10": "ocr-layer",
+    "11": "ocr-layer",
+    "12": "ocr-layer",
+    "13": "ocr-layer",
+    "14": "ocr-layer",
+    "15": "ocr-layer",
+    "16": "ocr-layer",
+    "17": "ocr-layer",
+    "18": "ocr-layer",
+    "19": "ocr-layer",
+    "20": "ocr-layer",
+    "21": "ocr-layer",
+    "22": "ocr-layer",
+    "23": "ocr-layer",
+    "24": "ocr-layer",
+    "25": "ocr-layer",
+    "26": "ocr-layer",
+    "27": "ocr-layer",
+    "28": "ocr-layer",
+    "29": "ocr-layer",
+    "30": "ocr-layer"
+   },
+   "producer": "OCRmyPDF 17.8.0 / OCRmyPDF fpdf2 + Tesseract OCR 5.5.2 / pikepdf 10.9.1"
   },
   {
    "doc_id": "management_mou",
@@ -22887,7 +22965,29 @@
     }
    ],
    "parse_source": "docling",
-   "tag_source": "claude"
+   "tag_source": "claude",
+   "text_origin": "ocr-layer",
+   "text_origin_pages": {
+    "1": "ocr-layer",
+    "2": "ocr-layer",
+    "3": "ocr-layer",
+    "4": "ocr-layer",
+    "5": "ocr-layer",
+    "6": "ocr-layer",
+    "7": "ocr-layer",
+    "8": "ocr-layer",
+    "9": "ocr-layer",
+    "10": "ocr-layer",
+    "11": "ocr-layer",
+    "12": "ocr-layer",
+    "13": "ocr-layer",
+    "14": "ocr-layer",
+    "15": "ocr-layer",
+    "16": "ocr-layer",
+    "17": "ocr-layer",
+    "18": "ocr-layer"
+   },
+   "producer": "OCRmyPDF 17.8.0 / OCRmyPDF fpdf2 + Tesseract OCR 5.5.2 / pikepdf 10.9.1"
   },
   {
    "doc_id": "chief_officers_mou",
@@ -29469,7 +29569,40 @@
     }
    ],
    "parse_source": "docling",
-   "tag_source": "claude"
+   "tag_source": "claude",
+   "text_origin": "ocr-layer",
+   "text_origin_pages": {
+    "1": "ocr-layer",
+    "2": "ocr-layer",
+    "3": "ocr-layer",
+    "4": "ocr-layer",
+    "5": "ocr-layer",
+    "6": "ocr-layer",
+    "7": "ocr-layer",
+    "8": "ocr-layer",
+    "9": "ocr-layer",
+    "10": "ocr-layer",
+    "11": "ocr-layer",
+    "12": "ocr-layer",
+    "13": "ocr-layer",
+    "14": "ocr-layer",
+    "15": "ocr-layer",
+    "16": "ocr-layer",
+    "17": "ocr-layer",
+    "18": "ocr-layer",
+    "19": "ocr-layer",
+    "20": "ocr-layer",
+    "21": "ocr-layer",
+    "22": "ocr-layer",
+    "23": "ocr-layer",
+    "24": "ocr-layer",
+    "25": "ocr-layer",
+    "26": "ocr-layer",
+    "27": "ocr-layer",
+    "28": "ocr-layer",
+    "29": "ocr-layer"
+   },
+   "producer": "OCRmyPDF 17.8.0 / OCRmyPDF fpdf2 + Tesseract OCR 5.5.2 / pikepdf 10.9.1"
   },
   {
    "doc_id": "master_salary_schedule",
@@ -29976,7 +30109,12 @@
     }
    ],
    "parse_source": "docling",
-   "tag_source": "claude"
+   "tag_source": "claude",
+   "text_origin": "digital",
+   "text_origin_pages": {
+    "1": "digital"
+   },
+   "producer": ""
   }
  ]
 }

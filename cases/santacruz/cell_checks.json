@@ -1,0 +1,4011 @@
+{
+ "showcase": {
+  "doc": "firefighters_local3535_mou",
+  "page": 22,
+  "label": "Vacation accrual table, where the OCR misread 10.15"
+ },
+ "pages": {
+  "firefighters_local3535_mou:22": {
+   "doc_id": "firefighters_local3535_mou",
+   "page": 22,
+   "pdf_sha256": "",
+   "rows": [
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Vacation Accrual Schedule for all Union Members.Years of Service",
+       "stored": "1-5",
+       "value": 1.0,
+       "flags": [],
+       "reread": "1-5",
+       "reread_value": 1.0,
+       "score": 0.977,
+       "bbox": [
+        119.17,
+        510.51,
+        135.17,
+        500.17
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period",
+       "stored": "7,38",
+       "value": 7.38,
+       "flags": [],
+       "reread": "7.38",
+       "reread_value": 7.38,
+       "score": 0.876,
+       "bbox": [
+        180.17,
+        509.84,
+        204.5,
+        499.84
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "Vacation Accrual Schedule for all Union Members.Annual shift equivalent",
+       "stored": "8",
+       "value": 8.0,
+       "flags": [],
+       "reread": "8",
+       "reread_value": 8.0,
+       "score": 0.818,
+       "bbox": [
+        269.17,
+        509.17,
+        275.83,
+        499.84
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum annual accrual (in hours)",
+       "stored": "192",
+       "value": 192.0,
+       "flags": [],
+       "reread": "192",
+       "reread_value": 192.0,
+       "score": 1.0,
+       "bbox": [
+        341.17,
+        509.51,
+        358.83,
+        499.51
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum accrual (end of calendar year)",
+       "stored": "288",
+       "value": 288.0,
+       "flags": [],
+       "reread": "288",
+       "reread_value": 288.0,
+       "score": 0.998,
+       "bbox": [
+        431.83,
+        509.17,
+        450.17,
+        498.84
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "verified",
+     "ordinal": 1,
+     "text_sha": "10a8beacb6934e4d",
+     "caption": "XV.  Vacation Leave"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Vacation Accrual Schedule for all Union Members.Years of Service",
+       "stored": "6-10",
+       "value": 6.0,
+       "flags": [],
+       "reread": "6-10",
+       "reread_value": 6.0,
+       "score": 0.996,
+       "bbox": [
+        119.17,
+        498.84,
+        140.17,
+        488.51
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period",
+       "stored": "0) \u00a35",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "10.15",
+       "reread_value": 10.15,
+       "score": 0.931,
+       "bbox": [
+        183.17,
+        498.17,
+        208.5,
+        488.84
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 2,
+       "header": "Vacation Accrual Schedule for all Union Members.Annual shift equivalent",
+       "stored": "fd",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "11",
+       "reread_value": 11.0,
+       "score": 1.0,
+       "bbox": [
+        268.5,
+        498.17,
+        280.83,
+        488.17
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 3,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum annual accrual (in hours)",
+       "stored": "264",
+       "value": 264.0,
+       "flags": [],
+       "reread": "264",
+       "reread_value": 264.0,
+       "score": 0.999,
+       "bbox": [
+        341.17,
+        497.84,
+        359.17,
+        488.17
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum accrual (end of calendar year)",
+       "stored": "396",
+       "value": 396.0,
+       "flags": [],
+       "reread": "396",
+       "reread_value": 396.0,
+       "score": 0.999,
+       "bbox": [
+        431.5,
+        498.17,
+        450.17,
+        486.84
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 2,
+     "text_sha": "07e62794ac707c08",
+     "caption": "XV.  Vacation Leave"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Vacation Accrual Schedule for all Union Members.Years of Service",
+       "stored": "11-13",
+       "value": 11.0,
+       "flags": [],
+       "reread": "11 - 13",
+       "reread_value": 11.0,
+       "score": 0.96,
+       "bbox": [
+        119.83,
+        486.51,
+        149.17,
+        476.84
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period",
+       "stored": "12",
+       "value": 12.0,
+       "flags": [],
+       "reread": "12",
+       "reread_value": 12.0,
+       "score": 1.0,
+       "bbox": [
+        183.5,
+        486.84,
+        196.17,
+        476.51
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "Vacation Accrual Schedule for all Union Members.Annual shift equivalent",
+       "stored": "13",
+       "value": 13.0,
+       "flags": [],
+       "reread": "13",
+       "reread_value": 13.0,
+       "score": 1.0,
+       "bbox": [
+        268.5,
+        486.51,
+        281.17,
+        475.51
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum annual accrual (in hours)",
+       "stored": "312",
+       "value": 312.0,
+       "flags": [],
+       "reread": "312",
+       "reread_value": 312.0,
+       "score": 1.0,
+       "bbox": [
+        341.5,
+        485.84,
+        358.83,
+        475.84
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum accrual (end of calendar year)",
+       "stored": "A468",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "468",
+       "reread_value": 468.0,
+       "score": 1.0,
+       "bbox": [
+        431.5,
+        485.51,
+        449.83,
+        475.17
+       ],
+       "status": "disputed"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 3,
+     "text_sha": "9fe35f723141604e",
+     "caption": "XV.  Vacation Leave"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Vacation Accrual Schedule for all Union Members.Years of Service",
+       "stored": "14-16",
+       "value": 14.0,
+       "flags": [],
+       "reread": "14 - 16",
+       "reread_value": 14.0,
+       "score": 0.962,
+       "bbox": [
+        119.5,
+        474.17,
+        149.5,
+        463.84
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period",
+       "stored": "fs 13,85",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "13.85",
+       "reread_value": 13.85,
+       "score": 0.997,
+       "bbox": [
+        183.5,
+        473.84,
+        208.83,
+        463.84
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 2,
+       "header": "Vacation Accrual Schedule for all Union Members.Annual shift equivalent",
+       "stored": "45",
+       "value": 45.0,
+       "flags": [
+        "invariant"
+       ],
+       "reread": "15",
+       "reread_value": 15.0,
+       "score": 0.999,
+       "bbox": [
+        268.17,
+        474.17,
+        281.17,
+        463.17
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 3,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum annual accrual (in hours)",
+       "stored": "360",
+       "value": 360.0,
+       "flags": [
+        "invariant"
+       ],
+       "reread": "360",
+       "reread_value": 360.0,
+       "score": 0.999,
+       "bbox": [
+        341.17,
+        473.51,
+        359.5,
+        463.17
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum accrual (end of calendar year)",
+       "stored": "540",
+       "value": 540.0,
+       "flags": [],
+       "reread": "540",
+       "reread_value": 540.0,
+       "score": 0.999,
+       "bbox": [
+        431.83,
+        473.17,
+        449.83,
+        462.51
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 4,
+     "text_sha": "de20e73469feff61",
+     "caption": "XV.  Vacation Leave"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Vacation Accrual Schedule for all Union Members.Years of Service",
+       "stored": "17 +",
+       "value": 17.0,
+       "flags": [],
+       "reread": "17 +",
+       "reread_value": 17.0,
+       "score": 0.989,
+       "bbox": [
+        118.83,
+        461.84,
+        139.17,
+        451.51
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period",
+       "stored": "; 14,78",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "14.78",
+       "reread_value": 14.78,
+       "score": 1.0,
+       "bbox": [
+        182.5,
+        460.84,
+        208.83,
+        451.84
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 2,
+       "header": "Vacation Accrual Schedule for all Union Members.Annual shift equivalent",
+       "stored": "16",
+       "value": 16.0,
+       "flags": [],
+       "reread": "16",
+       "reread_value": 16.0,
+       "score": 0.999,
+       "bbox": [
+        268.5,
+        461.84,
+        281.5,
+        450.84
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum annual accrual (in hours)",
+       "stored": "384",
+       "value": 384.0,
+       "flags": [],
+       "reread": "384",
+       "reread_value": 384.0,
+       "score": 0.998,
+       "bbox": [
+        341.17,
+        460.84,
+        358.83,
+        451.17
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "Vacation Accrual Schedule for all Union Members.Maximum accrual (end of calendar year)",
+       "stored": "576",
+       "value": 576.0,
+       "flags": [],
+       "reread": "576",
+       "reread_value": 576.0,
+       "score": 0.999,
+       "bbox": [
+        431.5,
+        460.84,
+        450.17,
+        450.51
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 5,
+     "text_sha": "9bfb9fabe6f8a27d",
+     "caption": "XV.  Vacation Leave"
+    }
+   ]
+  },
+  "admin_group_mou:29": {
+   "doc_id": "admin_group_mou",
+   "page": 29,
+   "pdf_sha256": "",
+   "rows": [
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Monthly",
+       "stored": "8,510.74",
+       "value": 8510.74,
+       "flags": [],
+       "reread": "8,510.74",
+       "reread_value": 8510.74,
+       "score": 0.989,
+       "bbox": [
+        160.29,
+        166.74,
+        193.96,
+        158.07
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "_BiWeekly |",
+       "stored": "cl",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "$3,928.04",
+       "reread_value": 3928.04,
+       "score": 0.977,
+       "bbox": [
+        224.96,
+        166.4,
+        265.96,
+        158.4
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 2,
+       "header": "Hourly",
+       "stored": "t",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "1STED",
+       "stored": "$02.31",
+       "value": 2.31,
+       "flags": [
+        "column_disagreement"
+       ],
+       "reread": "$92.31",
+       "reread_value": 92.31,
+       "score": 0.999,
+       "bbox": [
+        348.63,
+        166.4,
+        374.63,
+        158.07
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "2NDED",
+       "stored": "$138.46",
+       "value": 138.46,
+       "flags": [],
+       "reread": "$138.46",
+       "reread_value": 138.46,
+       "score": 0.998,
+       "bbox": [
+        398.29,
+        166.07,
+        428.96,
+        158.07
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "3RDED",
+       "stored": "$184.62",
+       "value": 184.62,
+       "flags": [],
+       "reread": "$184.62",
+       "reread_value": 184.62,
+       "score": 0.997,
+       "bbox": [
+        450.29,
+        165.74,
+        481.29,
+        158.07
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 1,
+     "text_sha": "38753fc2c04d6771",
+     "caption": "2026"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Monthly",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "_BiWeekly |",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "Hourly",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "1STED",
+       "stored": "$92.31",
+       "value": 92.31,
+       "flags": [
+        "column_disagreement"
+       ],
+       "reread": "$92.31",
+       "reread_value": 92.31,
+       "score": 0.998,
+       "bbox": [
+        348.29,
+        149.4,
+        374.63,
+        141.07
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "2NDED",
+       "stored": "$138.46",
+       "value": 138.46,
+       "flags": [],
+       "reread": "$138.46",
+       "reread_value": 138.46,
+       "score": 0.997,
+       "bbox": [
+        397.63,
+        149.07,
+        428.96,
+        141.07
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "3RDED",
+       "stored": "$184.62",
+       "value": 184.62,
+       "flags": [],
+       "reread": "$184.62",
+       "reread_value": 184.62,
+       "score": 0.996,
+       "bbox": [
+        450.29,
+        148.74,
+        481.29,
+        140.74
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "verified",
+     "ordinal": 2,
+     "text_sha": "287ed978eff254db",
+     "caption": "2026"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Monthly",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "_BiWeekly |",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "Hourly",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "1STED",
+       "stored": "$02.31",
+       "value": 2.31,
+       "flags": [
+        "column_disagreement"
+       ],
+       "reread": "$92.31",
+       "reread_value": 92.31,
+       "score": 0.998,
+       "bbox": [
+        348.29,
+        132.07,
+        374.29,
+        123.74
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "2NDED",
+       "stored": "$138.46",
+       "value": 138.46,
+       "flags": [],
+       "reread": "$138.46",
+       "reread_value": 138.46,
+       "score": 0.997,
+       "bbox": [
+        397.96,
+        131.74,
+        428.96,
+        123.74
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "3RDED",
+       "stored": "$184.62",
+       "value": 184.62,
+       "flags": [],
+       "reread": "$184.62",
+       "reread_value": 184.62,
+       "score": 0.997,
+       "bbox": [
+        449.96,
+        131.74,
+        481.29,
+        123.4
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 3,
+     "text_sha": "b2eb5c5db35dc67c",
+     "caption": "2026"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Monthly",
+       "stored": "9,852.25",
+       "value": 9852.25,
+       "flags": [],
+       "reread": "9,852.25",
+       "reread_value": 9852.25,
+       "score": 0.98,
+       "bbox": [
+        159.96,
+        115.07,
+        193.63,
+        106.74
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "_BiWeekly |",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "Hourly",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "1STED",
+       "stored": "$92.31",
+       "value": 92.31,
+       "flags": [
+        "column_disagreement"
+       ],
+       "reread": "$92.31",
+       "reread_value": 92.31,
+       "score": 0.998,
+       "bbox": [
+        348.29,
+        114.74,
+        374.29,
+        106.4
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "2NDED",
+       "stored": "$138.46",
+       "value": 138.46,
+       "flags": [],
+       "reread": "$138.46",
+       "reread_value": 138.46,
+       "score": 0.998,
+       "bbox": [
+        397.63,
+        114.4,
+        428.96,
+        106.4
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "3RDED",
+       "stored": "$184.62",
+       "value": 184.62,
+       "flags": [],
+       "reread": "$184.62",
+       "reread_value": 184.62,
+       "score": 0.997,
+       "bbox": [
+        449.96,
+        114.4,
+        481.29,
+        106.4
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "verified",
+     "ordinal": 4,
+     "text_sha": "4678507f1200d0da",
+     "caption": "2026"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Monthly",
+       "stored": "10,344.86",
+       "value": 10344.86,
+       "flags": [],
+       "reread": "10,344.86",
+       "reread_value": 10344.86,
+       "score": 0.976,
+       "bbox": [
+        156.29,
+        97.74,
+        193.29,
+        89.74
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "_BiWeekly |",
+       "stored": "$4,774.55",
+       "value": 4774.55,
+       "flags": [],
+       "reread": "$4,774.55",
+       "reread_value": 4774.55,
+       "score": 0.955,
+       "bbox": [
+        223.96,
+        97.74,
+        265.29,
+        89.4
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "Hourly",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "1STED",
+       "stored": "$02.31",
+       "value": 2.31,
+       "flags": [
+        "column_disagreement"
+       ],
+       "reread": "$92.31",
+       "reread_value": 92.31,
+       "score": 0.998,
+       "bbox": [
+        348.63,
+        97.07,
+        373.96,
+        89.74
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "2NDED",
+       "stored": "$138.46",
+       "value": 138.46,
+       "flags": [],
+       "reread": "$138.46",
+       "reread_value": 138.46,
+       "score": 0.98,
+       "bbox": [
+        397.63,
+        97.4,
+        428.96,
+        89.4
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "3RDED",
+       "stored": "$184.62",
+       "value": 184.62,
+       "flags": [],
+       "reread": "$184.62",
+       "reread_value": 184.62,
+       "score": 0.997,
+       "bbox": [
+        449.96,
+        97.4,
+        481.29,
+        89.07
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 5,
+     "text_sha": "207d832af3913bb7",
+     "caption": "2026"
+    }
+   ]
+  },
+  "chief_officers_mou:26": {
+   "doc_id": "chief_officers_mou",
+   "page": 26,
+   "pdf_sha256": "",
+   "rows": [
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "First Full Pay Period.2026.DIVISION CHIEF",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "STEP|",
+       "stored": "1_|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 2,
+       "header": "'Monthly",
+       "stored": "21,553.81[$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 3,
+       "header": "Bi-Weekly",
+       "stored": "9,947.91",
+       "value": 9947.91,
+       "flags": [],
+       "reread": "9,947.91",
+       "reread_value": 9947.91,
+       "score": 1.0,
+       "bbox": [
+        235.4,
+        636.73,
+        269.4,
+        627.73
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "|. Hourly |",
+       "stored": "|. Hourly |:",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "iSTED.~- PPP",
+       "stored": "$ 124.35|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "2ND ED '|.PPP",
+       "stored": "iSTED.~- PPP: 92.31",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "$124.35",
+       "reread_value": 124.35,
+       "score": 0.997,
+       "bbox": [
+        278.4,
+        637.07,
+        315.4,
+        628.73
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 7,
+       "header": "3RD ED.' |:.PPP.",
+       "stored": "2ND ED '|.PPP: |$ 138.46]",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "Chief Off.CERT:PPP",
+       "stored": "3RD ED.' |:.PPP.: $ 184.62|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "92.31",
+       "reread_value": 92.31,
+       "score": 1.0,
+       "bbox": [
+        336.4,
+        637.4,
+        360.4,
+        628.73
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 9,
+       "header": "Mgnt Pay.PPP",
+       "stored": "Chief Off.CERT:PPP: 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "Mgnt Pay.PPP: 994,79",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 1,
+     "text_sha": "146a74bcf1fb21bf",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "First Full Pay Period.2026.DIVISION CHIEF",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "STEP|",
+       "stored": "2",
+       "value": 2.0,
+       "flags": [],
+       "reread": "2",
+       "reread_value": 2.0,
+       "score": 0.552,
+       "bbox": [
+        142.73,
+        624.73,
+        148.06,
+        616.4
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "'Monthly",
+       "stored": "| 'Monthly: $ 22,631.50",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 3,
+       "header": "Bi-Weekly",
+       "stored": "| Bi-Weekly: $ 10,445.31",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "|. Hourly |",
+       "stored": "|. Hourly |:",
+       "value": null,
+       "flags": [],
+       "reread": "$10,445.31",
+       "reread_value": 10445.31,
+       "score": 0.996,
+       "bbox": [
+        220.06,
+        625.73,
+        270.06,
+        615.07
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 5,
+       "header": "iSTED.~- PPP",
+       "stored": "$ 130.57|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "2ND ED '|.PPP",
+       "stored": "iSTED.~- PPP: 92.31",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "$130.57",
+       "reread_value": 130.57,
+       "score": 0.999,
+       "bbox": [
+        278.4,
+        625.07,
+        315.06,
+        617.07
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 7,
+       "header": "3RD ED.' |:.PPP.",
+       "stored": "2ND ED '|.PPP: |$ 138.46|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "Chief Off.CERT:PPP",
+       "stored": "3RD ED.' |:.PPP.: 184.62|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": "92.31",
+       "reread_value": 92.31,
+       "score": 1.0,
+       "bbox": [
+        336.73,
+        625.4,
+        360.4,
+        617.07
+       ],
+       "status": "disputed"
+      },
+      {
+       "col": 9,
+       "header": "Mgnt Pay.PPP",
+       "stored": "Chief Off.CERT:PPP: 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "Mgnt Pay.PPP:",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "$1,044.53",
+       "value": 1044.53,
+       "flags": [],
+       "reread": "$1,044.53",
+       "reread_value": 1044.53,
+       "score": 0.995,
+       "bbox": [
+        524.06,
+        625.73,
+        568.73,
+        616.73
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 2,
+     "text_sha": "8f95afc6f45c4cac",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "First Full Pay Period.2026.DIVISION CHIEF",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "STEP|",
+       "stored": "3",
+       "value": 3.0,
+       "flags": [],
+       "reread": "3",
+       "reread_value": 3.0,
+       "score": 0.998,
+       "bbox": [
+        142.73,
+        613.07,
+        148.06,
+        604.73
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "'Monthly",
+       "stored": "| 'Monthly: $ 23,763.07",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 3,
+       "header": "Bi-Weekly",
+       "stored": "Bi-Weekly:",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "|. Hourly |",
+       "stored": "$ 10,967.57",
+       "value": 10967.57,
+       "flags": [],
+       "reread": "$ 10,967.57",
+       "reread_value": 10967.57,
+       "score": 0.962,
+       "bbox": [
+        219.4,
+        614.73,
+        270.73,
+        602.73
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "iSTED.~- PPP",
+       "stored": "|. Hourly |:",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 6,
+       "header": "2ND ED '|.PPP",
+       "stored": "$ 137.09",
+       "value": 137.09,
+       "flags": [],
+       "reread": "$137.09",
+       "reread_value": 137.09,
+       "score": 1.0,
+       "bbox": [
+        277.4,
+        614.73,
+        316.06,
+        603.07
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 7,
+       "header": "3RD ED.' |:.PPP.",
+       "stored": "iSTED.~- PPP:",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 8,
+       "header": "Chief Off.CERT:PPP",
+       "stored": "$ 92.31",
+       "value": 92.31,
+       "flags": [],
+       "reread": "92.31",
+       "reread_value": 92.31,
+       "score": 1.0,
+       "bbox": [
+        336.4,
+        613.73,
+        360.4,
+        605.4
+       ],
+       "status": "verified"
+      },
+      {
+       "col": 9,
+       "header": "Mgnt Pay.PPP",
+       "stored": "2ND ED '|.PPP: $ 138.46]",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "3RD ED.' |:.PPP.: $ 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "| Chief Off.CERT:PPP: $ 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "Mgnt Pay.PPP:",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "$1,096.76",
+       "value": 1096.76,
+       "flags": [],
+       "reread": "$1,096.76",
+       "reread_value": 1096.76,
+       "score": 0.999,
+       "bbox": [
+        523.73,
+        614.73,
+        569.06,
+        604.4
+       ],
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 3,
+     "text_sha": "e875ae9a3450392a",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "Flist Full Pay Period",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "|.'",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "Loe :",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "Loe :",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "Loe :",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "\" 4",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "\" 4",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "\" 4",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "eee",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "eee",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 5,
+     "text_sha": "5fde41c93bf3569c",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "2027",
+       "value": 2027.0,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": ":",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "= Yn Ry ' ;",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "= Yn Ry ' ;",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "= Yn Ry ' ;",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "1ST:ED",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "|. 2ND ED.",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "3RD.ED =|",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": ".Chief-Off",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "||' Mgnt Pay",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 6,
+     "text_sha": "6b545a1acb6d9bf3",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "DIVISION GHIEF",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "__|STEP|",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": ". Monthly,",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "| 3: 'Bi-Weekly",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "Hourly",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "PPP",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "PPP..|.PPP",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "CERTPPP",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "| 9: PPP.",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 7,
+     "text_sha": "bcaf6f78cfe893db",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "1",
+       "value": 1.0,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "|$ 22,631.50|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "10,445.31",
+       "value": 10445.31,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "|.",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "$ 130.57|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "5:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "92.31/15",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "6: 13846[$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "7:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "184.62|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "8: 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "9:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "$1,044.53",
+       "value": 1044.53,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 8,
+     "text_sha": "5ff349ccdd2b4283",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "2_|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "23,763.07",
+       "value": 23763.07,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "3:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "$ 10,967.57",
+       "value": 10967.57,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "4:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "$ 137.09",
+       "value": 137.09,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "5: $ 92.31",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "| 6: $ 138.46|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "7: 184.62]",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "8: $ 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "9:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "$1,096.76",
+       "value": 1096.76,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 9,
+     "text_sha": "5c1764426c1d634d",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "3",
+       "value": 3.0,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "| 2: $ 24,951.23",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "3:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "$ 11,515.95",
+       "value": 11515.95,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "4:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "$ 143.95|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "5:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "92.31",
+       "value": 92.31,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "6: |$ 13846|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "7: 184.62]",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "8: $ 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "9:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "$1,151.60",
+       "value": 1151.6,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 10,
+     "text_sha": "fd8f679cee708bb9",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "First.Full Bay Period .",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "verified",
+     "ordinal": 12,
+     "text_sha": "64ff87699a446cc2",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": ". 2028",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "18TED -|",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "'2ND ED",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "3RD'ED",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "|. Chief Of",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "'Mgnt Pay",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 13,
+     "text_sha": "5a29ee611c53d385",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "DIVISION CHIEF -",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "|STEP|",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "Monthly|",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "Bl-Weekly'|",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "Hourly",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "PPP",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "PPP",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "| 7: -PPP '",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "8:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "CERT-PPP|.2PPP.",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 14,
+     "text_sha": "495cd50b321e818d",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "1_|",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "$23,763.07",
+       "value": 23763.07,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "3:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "$ 10,967.57",
+       "value": 10967.57,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "4:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "$ 137.09",
+       "value": 137.09,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "5:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "|$ 92.31|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "6: 138.46|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "7: 184.62]|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "8: 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "9:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "$1,096.76",
+       "value": 1096.76,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 15,
+     "text_sha": "626f0090b5988d3f",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "2",
+       "value": 2.0,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "| 2: $ 24,951.23",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "3:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "$ 11,515.95",
+       "value": 11515.95,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "4:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "$ 143.951",
+       "value": 143.951,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "5: $ 92.31|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "6: 138.46|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "7: 184.62|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "8: 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "9:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "$1,151.60",
+       "value": 1151.6,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 16,
+     "text_sha": "c89bd2da8a0ab887",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "0",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 1,
+       "header": "1",
+       "stored": "3",
+       "value": 3.0,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 2,
+       "header": "2",
+       "stored": "2:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 3,
+       "header": "3",
+       "stored": "$ 26,198.79",
+       "value": 26198.79,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 4,
+       "header": "4",
+       "stored": "3: [| $ 12,091.75",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 5,
+       "header": "5",
+       "stored": "4:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 6,
+       "header": "6",
+       "stored": "$ 151.15|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 7,
+       "header": "7",
+       "stored": "5: 92.31",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 8,
+       "header": "8",
+       "stored": "6: [$ 138.46|$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 9,
+       "header": "9",
+       "stored": "7: 184.62]",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 10,
+       "header": "",
+       "stored": "8: $ 184.62",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 11,
+       "header": "",
+       "stored": "9:",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 12,
+       "header": "",
+       "stored": "$1,209.17",
+       "value": 1209.17,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "unverified"
+      },
+      {
+       "col": 13,
+       "header": "",
+       "stored": "",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 17,
+     "text_sha": "62359cfb0cb35265",
+     "caption": "APPENDIX A COA SALARY SCHEDULE 2026-2028"
+    },
+    {
+     "cells": [
+      {
+       "col": 0,
+       "header": "Executive Chief Of\u00cfcer PPP",
+       "stored": "$ 92.31[$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 1,
+       "header": "NFA | Managing | Of\u00cfcer PPP",
+       "stored": "NFA",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 2,
+       "header": "NFA Executive Of\u00cfcer PPP",
+       "stored": "Managing",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 3,
+       "header": "CPSE | Credential PPP",
+       "stored": "Of\u00cfcer PPP: 138.46}$",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 4,
+       "header": "",
+       "stored": "NFA Executive Of\u00cfcer PPP: 184.62}",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      },
+      {
+       "col": 5,
+       "header": "",
+       "stored": "CPSE",
+       "value": null,
+       "flags": [],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "verified"
+      },
+      {
+       "col": 6,
+       "header": "",
+       "stored": "Credential PPP: $ 69.23",
+       "value": null,
+       "flags": [
+        "unparsable"
+       ],
+       "reread": null,
+       "reread_value": null,
+       "score": null,
+       "bbox": null,
+       "status": "disputed"
+      }
+     ],
+     "cell_status": "disputed",
+     "ordinal": 19,
+     "text_sha": "a6483ef563d18181",
+     "caption": "Other Education/Certification  Incentive"
+    }
+   ]
+  }
+ },
+ "generated_by": "scripts/verify_cells.py",
+ "engine": {
+  "name": "rapidocr",
+  "backend": "torch",
+  "models": "en PP-OCRv4 mobile",
+  "scale": 3.0,
+  "version": "3.9.1"
+ },
+ "generated_at": "2026-10-07T16:15:10+00:00"
+}
