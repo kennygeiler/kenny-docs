@@ -990,7 +990,9 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
         checks=[{"field": "hours", "deterministic": hours,
                  "model": params.get("hours") if params.get("source") == "claude" else None,
                  "agree": True},
-                {"field": "pay_type", "deterministic": pay_type, "model": None, "agree": True}])
+                {"field": "pay_type", "deterministic": pay_type, "model": None, "agree": True}],
+        years_of_service=params.get("years_of_service"),
+        years_note=params.get("years_note"))
     led.append("chat.interpretation", interp, actor="chat", query_id=qid)
 
     # 5. Per-unit governance + engine (B2). Each bargaining unit resolves to ITS contract
