@@ -23,6 +23,7 @@ fetch('/api/case').then(r => r.json()).then(c => {
     : CASE.llm_status === 'degraded' ? 'LLM: Claude (degraded, using fallbacks)'
     : CASE.has_api_key ? 'LLM: Claude' : 'LLM: deterministic fallback';
   showBanner(CASE.banner);
+  if (CASE.version && document.getElementById('buildTag')) document.getElementById('buildTag').textContent = 'build ' + CASE.version.sha + (CASE.version.dirty ? ' +uncommitted' : '');   // handoff (K1)
 }).catch(() => {});
 
 // role="note" rather than an alert: it is standing context, not an event, so it should

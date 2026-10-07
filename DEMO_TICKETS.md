@@ -1,5 +1,24 @@
 # DEMO_TICKETS — kenny-docs demo backlog (2026-10-07)
 
+> **State after wave 1 (written 2026-10-07 evening, before wave 2 merged).** The nine
+> wave-1 chunks in the plan table below were merged into `demo-2026-10-07` at `9129f7d`
+> (492 passed, 5 skipped). The ticket bodies under "Epics" were written that morning,
+> **before** wave 1, so their file:line references are stale — re-locate by symbol. What
+> exists now: per-unit costing governance with typed pay intent and a "Read as:" line
+> (B1/B2/B4); entitlement and policy answers from the engine with an `out_of_scope` mode
+> (B3/B6); six known answers and five live rules including `longevity_10yr` (J1a/B5);
+> schema-2 answer snapshots with `GET /chat/replay/{id}`, approvals in the ledger, a
+> required approver on `/admin/ratify`, and a tamper demo (F1/F2/F3/F6); the coverage gate
+> R1–R5 and `/admin/try_break` (E1/E2/E3/E7); `text_origin` chips, numeric-cell
+> verification with 6 disputed cells on Local 3535 p.22, and the Compare deep link
+> (D1/D2/D4); the `_ask` chokepoint with pydantic schemas, `KENNY_LLM=off`, a bounded
+> client and the baked skeptic reviews (G9/G2/A4/A8/G1/G6); server-issued query ids, the
+> evidence-based stale check and retrieval warm-up (A1/A2/A5); the rewritten chat surface
+> (I1/I2/I3/I4/I6/I16/I8); hermetic tests (K2). Wave 2 (`search-tree`, `vacation-accrual`,
+> `tour-and-gate-demo`, `citations-polish`, `handoff`) builds on that commit; the handoff
+> chunk added the build hash, `scripts/demo_smoke.py`, STATUS.md and the archive. The
+> current state of the repo is always [`STATUS.md`](STATUS.md).
+
 Source: nine-section code audit + adversarial verification run today (details in the audit journal; findings referenced by id). Every ticket was checked against the code by its writer; `verified` says how (reproduced / code-read / reported-only). Scope decisions by the owner: **no auth work** (two people looking at it), **no second domain** — public-domain fire-district documents only. Epic H (energy-rebate second case) was written and then dropped; its engine items that still matter (cap/exception stage, multi-citation, facts-from-the-question) live under E5 and J.
 
 **Totals:** 119 tickets, 59 marked for tonight (~110 engineer-hours with an AI pair, parallelisable across epics).

@@ -36,6 +36,12 @@ ENV PYTHONUNBUFFERED=1 \
     HF_HOME=/opt/models \
     CASE_NAME=santacruz
 
+# handoff (K1): .dockerignore excludes .git/, so the image cannot ask git which commit it
+# is. Pass it in: `docker build --build-arg KENNY_BUILD=$(git rev-parse --short HEAD) .`
+# (see DEPLOY.md). Unset, /api/case reports {"sha": "unknown", "source": "unknown"}.
+ARG KENNY_BUILD=unknown
+ENV KENNY_BUILD=${KENNY_BUILD}
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/* \

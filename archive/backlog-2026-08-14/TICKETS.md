@@ -1,16 +1,32 @@
 # Kenny — Path to 10/10 Backlog
 
-> **STATUS (2026-08-14): implemented.** All epics landed on this branch, one commit per
-> epic (A2/A1/A3 in "Provenance integrity…", B in "Chat correctness…", C in "Auth
-> hardening…", D in "Retrieval…", E in "Delimit document text…", F alongside A, G in the
-> hygiene commit). File:line references below describe the PRE-fix code and are kept as
-> the audit record. Deliberately deferred, with reasons:
-> - D2 note "vectors as JSON text floats" — kept; correctness/scale fixes landed, the
->   storage format is an optimization with no failure mode at this corpus size.
-> - C6 "/api/case reveals whether an API key is set" — kept; the endpoint is already
->   behind auth and the chat badge is built from it.
-> - A7 runs docling OCR in-band with pinned options; the OCR-tier test is opt-in
->   (KENNY_TEST_OCR=1) because it downloads models and takes minutes.
+> **Archived 2026-10-07.** Implemented in code on 2026-08-14 (one commit per epic:
+> A2/A1/A3 in "Provenance integrity…", B in "Chat correctness…", C in "Auth hardening…",
+> D in "Retrieval…", E in "Delimit document text…", F alongside A, G in the hygiene
+> commit). **Re-audited 2026-10-07 against the shipped Santa Cruz data: the items below
+> are inert, partial or harmful on that data; everything not listed was not re-audited.**
+> Open work is in [/DEMO_TICKETS.md](../../DEMO_TICKETS.md). Code and test comments that
+> say `TICKETS.md <id>` refer to the headings in this file (see README.md beside it).
+> File:line references in the ticket bodies describe the PRE-fix code of August 2026 and
+> are kept as the audit record; the bodies are unchanged.
+>
+> | Id | Claimed (2026-08-14) | Actual on shipped data (2026-10-07) | Evidence | Fixed by |
+> |---|---|---|---|---|
+> | A1 | source-PDF hashes in the provenance chain | **Inert.** `catalog.json` carries `pdf_sha256` on 0 of 5 documents; 0 of the ratified citations carry `doc_sha256`; the check returns ok when no hash is recorded; a live chat citation shows `"doc_sha256": ""`. | k_catalog.txt; `/chat` response | DEMO_TICKETS C7 / F8 (citations-polish, wave 2) |
+> | A2 | ledger anchored against rewrite | **Implemented, enabled nowhere.** The local ledger mixes unkeyed and `sha256` events; production is unkeyed (`KENNY_LEDGER_KEY` unset). The wave-1 ledger chunk added the keyed-epoch design; `/admin/ledger` now reports `keyed: false`. | k_ledger.txt; `/admin/ledger` | DEMO_TICKETS F4 (later) |
+> | A3 | re-validate frozen citations after re-ingest | **Was harmful:** on the shipped catalog the label-based check staled all four live rules (4 → 0, chat "blocked"). Wave 1 (A2 of DEMO_TICKETS) replaced it with an evidence-based check (page, box, quote hash); `scripts/backfill_quote_sha.py` still has to be run on the shipped library. | k4_stale.out | DEMO_TICKETS A2 (done, back-fill owed — see STATUS.md) |
+> | A5 | per-row bboxes for table rows | **Inert until a re-ingest.** 524 of 524 table-row clauses share a bbox with another row in the shipped catalog. | k_catalog.txt | DEMO_TICKETS C2b (later) |
+> | A7 | OCR in-band, "path documented in ARCHITECTURE.md" | **Partial.** ARCHITECTURE mentions OCR once; no per-page OCR confidence in the shipped catalog (`page_confidence` on 0 of 5); the four MOUs were OCR'd outside the repo (OCRmyPDF 17.8.0 / Tesseract 5.5.2, 2026-07-17). Wave 1 (D1) recorded `text_origin` per document instead. | PDF metadata; catalog | DEMO_TICKETS D5 (later) |
+> | C4 | rate-limit keying honours the client-IP header | **Not applicable to the current deploy:** the header is trusted only when `FLY_APP_NAME` is set; the deploy is Railway. Auth work is out of scope by the owner's decision. | core/auth.py | none (no auth work) |
+> | C6 | deferred because `/api/case` "is already behind auth" | **Untrue** since commit e5d4325 nine minutes later: the deploy posture is open and `/api/case` is public (it now also carries the build hash on purpose). | git log | none |
+> | D3 | OpenSearch backend exercised | **Partial.** `tests/test_opensearch.py` is skipped unless `OPENSEARCH_URL` is set; no compose file, no CI. | pytest -rs | DEMO_TICKETS D3 (later) |
+> | F2 | `_clause_number` false positives fixed | **Fixed in code, not in data:** the shipped catalog's only 12 clause ids are still figure fragments (`000.00`, `300.00`, `500.00`, `2.5`, `2.7`). Wave 1 (C3a) stopped citing them. | k_catalog.txt | DEMO_TICKETS C3 (later) |
+> | G1 | stale references purged | **Leftovers:** `.gitignore` (make_reference_pdfs.py), `Dockerfile` ("Generate the reference PDFs"), `scripts/reset_case.py` ("13 PDFs", `sources_staged/`), `core/auth.py` ("the Dockerfile does"). | grep | DEMO_TICKETS K6/K7 (later) |
+> | 10/10 definition | items 1, 3, 4 | Item 1 not met (A1 inert); item 4 not met (docs described a locked deploy — corrected in DEPLOY.md); item 3 was failing in spirit on 2026-10-07 morning (a firefighter's bereavement question answered from the Chief Officers MOU) and was fixed by wave 1 (B3). | k3_trial.out; tests/test_demo_smoke.py | DEMO_TICKETS B3 (done) |
+>
+> Deferrals recorded on 2026-08-14, kept for the record: D2 "vectors as JSON text floats"
+> (storage format, no failure mode at this corpus size); A7's OCR-tier test is opt-in
+> (`KENNY_TEST_OCR=1`) because it downloads models and takes minutes.
 
 Source: full-code audit 2026-08-14 (three passes: ingest/provenance, auth/security, chat/retrieval).
 Each ticket is self-contained: problem, evidence (file:line), acceptance criteria.

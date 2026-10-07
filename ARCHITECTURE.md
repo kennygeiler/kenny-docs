@@ -53,7 +53,11 @@ property of the deterministic layer plus a human gate — not of the model.
 | `pdfview.py` | render a page and overlay the citation box | citations you can *see* |
 | `auth.py` | two-role auth, per-IP rate limit, refuse-to-start-misconfigured | a shared link must not hand out the approval gate |
 
-Everything jurisdiction-specific lives in `cases/<name>/`; `core/` is case-agnostic.
+The corpus, classification table, rules and known answers live in `cases/<name>/`. The
+engine, rule DSL, governance and ledger in `core/` are case-agnostic (`CASE=<dir>` points
+the app at another bundle); the demo surfaces are not yet — example prompts in
+`chat.html`, tour targets in `tour.js` and department cue words in `llm.py` are Santa
+Cruz-specific, and `caseio.default_case_dir` falls back to `cases/santacruz`.
 
 ### 1.2 The seams that keep the roadmap cheap
 
@@ -399,8 +403,10 @@ union asks.
 5. **Ask**, and confirm an unsatisfiable question refuses rather than guesses.
 
 **The deployed corpus is real:** the Central Fire District of Santa Cruz County's published MOUs
-(scans → OCR → docling, ~1,860 clauses) and master salary schedule. Its two verification scenarios
-are analyst-derived from the documents themselves (1.5× overtime × the schedule's real rate =
-$640.80; three bereavement shifts per Article XIV) — the PRD's explicit fallback until the district
-supplies real payroll. The guided test path for reviewers is PRD §12. Nothing in `core/` is
-case-specific.
+(scans → OCR → docling, ~1,860 clauses) and master salary schedule. Its six known answers are
+analyst-derived from the documents themselves (1.5× overtime × the schedule's real rate = $640.80;
+$656.82 with 12 years' longevity; three bereavement shifts per Article XIV for a Firefighter/Paramedic
+and for a Battalion Chief; 40 hours under the Chief Officers MOU; $716.16 under the Admin Group MOU)
+— the PRD's explicit fallback until the district supplies real payroll. The guided test path for
+reviewers is PRD §12. The engine and ledger in `core/` are case-agnostic; the demo surfaces still
+carry Santa Cruz prompts and cue words (§1.1).

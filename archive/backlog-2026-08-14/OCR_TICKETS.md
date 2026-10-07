@@ -5,17 +5,23 @@ produces clause-level provenance (1,861 clauses with `page`, `bbox`, `kind`, per
 `parse_source`, per-PDF `pdf_sha256`) — these tickets turn that data into surfaces a
 viewer can see and trust. Build in numbered order; each ticket is self-contained.
 
-> **STATUS (2026-08-14):** OCR-1 (X-ray, `eeb617d`), OCR-3 (scorecard, `8b23884`),
-> OCR-4 (tier chips, `c71ccc6`), OCR-2 (side-by-side, `8bea6f8`), OCR-5
-> (table X-ray, `e26394e`), OCR-6 (live scan demo, `0d37370`) and OCR-7
-> (confidence capture, `f4727bc` — page-level, see the ticket for what the pinned
-> docling exposes) are DONE. The backlog is complete.
-> Known data limitation: the shipped santacruz catalog predates per-row table bboxes,
-> sha recording and per-page OCR confidence — a re-ingest with docling refreshes all
-> three; the X-ray merges shared-bbox rows into one box until then. The four MOUs are
-> scans carrying an invisible OCRmyPDF/Tesseract text layer (D1 records this as
-> `text_origin: ocr-layer`); only the salary schedule is born-digital. docling trusts
-> the existing layer, so page_confidence stays empty on them even after re-ingest.
+> **Archived 2026-10-07.** Implemented in code on 2026-08-14: OCR-1 (X-ray, `eeb617d`),
+> OCR-3 (scorecard, `8b23884`), OCR-4 (tier chips, `c71ccc6`), OCR-2 (side-by-side,
+> `8bea6f8`), OCR-5 (table X-ray, `e26394e`), OCR-6 (live scan demo, `0d37370`) and
+> OCR-7 (confidence capture, `f4727bc`, page-level). **Re-audited 2026-10-07 against the
+> shipped Santa Cruz data: the items below are inert, partial or harmful on that data;
+> everything not listed was not re-audited.** Open work is in
+> [/DEMO_TICKETS.md](../../DEMO_TICKETS.md). Code comments that say `TICKETS.md OCR-n`
+> refer to the headings in this file. The ticket bodies are unchanged.
+>
+> | Id | Claimed (2026-08-14) | Actual on shipped data (2026-10-07) | Evidence | Fixed by |
+> |---|---|---|---|---|
+> | header | the pipeline "already produces … per-PDF `pdf_sha256`" | **Not in the shipped catalog:** `pdf_sha256` on 0 of 5 documents. | k_catalog.txt | DEMO_TICKETS C7 (citations-polish, wave 2) |
+> | header | "The backlog is complete" | All seven commits exist, but on shipped data OCR-3's hash status is blank for 5 of 5 documents, OCR-5 highlights the whole table (shared row bboxes), and OCR-7 shows nothing (`page_confidence` empty on every document). | k_catalog.txt | DEMO_TICKETS C2b, D5 (later) |
+> | header | "a re-ingest with docling refreshes all three" | Omitted that, before wave 1, a re-ingest staled all four live rules (archive/backlog-2026-08-14/TICKETS.md A3). The evidence-based stale check (DEMO_TICKETS A2) now makes a re-read safe only once `scripts/backfill_quote_sha.py` has been run on the shipped library — owed, see STATUS.md. | k4_stale.out | DEMO_TICKETS A2 (done, back-fill owed) |
+> | header | "being a digital-text corpus" (earlier wording) | `cases/santacruz/case.yaml` says all four MOUs arrived as scans; their text is an OCRmyPDF 17.8.0 / Tesseract 5.5.2 layer added 2026-07-17. Only the salary schedule is born-digital. | PDF metadata | DEMO_TICKETS D1 (done: `text_origin` per document) |
+> | OCR-4 | an "OCR'd scan" chip on citations | **Was missing** on 2026-10-07 morning: no such tier existed and the four OCR'd MOUs showed "text layer". Wave 1 (D1) added `text_origin` to the catalog and the chip now reads "OCR'd scan" (see `tier` on any `/chat` citation). | `/chat` response | DEMO_TICKETS D1 (done) |
+> | OCR-7 | confidence-aware highlighting | **Shows nothing on shipped data:** docling trusts the existing text layer, so `page_confidence` stays empty on the MOUs even after a re-ingest. Wave 1 (D2) verifies numeric table cells with a second engine instead (`cases/santacruz/cell_checks.json`, 6 disputed cells on Local 3535 p.22). | `/doc/firefighters_local3535_mou/clauses?page=22` | DEMO_TICKETS D2 (done), D5 (later) |
 
 Shared data facts (read before building):
 - `cases/<case>/catalog.json` — per doc: `parse_source` (`docling` | `sidecar` |

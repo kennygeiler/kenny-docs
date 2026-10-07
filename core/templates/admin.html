@@ -1496,6 +1496,7 @@
     fetch('/api/case').then(r => r.json()).then(c => {
       $('caseName').textContent = c.name || 'Contract library, rule review and audit';
       if (c.banner) { const b = $('demoBanner'); b.textContent = c.banner; b.hidden = false; }
+      if (c.version && $('buildTag')) $('buildTag').textContent = 'build ' + c.version.sha + (c.version.dirty ? ' +uncommitted' : '');   // handoff (K1)
     });
     // D4 deep link: #compare=<doc>:<page> or #documents?compare=<doc>&p=<page> opens
     // Compare on that page once the Documents tab has loaded (the viewer needs the
@@ -1518,6 +1519,8 @@
       docsLoaded.then(() => openCompare(DEEP.doc, DEEP.page));
     }
   </script>
+  <!-- handoff (K1): the commit this build runs, filled from /api/case -->
+  <footer id="buildTag" class="build-tag" style="text-align:center;font-size:11px;color:#8a97a8;padding:4px 16px 16px">build …</footer>
   <!-- Guided demo tour: resumes here when chat hands off with ?tour=1. -->
   <script src="/static/tour.js?v=2"></script>
 </body>
