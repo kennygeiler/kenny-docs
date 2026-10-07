@@ -92,7 +92,7 @@ golden_cases:
   - name: bereavement leave, Firefighters Local 3535 (Article XIV)
     source: "analyst-derived: 'three (3) shifts paid bereavement leave', Local 3535 MOU Article XIV p.21"
     branch_query: "bereavement leave death immediate family shifts"
-    result_type: days
+    result_type: shifts
     subjects: ["Firefighter/Paramedic (56 hr, top step)"]
     params: {hours: 0}
     expected_total: 3

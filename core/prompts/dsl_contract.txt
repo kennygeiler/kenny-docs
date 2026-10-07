@@ -6,6 +6,7 @@ An MOU is a RULEBOOK, and pay is only one chapter of it. Draft a rule for ANY cl
 that yields a determinate value for a person, not just money:
   currency  "2.5x base for holiday hours"        -> result_type: "currency"
   days      "5 days of bereavement leave"        -> result_type: "days"
+  shifts    "three (3) shifts paid bereavement"  -> result_type: "shifts"  (a 56-hour unit counts shifts, not days)
   hours     "3.08 hours of vacation per period"  -> result_type: "hours"
   date      "15 calendar days to file"           -> result_type: "days"
   boolean   "eligible after 12 months"           -> result_type: "boolean"
@@ -115,7 +116,7 @@ Return ONLY JSON:
   "kind": "modifier"|"selector",   // differential -> modifier; base/premium -> selector
   "role": "base"|"differential"|"premium"|"exception",
   "pay_basis": "hourly"|"per_shift"|"per_pay_period"|"monthly"|"annual"|"one_time",  // currency rules
-  "result_type": "currency"|"days"|"hours"|"date"|"boolean"|"text",
+  "result_type": "currency"|"days"|"shifts"|"hours"|"date"|"boolean"|"text",
   "topic": "<short topic>",
   "when": "<expression>", "set": {{...}} OR "compute": "<expression>",
   "human_readable": "<one sentence, cite the section>",

@@ -18,7 +18,7 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import audit, auth, governance, index, ingest, llm
+from . import audit, auth, governance, index, ingest, llm, rulematch
 from .caseio import default_case_dir, load_case
 from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
@@ -327,130 +327,214 @@ def _clarify(qid: str, prompt: str, question: str, options: list | None = None) 
             "question": question, "options": options or []}
 
 
+def _titles(case, doc_ids: list[str]) -> list[str]:
+    return [rulematch.doc_short_title(case.source_by_id(d) or {"id": d}) or d for d in doc_ids]
+
+
+def _out_of_scope(case, qid: str, prompt: str, scope: list[str], named: list[str],
+                  reason: str, coverage: float | None = None) -> dict:
+    """The refusal for a question these documents do not answer (DEMO_TICKETS.md B6).
+    Names the documents it checked so the visitor knows what WAS searched; never
+    offers a department, because no department holds a heat-pump rebate."""
+    if named:
+        titles = _titles(case, named)
+        answer = ("I could not find that in " + " or ".join(titles)
+                  + " — it is not covered by that document.")
+    else:
+        titles = _titles(case, scope)
+        answer = (f"That is not covered by the {len(titles)} documents I have: "
+                  + "; ".join(titles) + ".")
+    return {"query_id": qid, "mode": "out_of_scope", "prompt_echo": prompt,
+            "answer": answer, "answer_source": "none", "reason": reason,
+            "coverage": coverage, "options": [], "sources": [],
+            "considered": [_doc_meta(case, d) for d in scope]}
+
+
 def _policy_answer(case, led, qid: str, prompt: str, department: str | None = None,
-                   lookup: bool = False) -> dict:
-    """Policy Q&A over a multi-department CORPUS.
+                   lookup: bool = False, doc_scope: list[str] | None = None) -> dict:
+    """Policy Q&A over a multi-document CORPUS (DEMO_TICKETS.md B6).
 
-    1. Identify the department (stated in the question, or asked for).
-    2. Shortlist candidate documents from metadata (department + citywide policies).
-    3. Hybrid-search within the candidates for the governing clause(s).
-    4. Answer strictly from retrieved text, showing which documents were considered and
-       which were used — each drilling to the exact section on the PDF.
+    1. Scope: the document the question names, else the bargaining unit of the
+       classification it names, else the stated department, else the corpus. A caller
+       that already resolved governance passes `doc_scope` (the entitlement fallback),
+       so a quote can only come from the subject's own contract.
+    2. Query: the prompt minus the words that named the scope and the question frame.
+    3. Search within the scope; pin the cited clause of any ratified rule whose topic
+       is in the question, so the quote boxes the same clause the costing answer did.
+    4. Relevance floor: when the best hit covers too little of the question, say it is
+       not in these documents instead of quoting the least-irrelevant preamble.
+    5. Answer strictly from retrieved text, with every document considered and used.
 
-    `lookup=True` serves a figure the documents already PUBLISH — a Step C rate off a
-    salary schedule. It is the same retrieve-and-quote spine, and deliberately so: a
-    published rate needs no rule, no golden and no engine, because there is no arithmetic
-    to get wrong. Routing it through costing made Kenny refuse a number it was holding.
+    `lookup=True` serves a figure the documents already PUBLISH — a rate off a salary
+    schedule. Same spine; the schedule is always in scope and only rows that carry the
+    named classification's words are floated.
     """
     cat = _catalog(case)
     backend = _backend(case)
-    departments = case.departments()
-
-    # 1. Which unit's contract? Stated, previously confirmed, or unknown.
-    dept = department or llm.extract_department(prompt, departments)
-    led.append("policy.department", {"department": dept, "stated": bool(department),
-                                     "known_departments": departments},
-               actor="chat", query_id=qid)
-
-    # 2. Candidate shortlist from metadata — via the one shared scoping helper (see
-    #    _dept_scope for why declared-vs-ingested and the empty-scope guard must always
-    #    travel together).
     ingested = {d["doc_id"] for d in cat.documents()}
-    scope = _dept_scope(case, cat, dept)
+    subjects_all = case.subjects()
+
+    # 1. Scope.
+    if doc_scope is not None:
+        sc = rulematch.Scope([d for d in doc_scope if d in ingested], "unit")
+        if lookup:
+            for s in case.manifest.get("sources", []):
+                if s.get("doc_type") == "salary-schedule" and s["id"] in ingested \
+                        and s["id"] not in sc.doc_ids:
+                    sc.doc_ids.append(s["id"])
+    else:
+        sc = rulematch.docs_for(case, ingested, prompt, department, lookup, subjects_all)
+    scope = sc.doc_ids
+    dept = sc.department or (department if department in case.departments() else None)
+    led.append("policy.department", {"department": dept, "stated": bool(department),
+                                     "known_departments": case.departments(),
+                                     "scope_how": sc.how, "named_docs": sc.named,
+                                     "bargaining_units": sc.units},
+               actor="chat", query_id=qid)
     led.append("retrieval.candidates",
                {"department": dept, "candidate_docs": scope, "corpus_size": len(ingested),
-                "declared": len(case.manifest.get("sources", []))},
+                "declared": len(case.manifest.get("sources", [])), "scope_how": sc.how},
                actor="chat", query_id=qid)
 
-    # 3. Hybrid search within candidates. An empty scope means nothing relevant has been
-    #    ingested yet — do NOT call search([]), which the backend reads as "no filter, use
-    #    the whole index" and would leak another department's documents.
-    hits = backend.search(prompt, doc_ids=scope, k=6) if scope else []
+    # 2. Query: nothing left ('hi', or only a document's name) -> not a question these
+    #    documents answer.
+    query, stems = rulematch.retrieval_query(prompt, sc.consumed)
+    if not stems:
+        led.append("policy.out_of_scope", {"reason": "no content terms", "query": query},
+                   actor="chat", query_id=qid)
+        return _out_of_scope(case, qid, prompt, scope, sc.named, "no content terms")
+
+    # 3. Search within candidates. An empty scope means nothing relevant has been
+    #    ingested yet — do NOT call search([]), which the backend reads as "no filter".
+    hits = backend.search(query, doc_ids=scope, k=8) if scope else []
+    pins: list[dict] = []
+    if hits:
+        rules = [r for r in case.rules() if r.citation.doc_id in scope]
+        hits, pins = rulematch.pin_rule_clauses(
+            rules, hits, stems, scope, rulematch.chunk_lookup(backend, cat))
+    not_found: list[str] = []
+    quote_rows = 3                      # rows the no-key lookup wording may quote
     if lookup:
-        # A published rate lives in a table row, and an MOU's prose ABOUT pay ("the base
-        # rate shall be as set forth in Appendix A") out-scores the row that holds the
-        # number. Float the rows the recovered-table parser produced; keep the prose
-        # behind them rather than dropping it, since the schedule may not be the whole
-        # answer.
-        hits.sort(key=lambda h: 0 if _is_rate_row(h) else 1)
+        word_sets = rulematch.classification_words(sc.subjects)
+        rows = [h for h in hits if _is_rate_row(h)]
+        if word_sets:
+            matching = [h for h in rows if rulematch.row_matches(h, word_sets)]
+            if matching:
+                hits = matching + [h for h in hits if h not in matching]
+                quote_rows = min(quote_rows, len(matching))
+            else:
+                not_found = sorted({str(s.get("rank") or s.get("name")) for s in sc.subjects})
+        else:
+            hits.sort(key=lambda h: 0 if _is_rate_row(h) else 1)
     led.append("retrieval.hits",
-               {"hits": [{k: h[k] for k in ("doc_id", "clause", "page", "score")} for h in hits]},
+               {"query": query,
+                "hits": [{k: h.get(k) for k in ("doc_id", "clause", "page", "score", "pinned_by")}
+                         for h in hits]},
                actor="chat", query_id=qid)
 
-    # If the department wasn't stated and the evidence spans several units, the answer
-    # differs by contract -> ask rather than pick one (PRD §3.3 never bluff).
-    if not dept and hits:
-        hit_depts = []
+    # 4. Relevance floor, before any clarify: an off-corpus question must not be asked
+    #    which department it is about. A lookup that named a classification the
+    #    schedule has no row for is answered by name first — that IS the finding.
+    cov = rulematch.best_coverage(stems, hits, rulematch.idf_table(backend))
+    if not_found:
+        led.append("policy.answer", {"answer": "no published rate row", "source": "none",
+                                     "lookup": True, "scope_how": sc.how,
+                                     "not_found": not_found, "coverage": round(cov, 3)},
+                   actor="chat", query_id=qid)
+        return {"query_id": qid, "mode": "lookup", "answer_source": "none",
+                "answer": (f"I couldn't find a published rate row for {', '.join(not_found)}"
+                           f" in {' or '.join(_titles(case, scope)) or 'these documents'}."),
+                "sources": [], "department": dept, "scope_how": sc.how,
+                "not_found": not_found, "coverage": round(cov, 3),
+                "considered": [_doc_meta(case, d) for d in scope]}
+    if hits and cov < rulematch.OUT_OF_SCOPE_FLOOR:
+        led.append("policy.out_of_scope", {"reason": "below relevance floor",
+                                           "coverage": round(cov, 3), "query": query},
+                   actor="chat", query_id=qid)
+        return _out_of_scope(case, qid, prompt, scope, sc.named, "below relevance floor",
+                             round(cov, 3))
+    if not hits and (sc.how == "corpus" or sc.named):
+        led.append("policy.out_of_scope", {"reason": "no hits", "query": query},
+                   actor="chat", query_id=qid)
+        return _out_of_scope(case, qid, prompt, scope, sc.named, "no hits", 0.0)
+
+    # If nothing scoped the question and the evidence spans several bargaining units,
+    # the answer differs by contract -> ask which document (PRD §3.3 never bluff).
+    # Options are document titles, one per unit; the salary schedule is never offered.
+    if sc.how == "corpus" and hits:
+        by_unit: dict[str, str] = {}
         for h in hits:
-            d = (case.source_by_id(h["doc_id"]) or {}).get("department")
-            if d and d != "citywide" and d not in hit_depts:
-                hit_depts.append(d)
-        if len(hit_depts) > 1:
+            s = case.source_by_id(h["doc_id"]) or {}
+            u = s.get("bargaining_unit")
+            if u and u not in by_unit:
+                by_unit[u] = rulematch.doc_short_title(s) or h["doc_id"]
+        if len(by_unit) > 1:
+            options = list(by_unit.values())
             led.append("policy.clarify",
-                       {"reason": "evidence spans multiple departments",
-                        "options": hit_depts}, actor="chat", query_id=qid)
+                       {"reason": "evidence spans multiple bargaining units",
+                        "options": options}, actor="chat", query_id=qid)
             return {"query_id": qid, "mode": "clarify", "prompt_echo": prompt,
                     "question": "That's answered differently by each unit's contract. "
-                                "Which department?",
-                    "options": hit_depts,
+                                "Which one?",
+                    "options": options,
                     "considered": [_doc_meta(case, h["doc_id"]) for h in hits]}
 
     if not hits:
+        where = (" or ".join(_titles(case, sc.named)) if sc.named
+                 else f"the {dept} documents" if dept
+                 else "these documents")
         return {"query_id": qid, "mode": "lookup" if lookup else "policy",
                 "answer_source": "none",
-                "answer": "I couldn't find a clause covering that in "
-                          + (f"the {dept} documents." if dept else "the corpus."),
-                "sources": [], "department": dept,
+                "answer": f"I couldn't find a clause covering that in {where}.",
+                "sources": [], "department": dept, "scope_how": sc.how,
                 "considered": [_doc_meta(case, d) for d in scope]}
 
-    # 4. Grounded answer + provenance.
+    # 5. Grounded answer + provenance.
     ans = llm.answer_policy(prompt, hits, lookup=lookup)
+    if ans.get("source") == "stub":
+        # The no-key wording: name the document and page when the ingest found no
+        # section label, so a quote never opens with a bare section sign.
+        ans["answer"] = rulematch.compose_quote(
+            hits, lambda d: _titles(case, [d])[0], lookup=lookup, max_rows=quote_rows)
     led.append("policy.answer", {"answer": ans["answer"], "source": ans["source"],
-                                 "lookup": lookup,
+                                 "lookup": lookup, "scope_how": sc.how,
+                                 "pinned": [p["rule_id"] for p in pins],
+                                 "coverage": round(cov, 3),
                                  "docs_used": sorted({h["doc_id"] for h in hits[:4]})},
                actor="chat", query_id=qid)
     for h in hits[:4]:
-        led.append("citation", {k: h[k] for k in ("doc_id", "clause", "page", "bbox")},
+        led.append("citation", {k: h.get(k) for k in ("doc_id", "clause", "page", "bbox")},
                    actor="engine", query_id=qid)
     return {"query_id": qid, "needs_confirmation": False,
             "mode": "lookup" if lookup else "policy",
             "answer": ans["answer"], "answer_source": ans["source"], "department": dept,
-            "corpus_size": len(ingested),
+            "scope_how": sc.how, "bargaining_units": sc.units, "coverage": round(cov, 3),
+            "pinned": pins, "corpus_size": len(ingested),
             "considered": [_doc_meta(case, d) for d in scope],
-            "sources": [_source_entry(case, cat, h) for h in hits[:4]]}
+            "sources": [{**_source_entry(case, cat, h), "pinned_by": h.get("pinned_by")}
+                        for h in hits[:4]]}
 
 
 def _entitlement_answer(case, led, qid: str, prompt: str,
                         department: str | None = None) -> dict:
-    """Answer a non-money rule question — "how many bereavement days?", "what's the
-    grievance deadline?" — with the SAME guarantees as a dollar figure.
+    """Answer a non-money rule question — "how many bereavement shifts?", "what's the
+    grievance deadline?" — with the SAME guarantees as a dollar figure
+    (DEMO_TICKETS.md B3).
 
     An MOU is a rulebook; pay is one chapter. These clauses are equally determinate and
     deserve the deterministic engine + citation, not an LLM paraphrase.
 
-    Retrieval finds the governing clause; if a ratified rule CITES that clause, the
-    engine computes the typed value. If no rule covers it, fall back to quoting the
-    contract (policy), which is always better than guessing.
+    Who the question is for decides which contract answers it: the named
+    classification's bargaining unit (else the named document's), resolved through
+    governance to its governing documents. Retrieval runs inside those documents only;
+    a ratified non-currency rule is selected when the chunk occupying its cited box is
+    among the top hits, or its topic word is in the question. The engine computes the
+    typed value. No rule -> quote the subject's own contract (policy), never another
+    unit's. Nobody named -> ask who it is for; one department holds two units, so a
+    department-wide search would answer a firefighter from the chiefs' contract.
     """
     backend = _backend(case)
-    departments = case.departments()
-    dept = department or llm.extract_department(prompt, departments)
-    # Same scoping discipline as _policy_answer (TICKETS.md B1). This path used to scope
-    # by the DECLARED corpus and pass an empty list straight to search — which the
-    # backend reads as "no filter" — so a department with no ingested documents was
-    # answered from every OTHER department's contracts.
-    scope = _dept_scope(case, _catalog(case), dept)
-    hits = backend.search(prompt, doc_ids=scope, k=6) if scope else []
-    led.append("entitlement.retrieval",
-               {"department": dept, "candidates": len(scope),
-                "hits": [{k: h[k] for k in ("doc_id", "clause", "score")} for h in hits]},
-               actor="chat", query_id=qid)
-
-    # rules whose cited clause is among the retrieved evidence, excluding currency
-    hit_keys = {(h["doc_id"], str(h["clause"])) for h in hits if h.get("clause")}
-    rules = [r for r in case.rules()
-             if r.result_type != "currency"
-             and (r.citation.doc_id, str(r.citation.clause)) in hit_keys]
+    cat = _catalog(case)
     subjects_all = case.subjects()
     params = llm.parse_intent(prompt, _extraction(case), subjects_all)
     if params.get("unverified_numbers"):
@@ -458,29 +542,105 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
                         "I read a number out of that question that it doesn't actually "
                         "state — can you restate it with the amount spelled out?")
     named = set(params.get("subjects") or [])
-    subjects = [s for s in subjects_all if s.get("name") in named]
+    named_rows = [s for s in subjects_all if s.get("name") in named]
+    units, _rows, how = rulematch.units_for(case, prompt, subjects_all, label=department)
+    if named_rows:
+        units = sorted({s.get("bargaining_unit") for s in named_rows if s.get("bargaining_unit")})
+        how = "classification"
+    date_iso = governance.parse_date(params.get("date"), DEFAULT_YEAR) or ""
+    led.append("entitlement.scope", {"units": units, "how": how,
+                                     "subjects": [s.get("name") for s in named_rows],
+                                     "date_iso": date_iso},
+               actor="chat", query_id=qid)
 
-    if not rules or not subjects:
-        # No ratified rule for this clause (or nobody named) -> quote the contract.
-        led.append("entitlement.fallback",
-                   {"reason": "no ratified non-currency rule for the retrieved clauses"
-                              if not rules else "no subject named"},
+    if not units:
+        if department and department in case.departments():
+            # The visitor already confirmed a department (clarify post-back): quote
+            # from that department's documents, never from a wider scope.
+            led.append("entitlement.fallback", {"reason": "no subject named"},
+                       actor="chat", query_id=qid)
+            return _policy_answer(case, led, qid, prompt, department,
+                                  doc_scope=_dept_scope(case, cat, department))
+        led.append("entitlement.clarify", {"reason": "no subject or document named"},
                    actor="chat", query_id=qid)
-        return _policy_answer(case, led, qid, prompt, department)
+        examples = ", ".join(str(s.get("name")) for s in subjects_all[:3])
+        return _clarify(qid, prompt,
+                        "Who is this for? Name a classification (e.g. "
+                        f"{examples}) or the contract (e.g. "
+                        f"{', '.join(_titles(case, [s['id'] for s in case.manifest.get('sources', [])[:2]]))}).")
 
+    _ingested = {d["doc_id"] for d in cat.documents()}
+    # The classification named the scope; search for the entitlement, not the rank.
+    query, stems = rulematch.retrieval_query(prompt, rulematch.rank_stems(named_rows))
+    lookup = rulematch.chunk_lookup(backend, cat)
     eng = {"hours": params.get("hours", 0.0), "date": params.get("date", ""),
-           "date_iso": governance.parse_date(params.get("date"), DEFAULT_YEAR) or "",
-           "holiday_weekday": params.get("holiday_weekday", "")}
-    try:
-        result = calculate(eng, subjects, rules, case.rounding_places())
-    except ValueError:
-        return _policy_answer(case, led, qid, prompt, department)
+           "date_iso": date_iso, "holiday_weekday": params.get("holiday_weekday", "")}
+    line_items: list[dict] = []
+    matches: list[dict] = []
+    not_covered: list[dict] = []
+    all_scope: list[str] = []
+    for unit in units:
+        gov = governance.resolve([unit], date_iso or None, case.manifest.get("sources", []))
+        scope = [d for d in gov.doc_ids if d in _ingested]
+        all_scope += [d for d in scope if d not in all_scope]
+        hits = backend.search(query or prompt, doc_ids=scope, k=8) if scope else []
+        led.append("entitlement.retrieval",
+                   {"unit": unit, "candidates": len(scope), "candidate_docs": scope,
+                    "query": query,
+                    "hits": [{k: h.get(k) for k in ("doc_id", "clause", "page", "score")}
+                             for h in hits]},
+                   actor="chat", query_id=qid)
+        candidates = [r for r in case.rules()
+                      if r.result_type != "currency" and r.citation.doc_id in scope]
+        rules, found, ambiguous = rulematch.select_rules(candidates, hits, stems)
+        if ambiguous:
+            led.append("entitlement.clarify", {"reason": "several topics match",
+                                               "options": ambiguous},
+                       actor="chat", query_id=qid)
+            return _clarify(qid, prompt, "Which of these is the question about? "
+                            + ", ".join(ambiguous) + ".", ambiguous)
+        if not rules:
+            not_covered.append({"unit": unit, "docs": scope})
+            continue
+        subjects = [s for s in named_rows if s.get("bargaining_unit") == unit] \
+            or [s for s in subjects_all if s.get("bargaining_unit") == unit]
+        try:
+            result = calculate(eng, subjects, rules, case.rounding_places())
+        except ValueError as e:
+            led.append("entitlement.fallback", {"reason": f"engine: {e}", "unit": unit},
+                       actor="chat", query_id=qid)
+            not_covered.append({"unit": unit, "docs": scope})
+            continue
+        rd = _enrich_citations(cat, result.to_dict())
+        items = rd.get("line_items", [])
+        if not any(s.get("bargaining_unit") == unit for s in named_rows) and items \
+                and len({(li.get("total"), li.get("rule_id")) for li in items}) == 1:
+            # Nobody named: the whole unit gets the same answer, so show one row for
+            # the unit rather than six identical ones.
+            title = _titles(case, scope[:1])[0] if scope else unit
+            items = [dict(items[0], subject=f"Any {title} member")]
+        for m in found:
+            led.append("entitlement.match", {**m, "unit": unit, "scope_how": how},
+                       actor="chat", query_id=qid)
+        matches += [{**m, "unit": unit} for m in found]
+        line_items += items
 
-    rd = _enrich_citations(_catalog(case), result.to_dict())
-    led.append("answer.snapshot", {"total": result.total, "intent": "entitlement"},
+    if not line_items:
+        led.append("entitlement.fallback",
+                   {"reason": "no ratified non-currency rule for the retrieved clauses",
+                    "units": units}, actor="chat", query_id=qid)
+        return _policy_answer(case, led, qid, prompt, department, doc_scope=all_scope)
+
+    total = line_items[0]["total"] if len(line_items) == 1 else \
+        round(sum(float(li.get("total") or 0) for li in line_items), case.rounding_places())
+    rd = {"total": total, "line_items": line_items}
+    led.append("answer.snapshot", {"total": total, "intent": "entitlement"},
                actor="engine", query_id=qid)
+    depts = sorted({(case.source_by_id(d) or {}).get("department") or "" for d in all_scope})
     return {"query_id": qid, "needs_confirmation": False, "mode": "entitlement",
-            "department": dept, "params": params, "result": rd,
+            "department": ", ".join(d for d in depts if d) or None,
+            "bargaining_units": units, "scope_how": how, "match": matches,
+            "not_covered": not_covered, "params": params, "result": rd,
             "corpus_size": len(case.manifest.get("sources", []))}
 
 
