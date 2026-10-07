@@ -86,10 +86,19 @@ def _file_sha(path: str | None) -> str:
 
 RULE_HASH_FIELDS = ("id", "kind", "role", "result_type", "pay_basis", "when", "compute",
                     "set", "flags", "citation")
+# The citation's address only. The quote binding (quote_sha256/quote, A2 back-fill) is a
+# hash OF the cited clause text, which input_hashes already covers through
+# catalog_doc_sha256 — hashing it here too would stale every review the moment the
+# library is bound to its evidence. Same four keys as provenance.CITATION_FIELDS.
+CITATION_HASH_FIELDS = ("doc_id", "clause", "page", "bbox")
 
 
 def rule_sha256(rule: dict) -> str:
-    return _sha({k: rule.get(k) for k in RULE_HASH_FIELDS})
+    d = {k: rule.get(k) for k in RULE_HASH_FIELDS}
+    cit = rule.get("citation")
+    if isinstance(cit, dict):
+        d["citation"] = {k: cit.get(k) for k in CITATION_HASH_FIELDS if k in cit}
+    return _sha(d)
 
 
 def _raw_rules(path: str | None) -> list[dict]:
@@ -754,3 +763,27 @@ def verify(case: CaseContext, rule_id: str) -> list[str]:
         if _sha(got) != step.get("result_sha256"):
             problems.append(f"engine call #{step.get('n')}: replayed result hash differs")
     return problems
+
+
+def reverify(case: CaseContext, rule_id: str, harness: str = "",
+             code_rev: str | None = None) -> dict:
+    """Re-pin a stored review to the code it was last verified against, with no model
+    call and no new content: run `verify`, and only when every quote and every engine
+    replay reproduces, stamp provenance.reverified = {code_rev, at, harness, problems: []}.
+    `provenance.code_rev` is left as produced — the review's words came from a session
+    at that revision, and rewriting it would claim otherwise. A review that does not
+    verify is not stamped (the artifact is untouched) and the problems are returned.
+    `code_rev` lets a multi-artifact run read the tree ONCE before its first write, so
+    the second stamp does not report the first stamp as a dirty tree."""
+    problems = verify(case, rule_id)
+    path = artifact_path(case, rule_id)
+    if problems or not os.path.exists(path):
+        return {"rule_id": rule_id, "ok": False, "problems": problems, "stamped": False}
+    with open(path) as f:
+        art = json.load(f)
+    prov = art.setdefault("provenance", {})
+    prov["reverified"] = {"code_rev": code_rev or _code_rev(), "at": _utc(),
+                          "harness": harness or "unreported", "problems": []}
+    _atomic_write(path, art)
+    return {"rule_id": rule_id, "ok": True, "problems": [], "stamped": True,
+            "reverified": prov["reverified"], "artifact_sha256": _file_sha(path)}

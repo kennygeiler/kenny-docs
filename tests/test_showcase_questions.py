@@ -89,16 +89,32 @@ def test_fire_captain_rate_lookup_reads_the_master_salary_schedule(client):
     assert "master_salary_schedule" in {c["doc_id"] for c in res["considered"]}
 
 
-@pytest.mark.skip(reason="integration: data-goldens archived the police roster rows "
-                  "(archive/santacruz_roster_police_sample.csv); every shipped roster "
-                  "classification now has a Master Salary Schedule row, so the "
-                  "'couldn't find' lookup path needs a tmp-case roster fixture (wave 2)")
-def test_lookup_names_the_classification_it_could_not_find(client):
-    # The schedule has no row for the unrepresented police sample rows.
+@pytest.fixture
+def client_with_unscheduled_row(client):
+    """The shipped roster has a Master Salary Schedule row for every classification
+    (data-goldens archived the police sample rows), so the 'couldn't find' lookup path
+    is exercised on a tmp-case roster with one classification the schedule never
+    lists. Appended after the copy, so the shipped roster is untouched."""
+    roster = os.path.join(client.case_dir, "data", "roster.csv")
+    with open(roster, "a") as f:
+        f.write('"Police Officer (Step A)",police,Police Officer,45.00,Day,police-association\n')
+    return client
+
+
+def test_lookup_names_the_classification_it_could_not_find(client_with_unscheduled_row):
+    client = client_with_unscheduled_row
+    # The schedule has no row for the roster's police classification.
     res = _ask(client, "What is the hourly rate for a Police Officer Step A?")
     assert res["mode"] == "lookup", res
     assert "Police Officer" in res["answer"] and "couldn't find" in res["answer"]
     assert res["sources"] == []
+    assert res["not_found"] == ["Police Officer"]
+    # the finding is ledgered by name, and the schedule WAS consulted
+    led = load_case(client.case_dir).ledger()
+    ev = [e for e in led.read() if e.get("query_id") == res["query_id"]
+          and e["type"] == "policy.answer"]
+    assert ev and ev[0]["payload"]["not_found"] == ["Police Officer"]
+    assert "master_salary_schedule" in {c["doc_id"] for c in res["considered"]}
 
 
 # --------------------------------------------------------------------------- #

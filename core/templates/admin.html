@@ -779,7 +779,8 @@
       strip.textContent = `Precomputed offline · ${p.producer || '?'} · ${p.model || 'model unreported'}`
         + ` · ${p.produced_at || ''} · ${p.tool_calls ?? (art.tool_calls || []).length} tool calls`
         + ` · ${art.fresh ? 'inputs match' : 'STALE: ' + (art.stale_reasons || []).join('; ')}`
-        + ` · billing: ${p.billing || '?'} · API key in env: ${p.api_key_in_env ? 'yes' : 'no'}`;
+        + ` · billing: ${p.billing || '?'} · API key in env: ${p.api_key_in_env ? 'yes' : 'no'}`
+        + (p.reverified ? ` · re-verified at ${p.reverified.code_rev || '?'} (${p.reverified.at || ''}, no model call)` : '');   // integration-leftovers hook
       body.appendChild(strip);
       if (!art.fresh) body.appendChild(el(`<p class="flagline">This review was produced against
         inputs that have since changed; it is shown greyed, not hidden.</p>`));

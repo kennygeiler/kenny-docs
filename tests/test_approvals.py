@@ -24,6 +24,14 @@ OT_ID = "firefighters_local3535_mou:overtime_premium_rate"
 def case_dir(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(os.path.join(ROOT, "cases", "santacruz"), case)
+    # A laptop's own gitignored records (the F2 back-fill run on the checkout writes
+    # ledger.jsonl) are not the case: start every test from the shipped shape.
+    for runtime in ("ledger.jsonl", "snapshots"):
+        p = case / runtime
+        if p.is_dir():
+            shutil.rmtree(p)
+        elif p.exists():
+            p.unlink()
     monkeypatch.setattr(core_app, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("KENNY_LEDGER_KEY", raising=False)

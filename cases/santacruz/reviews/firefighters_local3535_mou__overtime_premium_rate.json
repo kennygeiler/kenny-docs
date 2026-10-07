@@ -1119,6 +1119,12 @@
       "read_page": 6,
       "run_engine": 6,
       "warnings": 8
+    },
+    "reverified": {
+      "code_rev": "f358af6",
+      "at": "2026-10-07T16:48:46Z",
+      "harness": "2.1.119 (Claude Code)",
+      "problems": []
     }
   },
   "inputs": {

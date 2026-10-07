@@ -254,7 +254,16 @@ def test_backfill_script_is_idempotent_and_minimal(case_copy):
     sys.path.insert(0, os.path.join(ROOT, "scripts"))
     import backfill_quote_sha
     path = os.path.join(case_copy, "rules", "rules_ratified.json")
-    before = json.load(open(path))
+    shipped_bytes = open(path, "rb").read()
+    # The shipped library is already bound (integration-leftovers ran step 6): strip
+    # the binding from the copy so the script has work to do, then it must reproduce
+    # the shipped file byte for byte.
+    before = json.loads(shipped_bytes)
+    for r in before["rules"]:
+        r["citation"].pop("quote_sha256", None)
+        r["citation"].pop("quote", None)
+    with open(path, "w") as f:
+        json.dump(before, f, indent=2)
     baks_before = {f for f in os.listdir(os.path.dirname(path)) if f.endswith(".bak")}
     n1 = backfill_quote_sha.run(case_copy)
     assert n1 == N_LIVE
@@ -265,6 +274,7 @@ def test_backfill_script_is_idempotent_and_minimal(case_copy):
         assert a == b                                        # every other key identical
     assert list(after.keys()) == list(before.keys())
     bytes1 = open(path, "rb").read()
+    assert bytes1 == shipped_bytes                           # reproduces the shipped file
     assert backfill_quote_sha.run(case_copy) == 0
     assert open(path, "rb").read() == bytes1                 # second run is a no-op
     # no NEW backup file (the laptop's own gitignored .bak files may be copied in)
