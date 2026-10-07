@@ -27,6 +27,12 @@ except Exception:  # pragma: no cover - non-POSIX
 
 _MODEL = None
 _MODEL_NAME = "all-MiniLM-L6-v2"
+# One load per process (A5): a request that arrives while the warm-up thread is loading
+# waits on this lock instead of starting a second multi-second load of its own.
+_MODEL_LOCK = threading.Lock()
+# One backend instance per index file (A5): the 7.8 MB index was re-read per request.
+_BACKENDS: dict[tuple[str, str], "SearchBackend"] = {}
+_BACKENDS_LOCK = threading.Lock()
 
 # Section numbers survive as single tokens (TICKETS.md D1): "§9.2" used to fragment
 # into `9`,`2` — two high-df digits — degrading exactly the exact-token queries BM25
@@ -54,11 +60,28 @@ def tokenize(text: str) -> list[str]:
 
 
 def embedder():
-    """Lazily load the local embedding model (first call downloads ~80MB)."""
+    """Load the local embedding model once, from the local cache.
+
+    The loader used to contact the Hugging Face hub on every cold start (A5) — a
+    network round-trip inside the first policy question. The cached copy is tried
+    first with local_files_only=True; only when there is no cached copy at all does it
+    go online, once, with a warning. HF_HUB_OFFLINE=1 is respected either way."""
     global _MODEL
-    if _MODEL is None:
-        from sentence_transformers import SentenceTransformer
-        _MODEL = SentenceTransformer(_MODEL_NAME)
+    if _MODEL is not None:
+        return _MODEL
+    with _MODEL_LOCK:
+        if _MODEL is None:
+            from sentence_transformers import SentenceTransformer
+            try:
+                _MODEL = SentenceTransformer(_MODEL_NAME, local_files_only=True)
+            except Exception as e:
+                if os.environ.get("HF_HUB_OFFLINE", "").strip() not in ("", "0"):
+                    raise
+                import logging
+                logging.getLogger(__name__).warning(
+                    "embedding model %s not in the local cache (%s); downloading once",
+                    _MODEL_NAME, e)
+                _MODEL = SentenceTransformer(_MODEL_NAME)
     return _MODEL
 
 
@@ -318,6 +341,14 @@ def make_backend(case) -> SearchBackend:
         return OpenSearchBackend(cfg.get("hosts", ["http://localhost:9200"]),
                                  cfg.get("index", "kenny"))
     path = case.path("search_index", "search_index.jsonl")
-    if kind in ("auto", "hybrid") and embeddings_available():
-        return LocalHybridBackend(path)
-    return LocalBM25Backend(path)
+    hybrid = kind in ("auto", "hybrid") and embeddings_available()
+    key = (os.path.abspath(path), "hybrid" if hybrid else "bm25")
+    # Keyed by index path, not by case: tests point CASE_DIR at a fresh copy and must
+    # get a fresh backend. The in-memory chunk cache invalidates on the file's
+    # (mtime, size), so a re-ingest through one shared instance stays correct.
+    with _BACKENDS_LOCK:
+        be = _BACKENDS.get(key)
+        if be is None:
+            be = LocalHybridBackend(path) if hybrid else LocalBM25Backend(path)
+            _BACKENDS[key] = be
+        return be
