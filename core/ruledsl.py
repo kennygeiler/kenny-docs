@@ -85,7 +85,7 @@ class Flag:
     alternate: str | None = None  # expression giving the alternate interpretation
 
 
-RESULT_TYPES = ("currency", "days", "hours", "date", "boolean", "text")
+RESULT_TYPES = ("currency", "days", "shifts", "hours", "date", "boolean", "text")
 ROLES = ("base", "differential", "premium", "exception")
 # How often an amount is paid. A question about ONE 8-hour shift wants hourly and
 # per-shift terms; it must NOT sweep in a $1,200 annual uniform allowance or a $1,800

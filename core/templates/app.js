@@ -30,6 +30,7 @@ function fmtVal(n, type) {
   const v = Number(n);
   switch (type) {
     case 'days':    return v + (v === 1 ? ' day' : ' days');
+    case 'shifts':  return v + (v === 1 ? ' shift' : ' shifts');   // entitlement-retrieval (B3): 56-hour units count shifts
     case 'hours':   return v + (v === 1 ? ' hour' : ' hours');
     case 'boolean': return v ? 'Yes' : 'No';
     case 'date':    return String(n);
@@ -91,6 +92,9 @@ function render(res, prompt) {
   // defaulted: a mode this renderer does not know silently renders NOTHING, which is how
   // adding `lookup` server-side left the chat blank while the API returned 200.
   if (res.mode === 'policy' || res.mode === 'lookup') { renderPolicy(res); return; }
+  // --- entitlement-retrieval (B6): an off-corpus question is refused by name, not
+  // asked which department it is about. Same shape as a policy answer with no sources.
+  if (res.mode === 'out_of_scope') { renderPolicy(res); return; }
   if (res.mode === 'blocked') {
     const w = el('<div></div>');
     w.appendChild(el(`<div class="flagline">${esc(res.message)}</div>`));

@@ -4,7 +4,7 @@
       "id": "firefighters_local3535_mou:bereavement_shifts",
       "kind": "selector",
       "role": "base",
-      "result_type": "days",
+      "result_type": "shifts",
       "topic": "bereavement",
       "when": "True",
       "compute": "3",
