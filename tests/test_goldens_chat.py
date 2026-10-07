@@ -131,7 +131,10 @@ def test_longevity_rule_is_ratified_and_cites_page_12():
     r = next(r for r in rules if r.id == "firefighters_local3535_mou:longevity_10yr")
     assert r.role == "differential" and r.when == "years_of_service >= 10"
     assert r.citation.page == 12 and r.citation.doc_id == "firefighters_local3535_mou"
-    assert "not yet human-ratified" in r.approver
+    # integration-leftovers (J1a): the approver is an honest analyst label that names
+    # the clause it was authored against, never an agent name passed off as a person
+    assert r.approver.startswith("analyst (") and "p.12" in r.approver
+    assert "claude" not in r.approver.lower()
 
 
 def test_query_defaults_cover_every_declared_numeric_fact():

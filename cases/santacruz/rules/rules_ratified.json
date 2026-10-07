@@ -18,7 +18,9 @@
           189.498,
           505.259,
           167.118
-        ]
+        ],
+        "quote_sha256": "9aeb7b137dfee226",
+        "quote": "In  the evant of  a  death  in  the employee's immediate family, the employee shall  be granted three (3) shifts  paid  bereavement leave."
       },
       "status": "ratified",
       "_scenario": "bereavement leave, Firefighters Local 3535 (Article XIV)",
@@ -48,7 +50,9 @@
           505.662,
           511.182,
           441.459
-        ]
+        ],
+        "quote_sha256": "97bd147f7e3aec58",
+        "quote": "Employees shall  be entitled to premium overtime compensation at the rate of one and one  half (1,5) times the employee's 'regular rate of pay', as that term is defined under the  FLSA,  for all  the "
       },
       "status": "ratified",
       "approver": "kenny",
@@ -79,11 +83,13 @@
           263.49,
           511.56,
           212.751
-        ]
+        ],
+        "quote_sha256": "582ed036d89a5884",
+        "quote": "Upon completion of ten (10) years of service to the District employees shall receive a 2.5% general salary increase,  Longevity [s calculated from the date of hire including Central and Aptos/La Selva"
       },
       "status": "ratified",
       "_scenario": "8-hour overtime shift, 12-year Firefighter/Paramedic top step (longevity 2.5% into the 1.5x rate)",
-      "approver": "claude-agent:data-goldens (authored against the catalog p.12 text; not yet human-ratified)",
+      "approver": "analyst (hand-authored 2026-10-07, longevity clause p.12; reviewed against p.38 column)",
       "approved_at": "2026-10-07T00:00:00Z"
     },
     {
@@ -104,7 +110,9 @@
           575.8,
           526.7,
           552.8
-        ]
+        ],
+        "quote_sha256": "3469667bbb6e73af",
+        "quote": "In  the event of a  death  in  the employee's immediate family, the employee shall  be granted, 40 hours of paid  bereavement leave."
       },
       "status": "ratified",
       "approver": "kenny",
@@ -133,7 +141,9 @@
           137.7,
           509.6,
           113.8
-        ]
+        ],
+        "quote_sha256": "c228a426ab2bc09f",
+        "quote": "Employees shall be compensated at the rate of one and  one-half times their regular rate of pay for all  hours worked  in  excess of:"
       },
       "status": "ratified",
       "approver": "kenny",

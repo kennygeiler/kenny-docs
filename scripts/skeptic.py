@@ -13,6 +13,9 @@ what the tool returned, not what a shell output hook showed the agent.
             [--date-iso YYYY-MM-DD] [--holiday-weekday Sat] [--when EXPR] [--compute EXPR]
     submit  --run R (--json '<review>' | --file F)
     verify  (--rule ID | --all)          exit 1 on any mismatch
+    repin   (--rule ID | --all)          verify, then stamp provenance.reverified with the
+                                         current code rev; no model call, no new content;
+                                         exit 1 (artifact untouched) on any mismatch
     show    --rule ID                    print the stored artifact and its provenance
 
 Zero-spend guard: `start` exits 2 when ANTHROPIC_API_KEY is in the environment (override
@@ -129,6 +132,22 @@ def cmd_verify(a) -> int:
     return rc
 
 
+def cmd_repin(a) -> int:
+    case = load_case(a.case)
+    ids = list(skeptic.list_reviews(case).keys()) if a.all else [a.rule]
+    if not ids:
+        print("no review artifacts found", file=sys.stderr)
+        return 1
+    rc = 0
+    harness = _harness()
+    for rid in ids:
+        res = skeptic.reverify(case, rid, harness=harness)
+        _out(res)
+        if not res["ok"]:
+            rc = 1
+    return rc
+
+
 def cmd_show(a) -> int:
     art = skeptic.load_review(load_case(a.case), a.rule)
     if art is None:
@@ -187,6 +206,12 @@ def main(argv=None) -> int:
     g.add_argument("--rule")
     g.add_argument("--all", action="store_true")
     s.set_defaults(fn=cmd_verify)
+
+    s = sub.add_parser("repin")
+    g = s.add_mutually_exclusive_group(required=True)
+    g.add_argument("--rule")
+    g.add_argument("--all", action="store_true")
+    s.set_defaults(fn=cmd_repin)
 
     s = sub.add_parser("show")
     s.add_argument("--rule", required=True)
