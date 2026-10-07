@@ -285,6 +285,131 @@ def trail(ledger, query_id: str) -> list[dict]:
     return ledger.for_query(query_id)
 
 
+# --------------------------------------------------------------------------- #
+# search tree (DEMO_TICKETS L3): the decisioning, drawn from the ledger only
+# --------------------------------------------------------------------------- #
+FORK_LABELS = {
+    "intent": "What kind of question",
+    "subject": "Who it is for",
+    "department": "Which department",
+    "governance": "Which contract governs",
+    "document_scope": "Documents in scope",
+    "document_rank": "Document ranking",
+    "clause_retrieval": "Clauses searched",
+    "rule_filter": "Rules that reached the engine",
+    "rule_select": "Rule applied",
+    "input": "Input",
+    "reference": "Reference followed",
+}
+_FORK_ORDER = ("intent", "subject", "department", "governance", "document_rank",
+               "clause_retrieval", "rule_filter", "rule_select")
+
+
+def _node(nid: str, fork: str, label: str, status: str, decided_by: str | None = None,
+          reason: str | None = None, ref: dict | None = None, value=None,
+          detail=None) -> dict:
+    n: dict = {"id": nid, "fork": fork, "label": label, "status": status,
+               "decided_by": decided_by, "reason": reason or "", "ref": ref or None,
+               "value": value, "detail": detail, "children": []}
+    return n
+
+
+def build_tree(events: list[dict], corpus_size: int | None = None) -> dict:
+    """{counts, nodes, legacy, seq} from a query's ledger events. Pure: the same events
+    give the same tree, and nothing here reads a file or the live case.
+
+    One node per `decision` event (chosen entries as children, rejected entries greyed
+    with their reason); `decision(input)` nodes nest under the rule they belong to;
+    rule.math becomes the leaf '= total' with its cited line; citation events attach
+    as refs. `legacy` is True when the query predates decision events — the drawer then
+    shows the old trace list and says so, never an empty tree.
+    """
+    decisions_ = [e for e in events if e.get("type") == "decision"]
+    if not decisions_:
+        return {"counts": {}, "nodes": [], "legacy": True,
+                "seq": max((e.get("seq", 0) for e in events), default=None)}
+    nodes: list[dict] = []
+    prompt = next((e["payload"].get("text") for e in events if e.get("type") == "chat.prompt"), "")
+    root = _node("root", "prompt", prompt or "(question)", "info")
+    nodes.append(root)
+
+    searched = hits = 0
+    docs_candidates = docs_chosen = 0
+    rule_nodes: dict[str, dict] = {}
+    last_rule_node: dict | None = None
+    counts_docs = {"corpus": corpus_size or 0, "candidates": 0, "chosen": 0}
+    for i, e in enumerate(decisions_):
+        p = e.get("payload") or {}
+        fork = p.get("fork", "?")
+        nid = f"d{e.get('seq', i)}"
+        title = FORK_LABELS.get(fork, fork)
+        d = p.get("detail") if isinstance(p.get("detail"), dict) else None
+        if fork == "rule_select" and d and d.get("subject"):
+            title += f" — {d['subject']}"
+        if fork == "input" and d and d.get("name"):
+            title += f" — {d['name']}" + (f" ({d['source']})" if d.get("source") else "")
+            if d.get("flag"):
+                title += f" ⚠ {d['flag']}"
+        if fork == "clause_retrieval" and d and d.get("unit"):
+            title += f" — {d['unit']}"
+        node = _node(nid, fork, title, "fork", p.get("decided_by"), detail=p.get("detail"))
+        node["counts"] = p.get("counts") or {}
+        for j, c in enumerate(p.get("chosen") or []):
+            node["children"].append(_node(f"{nid}c{j}", fork, c.get("label") or c.get("id", ""),
+                                          "chosen", p.get("decided_by"), c.get("detail"),
+                                          c.get("ref"), c.get("value")))
+        for j, r in enumerate(p.get("rejected") or []):
+            node["children"].append(_node(f"{nid}r{j}", fork, r.get("label") or r.get("id", ""),
+                                          "rejected", p.get("decided_by"), r.get("reason"),
+                                          r.get("ref"), r.get("value")))
+        if fork in ("governance", "document_scope", "document_rank"):
+            counts_docs["candidates"] += len(p.get("chosen") or []) + len(p.get("rejected") or [])
+            counts_docs["chosen"] += len(p.get("chosen") or [])
+            if not corpus_size:
+                counts_docs["corpus"] = max(counts_docs["corpus"], counts_docs["candidates"])
+        if fork == "clause_retrieval" or (fork == "input" and (p.get("counts") or {}).get("searched")):
+            c = p.get("counts") or {}
+            searched += c.get("searched") or c.get("considered") or 0
+            hits += len(p.get("chosen") or []) + len(p.get("rejected") or [])
+        if fork == "rule_select":
+            for c in p.get("chosen") or []:
+                rule_nodes[c.get("id", "")] = node
+            last_rule_node = node
+            nodes.append(node)
+        elif fork == "input":
+            parent = rule_nodes.get((d or {}).get("rule_id", "")) or last_rule_node
+            (parent["children"] if parent else nodes).append(node)
+        else:
+            nodes.append(node)
+
+    # The arithmetic leaf, under the rule node of its subject.
+    for e in events:
+        if e.get("type") != "rule.math":
+            continue
+        p = e.get("payload") or {}
+        line = p.get("line") or p.get("detail") or ""
+        leaf = _node(f"m{e.get('seq')}", "math", line, "chosen", "fixed-logic",
+                     detail={"operands": p.get("operands"), "subject": p.get("subject"),
+                             "rule_id": p.get("rule_id")}, value=p.get("value"))
+        target = rule_nodes.get(p.get("rule_id", "")) or last_rule_node
+        (target["children"] if target else nodes).append(leaf)
+
+    cited = [e for e in events if e.get("type") == "citation"]
+    answer = next((e for e in reversed(events)
+                   if e.get("type") in ("answer.snapshot", "policy.answer")), None)
+    if answer:
+        ap = answer.get("payload") or {}
+        label = (f"answer: {ap.get('total')}" if ap.get("total") is not None
+                 else "answer: " + str(ap.get("answer") or "")[:80])
+        nodes.append(_node(f"a{answer.get('seq')}", "answer", label, "chosen"))
+
+    counts = {"documents": counts_docs,
+              "clauses": {"searched": searched, "hits": hits, "cited": len(cited)},
+              "decisions": len(decisions_)}
+    return {"counts": counts, "nodes": nodes, "legacy": False,
+            "seq": max((e.get("seq", 0) for e in events), default=None)}
+
+
 # What happened to a question, derived from the event types in its group. The first
 # matching rule wins; `computed` needs a snapshot with a number.
 _OUTCOMES = (

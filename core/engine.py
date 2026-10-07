@@ -7,11 +7,26 @@ ledger. Same inputs -> same number, forever.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from .ruledsl import Rule, eval_expr
+
+_IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _inputs(expr: str | None, facts: dict[str, Any]) -> dict[str, Any]:
+    """{name: facts[name]} for every identifier in `expr` that is a fact, in order of
+    first appearance (DEMO_TICKETS I13). The rate and the hours an arithmetic step used
+    travel with the step, so the drawer, the ledger and the snapshot can show the sum
+    as a person would write it — never the formula with variable names."""
+    out: dict[str, Any] = {}
+    for name in _IDENT_RE.findall(str(expr or "")):
+        if name in facts and name not in out:
+            out[name] = facts[name]
+    return out
 
 
 class NoRuleApplies(ValueError):
@@ -39,6 +54,10 @@ class TraceStep:
     detail: str
     citation: dict = field(default_factory=dict)
     value: Any = None
+    # The facts the step's expression read, by name (I13): {"effective_base": 53.4,
+    # "hours": 8.0}. Empty for flag steps. Serialised with the step into the response,
+    # the rule.* ledger payloads and the snapshot's stored result.
+    inputs: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -154,12 +173,13 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
             if not bool(eval_expr(m.when, facts)):
                 continue
             for fact_name, expr in m.set.items():
+                ins = _inputs(expr, facts)          # read BEFORE the fact is overwritten
                 new_val = eval_expr(expr, facts)
                 facts[fact_name] = new_val
                 trace.append(TraceStep(
                     kind="modifier", rule_id=m.id,
                     detail=f"{fact_name} = {expr} -> {new_val}",
-                    citation=m.citation.to_dict(), value=new_val))
+                    citation=m.citation.to_dict(), value=new_val, inputs=ins))
             if m.citation.clause:
                 citations.append(m.citation.to_dict())
 
@@ -173,7 +193,7 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
             trace.append(TraceStep(
                 kind="selector-considered", rule_id=s.id,
                 detail=f"when: {s.when} -> {matched} (scope {s.scope_rank}, priority {s.priority})",
-                citation=s.citation.to_dict(), value=matched))
+                citation=s.citation.to_dict(), value=matched, inputs=_inputs(s.when, facts)))
             if matched and chosen is None:
                 chosen = s
         if chosen is None:
@@ -188,7 +208,7 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
         trace.append(TraceStep(
             kind="math", rule_id=chosen.id,
             detail=f"{chosen.compute} = {base_val}", citation=chosen.citation.to_dict(),
-            value=base_val))
+            value=base_val, inputs=_inputs(chosen.compute, facts)))
         if chosen.citation.clause:
             citations.append(chosen.citation.to_dict())
 
@@ -203,7 +223,7 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
             trace.append(TraceStep(
                 kind="premium", rule_id=p.id,
                 detail=f"+ {p.compute} = {add} ({p.human_readable or p.topic})",
-                citation=p.citation.to_dict(), value=add))
+                citation=p.citation.to_dict(), value=add, inputs=_inputs(p.compute, facts)))
             if p.citation.clause:
                 citations.append(p.citation.to_dict())
 

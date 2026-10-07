@@ -26,6 +26,10 @@ class GovResult:
     date: str | None = None
     resolved: bool = False
     reason: str = ""
+    # search-tree (L1): every declared source that did NOT govern, with the test it
+    # failed — doc_type, unit, or the date window. Additive; nothing reads it but the
+    # decision event.
+    rejected: list[dict] = field(default_factory=list)
 
 
 _MONTHS = {m: i for i, m in enumerate(
@@ -123,14 +127,20 @@ def resolve(units: list[str], date_iso: str | None, sources: list[dict]) -> GovR
     """
     units = [u for u in units if u]
     matched: list[dict] = []
+    rejected: list[dict] = []
     for src in sources:
         if src.get("doc_type") not in ("MOU", "amendment"):
+            rejected.append({"doc_id": src.get("id"),
+                             "reason": f"doc_type {src.get('doc_type')} is not an MOU or amendment"})
             continue
         unit = src.get("bargaining_unit")
         if unit not in units:
+            rejected.append({"doc_id": src.get("id"),
+                             "reason": f"unit {unit} ≠ {' / '.join(units) or '(none)'}"})
             continue
         ok, why = _covers(src, date_iso)
         if not ok:
+            rejected.append({"doc_id": src.get("id"), "reason": why})
             continue
         matched.append({"doc_id": src["id"], "bargaining_unit": unit,
                         "effective_start": src.get("effective_start"),
@@ -141,7 +151,7 @@ def resolve(units: list[str], date_iso: str | None, sources: list[dict]) -> GovR
     if doc_ids:
         reason = (f"resolved by governance: units {units} + date {date_iso} -> "
                   f"MOU(s) {doc_ids}")
-        return GovResult(doc_ids, matched, units, date_iso, True, reason)
+        return GovResult(doc_ids, matched, units, date_iso, True, reason, rejected)
     reason = (f"no MOU governs units {units} on {date_iso}; "
               "falling back to document retrieval")
-    return GovResult([], [], units, date_iso, False, reason)
+    return GovResult([], [], units, date_iso, False, reason, rejected)

@@ -28,8 +28,9 @@ from .engine import NoRuleApplies, calculate
 from . import pdfview
 from .pdfview import page_dims, render_page_with_bbox
 from .retriever import CatalogLLMRetriever
-from .ruledsl import SHIFT_BASES, Rule, RuleError, load_rules, validate_rules
+from .ruledsl import SHIFT_BASES, Rule, RuleError, load_rules, rule_inputs, validate_rules
 from . import costing  # costing-correctness (B1, B2, B4)
+from . import decisions, mathline  # search-tree (L1, L3, C1/I13)
 from starlette.concurrency import run_in_threadpool
 
 def _load_dotenv(force: bool = False) -> None:
@@ -454,6 +455,15 @@ def _policy_answer(case, led, qid: str, prompt: str, department: str | None = No
                {"department": dept, "candidate_docs": scope, "corpus_size": len(ingested),
                 "declared": len(case.manifest.get("sources", [])), "scope_how": sc.how},
                actor="chat", query_id=qid)
+    decisions.record(led, qid, "document_scope",                      # search-tree (L1)
+                     [{"id": d, "label": _titles(case, [d])[0], "detail": f"in scope by {sc.how}"}
+                      for d in scope],
+                     [{"id": d, "label": _titles(case, [d])[0],
+                       "reason": (f"not the document the question named" if sc.named
+                                  else f"outside the {sc.how} scope")}
+                      for d in sorted(ingested) if d not in scope],
+                     decisions.FIXED,
+                     detail={"how": sc.how, "named": sc.named, "department": dept})
 
     # 2. Query: nothing left ('hi', or only a document's name) -> not a question these
     #    documents answer.
@@ -465,7 +475,10 @@ def _policy_answer(case, led, qid: str, prompt: str, department: str | None = No
 
     # 3. Search within candidates. An empty scope means nothing relevant has been
     #    ingested yet — do NOT call search([]), which the backend reads as "no filter".
-    hits = backend.search(query, doc_ids=scope, k=8) if scope else []
+    # search-tree (L1): fetch six past the cutoff so the hits that LOST are on record;
+    # the answer still reads hits[:8] exactly as before.
+    _raw_hits = backend.search(query, doc_ids=scope, k=8 + 6) if scope else []
+    hits, _below = _raw_hits[:8], _raw_hits[8:]
     pins: list[dict] = []
     if hits:
         rules = [r for r in case.rules() if r.citation.doc_id in scope]
@@ -495,6 +508,14 @@ def _policy_answer(case, led, qid: str, prompt: str, department: str | None = No
     #    which department it is about. A lookup that named a classification the
     #    schedule has no row for is answered by name first — that IS the finding.
     cov = rulematch.best_coverage(stems, hits, rulematch.idf_table(backend))
+    decisions.record(led, qid, "clause_retrieval",
+                     *decisions.retrieval_lists(
+                         hits, _below, 8,
+                         f"best coverage {cov:.2f} < floor {rulematch.OUT_OF_SCOPE_FLOOR}"
+                         if hits and cov < rulematch.OUT_OF_SCOPE_FLOOR else None),
+                     decisions.FIXED,
+                     counts={"searched": len(_raw_hits), "scope_docs": len(scope)},
+                     detail={"query": query, "scope": scope, "coverage": round(cov, 3)})
     if not_found:
         led.append("policy.answer", {"answer": "no published rate row", "source": "none",
                                      "lookup": True, "scope_how": sc.how,
@@ -640,15 +661,26 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
     all_scope: list[str] = []
     for unit in units:
         gov = governance.resolve([unit], date_iso or None, case.manifest.get("sources", []))
+        _titles_by_id = {s.get("id"): s.get("title") or s.get("id")
+                         for s in case.manifest.get("sources", [])}
+        decisions.record(led, qid, "governance",                      # search-tree (L1)
+                         *decisions.governance_lists(gov, case.manifest.get("sources", []),
+                                                     _titles_by_id),
+                         decisions.FIXED, detail={"unit": unit, "date": date_iso})
         scope = [d for d in gov.doc_ids if d in _ingested]
         all_scope += [d for d in scope if d not in all_scope]
-        hits = backend.search(query or prompt, doc_ids=scope, k=8) if scope else []
+        _raw_hits = backend.search(query or prompt, doc_ids=scope, k=8 + 6) if scope else []
+        hits, _below = _raw_hits[:8], _raw_hits[8:]
         led.append("entitlement.retrieval",
                    {"unit": unit, "candidates": len(scope), "candidate_docs": scope,
                     "query": query,
                     "hits": [{k: h.get(k) for k in ("doc_id", "clause", "page", "score")}
                              for h in hits]},
                    actor="chat", query_id=qid)
+        decisions.record(led, qid, "clause_retrieval",
+                         *decisions.retrieval_lists(hits, _below, 8), decisions.FIXED,
+                         counts={"searched": len(_raw_hits), "scope_docs": len(scope)},
+                         detail={"query": query or prompt, "scope": scope, "unit": unit})
         candidates = [r for r in case.rules()
                       if r.result_type != "currency" and r.citation.doc_id in scope]
         rules, found, ambiguous = rulematch.select_rules(candidates, hits, stems)
@@ -840,6 +872,8 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
     # Router: costing vs policy Q&A. Both return an answer WITH clickable proof.
     intent = await run_in_threadpool(llm.classify_intent, prompt)   # A8: off the loop
     led.append("intent.classify", {"intent": intent}, actor="chat", query_id=qid)
+    _by = decisions.decided_by_for("classify_intent")                # search-tree (L1)
+    decisions.record(led, qid, "intent", *decisions.intent_explained(prompt, intent, _by), _by)
     if intent == "policy":
         return await run_in_threadpool(_policy_answer, case, led, qid, prompt, department)
     if intent == "lookup":
@@ -913,6 +947,15 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
     units = sorted({s.get("bargaining_unit") for s in subjects if s.get("bargaining_unit")})
     date_iso = governance.parse_date(params.get("date"), default_year=DEFAULT_YEAR)
     year_stated = bool(re.search(r"\b(19|20)\d{2}\b", str(params.get("date") or "")))
+    # search-tree (L1): the roster rows the question did not name, and why.
+    decisions.record(led, qid, "subject",
+                     *decisions.subject_explained(
+                         prompt, subjects_all, [str(s.get("name")) for s in subjects],
+                         "answered the clarifying question" if chosen_subject
+                         else "everyone asked for" if asks_everyone and not named
+                         else "named in the question"),
+                     decisions.USER if chosen_subject
+                     else decisions.AI if params.get("source") == "claude" else decisions.FIXED)
     led.append("data.read",
                {"adapter": case.manifest.get("data", {}).get("adapter"),
                 "rows": [s.get("name") for s in subjects],
@@ -1092,14 +1135,37 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
 
     # 6. Ledger: decision logic + math + citations, straight from the engine trace.
     #    (rule.* and citation payloads keep their shape; bargaining_unit is added.)
+    # search-tree (C1/I13): the arithmetic as a person writes it, each factor with an
+    # address — built BEFORE the events so the ledger carries the rate and its cell.
+    math_lines: dict[str, dict] = {}
+    for o in ok:
+        for li in o["line_items"]:
+            subj = next((s for s in subjects if str(s.get("name")) == li["subject"]), {})
+            ml = mathline.build(case, cat, subj, li, eng_params)
+            if ml:
+                math_lines[li["subject"]] = ml
+    # search-tree (L2): every input a fired rule DECLARES becomes a sub-search node under
+    # that rule — a clause input is re-found by search and ranked, a roster or question
+    # input is a leaf with the value the engine used. At most a handful of searches.
+    _backend_ = _backend(case)
+    _rate_refs = {s: (m["operands"][0].get("source") or {}) for s, m in math_lines.items()
+                  if m["operands"] and m["operands"][0].get("role") == "rate"}
+    for o in ok:
+        for r in o["rules_used"]:
+            for inp in rule_inputs(r):
+                _input_decision(led, qid, _backend_, o, r, inp, subjects, eng_params, _rate_refs)
     for o in ok:
         for li in o["trace_items"]:
             for step in li.trace:
                 if step.kind in ("modifier", "selector-considered", "selector-chosen", "math", "flag", "premium"):
-                    led.append(f"rule.{step.kind.replace('-', '_')}",
-                               {"subject": li.subject, "rule_id": step.rule_id,
-                                "detail": step.detail, "value": step.value,
-                                "bargaining_unit": o["bargaining_unit"]},
+                    payload = {"subject": li.subject, "rule_id": step.rule_id,
+                               "detail": step.detail, "value": step.value,
+                               "bargaining_unit": o["bargaining_unit"],
+                               "inputs": step.inputs}                    # I13 (additive)
+                    if step.kind == "math" and li.subject in math_lines:
+                        payload.update({k: math_lines[li.subject][k]
+                                        for k in ("expr", "operands", "line")})
+                    led.append(f"rule.{step.kind.replace('-', '_')}", payload,
                                actor="engine", query_id=qid)
             for c in li.citations:
                 led.append("citation", {"subject": li.subject, **c},
@@ -1133,9 +1199,22 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                                     for li in line_items]}
     audit.record_answer(case, led, qid, eng_params, covered_subjects, rules_used,
                         engine_result, basis_scope=SHIFT_BASES,
-                        extra={"partial": bool(uncovered), "uncovered": uncovered})
+                        extra={"partial": bool(uncovered), "uncovered": uncovered,
+                               # C1: the same operands the drawer shows, bound to the chain
+                               "math": [{"subject": s, "line": m["line"], "expr": m["expr"],
+                                         "operands": m["operands"]}
+                                        for s, m in math_lines.items()]})
 
     result_dict = _enrich_citations(cat, result_dict)
+    # After the snapshot (its stored result must replay byte-for-byte from the engine):
+    # the response's math step carries the line and its sourced operands (C1/I13).
+    for li in result_dict["line_items"]:
+        ml = math_lines.get(li["subject"])
+        if not ml:
+            continue
+        for t in li.get("trace", []):
+            if t.get("kind") == "math":
+                t.update({"line": ml["line"], "expr": ml["expr"], "operands": ml["operands"]})
     chosen_docs = []
     for o in ok:
         for d in o["doc_ids"]:
@@ -1166,7 +1245,8 @@ def chat_audit(query_id: str):
           "fell_back": [c["fn"] for c in calls if c.get("source") == "fallback"],
           "errors": [c for c in calls if c.get("source") == "error"],
           "total_ms": sum(c.get("ms", 0) for c in calls)}
-    return {"query_id": query_id, "events": events, "ai": ai, "continues": continues}
+    return {"query_id": query_id, "events": events, "ai": ai, "continues": continues,
+            "tree": audit.build_tree(events, corpus_size=len(case.manifest.get("sources", [])))}
 
 
 def _resolve_pdf(case, doc_id: str) -> str | None:
@@ -2858,3 +2938,82 @@ def admin_demo_draft_load():
                              actor="admin")
     return {"loaded": [r["id"] for r in drafts], "added": added,
             "already_loaded": not added, "queue_size": len(merged)}
+
+
+# --------------------------------------------------------------------------- #
+# --- search-tree --- (DEMO_TICKETS.md L1/L2/L3, C1/I13: decision events, the tree,
+#     the cited math line)
+# --------------------------------------------------------------------------- #
+def _input_decision(led, qid: str, backend, outcome: dict, rule, inp: dict,
+                    subjects: list[dict], eng_params: dict, rate_refs: dict) -> None:
+    """One `decision(input)` event for a declared rule input (L2).
+
+    clause   -> backend.search(query) inside the governing documents, k=5; chosen is the
+                DECLARED citation with 'declared by approver X; verified by search rank
+                #n of 5' (or a 'not found by search' flag, shown never hidden); the
+                other hits are rejected 'rank k, not the declared clause'. human-rule.
+    roster   -> one leaf per covered subject with the field's value (+ the schedule
+                cell ref when the math line bound it). fixed-logic.
+    question -> the parameter the question stated. user.
+    """
+    name, kind, src = inp["name"], inp["kind"], inp["source"]
+    cit = inp.get("citation") or {}
+    approver = getattr(rule, "approver", "") or "?"
+    detail = {"rule_id": rule.id, "name": name, "kind": kind, "source": src,
+              "unit": outcome["bargaining_unit"]}
+    if src == "clause":
+        hits = backend.search(inp["query"], doc_ids=outcome["doc_ids"], k=5) if inp.get("query") else []
+        rank = None
+        for i, h in enumerate(hits, 1):
+            if h.get("doc_id") == cit.get("doc_id") and h.get("page") == cit.get("page") \
+                    and rulematch.bbox_overlap(cit.get("bbox") or [], h.get("bbox") or []) >= rulematch.MIN_OVERLAP:
+                rank = i
+                break
+        verdict = (f"verified by search rank #{rank} of {len(hits)}" if rank
+                   else f"not found by search (top {len(hits)})")
+        chosen = [{"id": f"{rule.id}:{name}",
+                   "label": f"{name}: {cit.get('clause') or 'p.' + str(cit.get('page'))}",
+                   "ref": decisions.ref(cit.get("doc_id"), cit.get("page"), cit.get("bbox"),
+                                        cit.get("clause"), hits[rank - 1].get("text") if rank else None),
+                   "detail": f"declared by approver {approver}; {verdict}"}]
+        rejected = [{"id": f"{h.get('doc_id')}:{h.get('page')}:{i}", "label": decisions.hit_label(h),
+                     "ref": decisions.hit_ref(h), "value": h.get("score"),
+                     "reason": f"rank {i}, not the declared clause"}
+                    for i, h in enumerate(hits, 1) if i != rank]
+        if rank is None:
+            detail["flag"] = "declared citation not found by search"
+        decisions.record(led, qid, "input", chosen, rejected, decisions.HUMAN,
+                         counts={"searched": len(hits)}, detail={**detail, "query": inp.get("query")})
+        return
+    if src == "roster":
+        field = inp.get("field") or name
+        chosen = []
+        for s in subjects:
+            sname = str(s.get("name"))
+            if sname not in outcome["subjects"]:
+                continue
+            ref = None
+            rr = rate_refs.get(sname) if field == "base_hourly" else None
+            if rr and not rr.get("unsourced"):
+                ref = decisions.ref(rr.get("doc_id"), rr.get("page"), rr.get("context_bbox") or rr.get("bbox"),
+                                    f"{rr.get('row')} · {rr.get('column')}", rr.get("text"))
+            chosen.append({"id": f"roster:{field}:{sname}",
+                           "label": f"{field} = {s.get(field)} — roster row {sname}",
+                           "value": s.get(field), "ref": ref,
+                           "detail": "from the roster file"
+                                     + (", printed on the salary schedule" if ref else "")})
+        decisions.record(led, qid, "input", chosen, [], decisions.FIXED,
+                         detail={**detail, "pointer": cit or None})
+        return
+    val = eng_params.get(name)
+    decisions.record(led, qid, "input",
+                     [{"id": f"question:{name}", "label": f"{name} = {val} — stated in the question",
+                       "value": val}], [], decisions.USER, detail=detail)
+
+
+@app.get("/static/tree.js")
+def tree_js():
+    """The search-tree renderer for the audit drawer (L3): pure treeHtml(tree) plus
+    renderTree(tree, el). Served like app.js; chat.html includes it after app.js."""
+    return FileResponse(os.path.join(TEMPLATES, "tree.js"),
+                        media_type="application/javascript", headers=_NOCACHE)

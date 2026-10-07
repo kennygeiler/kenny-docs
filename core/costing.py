@@ -20,7 +20,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable
 
-from . import governance
+from . import decisions, governance
 from .engine import NoRuleApplies, calculate
 from .ruledsl import SHIFT_BASES, Rule, RuleError
 
@@ -224,6 +224,10 @@ def cost_by_unit(case, cat, led, qid: str, subjects: list[dict], eng_params: dic
                     "resolved": gov.resolved, "matched": gov.matched, "reason": gov.reason,
                     "subjects": names},
                    actor="chat", query_id=qid)
+        title_by_id = {s.get("id"): (s.get("title") or s.get("id")) for s in sources}
+        gc, gr = decisions.governance_lists(gov, sources, title_by_id)   # search-tree (L1)
+        decisions.record(led, qid, "governance", gc, gr, decisions.FIXED,
+                         detail={"unit": unit, "date": date_iso, "subjects": names})
         if not gov.resolved:
             out["status"] = "no_contract"
             out["reason"] = _no_contract_reason(case, unit, date_iso, sources)
@@ -235,6 +239,7 @@ def cost_by_unit(case, cat, led, qid: str, subjects: list[dict], eng_params: dic
                  if r.citation.doc_id and r.citation.doc_id in gov.doc_ids
                  and r.result_type == "currency"]
         rules, dropped = governance.apply_supersession(rules, sources, gov.doc_ids)
+        pre_pay_type = list(rules)
         if dropped:
             led.append("governance.supersession", {"dropped": dropped, "bargaining_unit": unit},
                        actor="engine", query_id=qid)
@@ -276,6 +281,12 @@ def cost_by_unit(case, cat, led, qid: str, subjects: list[dict], eng_params: dic
                 continue
             rules = [r for r in rules
                      if r.role != "base" or r.topic in asked_types]
+        # search-tree (L1): every live rule either reached the engine or has a reason.
+        fc, fr = decisions.rule_filter_lists(all_rules, rules, gov.doc_ids, asked_types,
+                                             dropped=dropped, titles=title_by_id)
+        decisions.record(led, qid, "rule_filter", fc, fr, decisions.FIXED,
+                         detail={"unit": unit, "asked": asked_types,
+                                 "before_pay_type": [r.id for r in pre_pay_type]})
         try:
             # A shift-cost question includes hourly and per-shift pay only — never a
             # year of benefits (see engine.calculate basis_scope).
@@ -294,9 +305,16 @@ def cost_by_unit(case, cat, led, qid: str, subjects: list[dict], eng_params: dic
             out["error"] = f"{type(e).__name__}: {e}"
             continue
         used_ids = {li.rule_id for li in res.line_items}
+        approved_at = {r.get("id"): r.get("approved_at") or "" for r in raw_ratified(case)}
         for li in res.line_items:
             for step in li.trace:
                 used_ids.add(step.rule_id)
+            # search-tree (L1): the rule that fired for this subject, and why each
+            # other rule in the engine's hands did not — decided by the ratified text.
+            sc, sr = decisions.rule_select_lists(li, rules, approved_at)
+            decisions.record(led, qid, "rule_select", sc, sr, decisions.HUMAN,
+                             detail={"subject": li.subject, "unit": unit, "total": li.total},
+                             actor="engine")
         out["rules_used"] = [r for r in rules if r.id in used_ids]
         rd = res.to_dict()
         for li in rd["line_items"]:
