@@ -132,9 +132,27 @@ def test_no_lossy_copy_of_the_library_remains():
     assert hits == [], hits
 
 
-def test_release_gate_passes_on_the_shipped_case(env):
+def test_release_gate_refuses_pending_tiers_and_passes_once_they_are_approved(env):
+    """The release gate requires an explicit pass on every known answer. The shipped
+    case holds five PENDING vacation-accrual answers (their agent-drafted tiers sit in
+    the Review queue), so a release is refused until the owner confirms the three
+    disputed p.22 cells and approves the tiers — then it passes."""
     sys.path.insert(0, os.path.join(ROOT, "scripts"))
     import prepare_deploy
+    c, case = env
+    assert prepare_deploy._goldens_fail("cases/santacruz") is True
+    with open(os.path.join(case, "rules", "rules_proposed.json")) as f:
+        queued = [r for r in json.load(f)["rules"] if ":vacation_accrual_" in r["id"]]
+    assert len(queued) == 5
+    for r in queued:
+        cell = r["citation"]["cell"]
+        if cell["stored_text"] != cell["quoted_text"]:
+            assert c.post("/admin/cell_confirm", json={
+                "doc_id": r["citation"]["doc_id"], "page": 22, "row": cell["row"],
+                "col": cell["col"], "value": cell["quoted_text"], "by": "kenny"}).status_code == 200
+    res = c.post("/admin/ratify", json={"approver": "kenny",
+                                        "rule_ids": [r["id"] for r in queued]}).json()
+    assert sorted(res["ratified"]) == sorted(r["id"] for r in queued), res
     assert prepare_deploy._goldens_fail("cases/santacruz") is False
 
 
@@ -142,9 +160,14 @@ def test_release_gate_passes_on_the_shipped_case(env):
 def test_shipped_library_every_rule_fires_in_a_passing_known_answer(env):
     c, case = env
     v = c.get("/admin/verification").json()
-    assert v["all_passing"] is True and v["unverified"] == []
+    # five vacation-accrual answers are pending (tiers queued, not live): not a failure
+    assert v["unverified"] == [] and not any(g["status"] == "fail" for g in v["goldens"])
+    assert v["pending"] == 5 and sum(g["status"] == "pass" for g in v["goldens"]) == 6
     assert set(v["proved_by"]) == {r["id"] for r in _library(case)}
     for g in v["goldens"]:
+        if g["status"] == "pending":
+            assert not g["fired"] and g["name"].startswith("vacation accrual"), g["name"]
+            continue
         assert g["fired"], g["name"]
 
 
@@ -321,17 +344,13 @@ def test_mutation_report_over_the_live_library(env):
     c, case = env
     n_before = len(_ledger(case))
     res = c.get("/admin/mutation_report").json()
-    # 7 mutants per currency rule, 3 per selector, 9 for the longevity modifier; J1b's
-    # five vacation tiers add 9+9+9+9+7 (value, drop/invert condition, move each
-    # threshold, re-home). Their survivors are the moved-threshold mutants: the known
-    # answers sit mid-tier (3, 7, 12, 15, 20 years), so an edge moved by one year is
-    # not exercised (E10 boundary known answers would catch them).
-    assert (res["total"], res["caught"]) == (72, 43)
-    vac = {f"{FF}:vacation_accrual_{t}" for t in ("1_5", "6_10", "11_13", "14_16", "17_plus")}
+    # 7 mutants per currency rule, 3 per selector, 9 for the longevity modifier. J1b's
+    # five vacation tiers (9+9+9+9+7 more, survivors = moved thresholds, since the known
+    # answers sit mid-tier) sit in the Review queue until approved, so they are not in
+    # the live report.
+    assert (res["total"], res["caught"]) == (29, 19)
     assert {s["rule_id"] for s in res["survivors"]} == {FF_OT, FF_LONG,
-                                                        "admin_group_mou:overtime_premium_rate"} | vac
-    assert all("move threshold" in s["label"] or "drop condition" in s["label"]
-               for s in res["survivors"] if s["rule_id"] in vac)
+                                                        "admin_group_mou:overtime_premium_rate"}
     assert len(_ledger(case)) == n_before
 
 

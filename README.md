@@ -127,7 +127,7 @@ Open `/admin`. The tabs, in order:
 | Tab | What it does | What to expect on the shipped case |
 |---|---|---|
 | **1 · Documents** | The contract library: each document parsed by docling for its text, its tables and the position of every clause, then indexed. X-ray and Compare show every extracted clause boxed on its page. | Five documents (four MOUs + the master salary schedule), 1,861 clauses, each with its text origin. *Showcase: p.22* opens Compare on the Local 3535 vacation table with the 6 cells the OCR misread in amber beside the page image. |
-| **2 · Verification** | The trust anchor: each card is a known answer with expected and actual, the rules that fired, and its analyst-derived source. **"Draft the rules for this scenario"** appears only on a scenario that is not passing. | Six green cards ($640.80; $656.82 with 12 years' longevity; 3 bereavement shifts for a Firefighter/Paramedic and for a Battalion Chief; 40 hours for a Division Chief; $716.16 for an Administrative Analyst). No Draft button, because nothing is pending. |
+| **2 · Verification** | The trust anchor: each card is a known answer with expected and actual, the rules that fired, and its analyst-derived source. **"Draft the rules for this scenario"** appears only on a scenario that is not passing. | Six green cards ($640.80; $656.82 with 12 years' longevity; 3 bereavement shifts for a Firefighter/Paramedic and for a Battalion Chief; 40 hours for a Division Chief; $716.16 for an Administrative Analyst) and five **pending** cards — the vacation-accrual tiers (7.38 … 14.78 hours per pay period), whose agent-drafted rules wait in the Review queue; they turn green once approved there (three cite OCR-disputed p.22 cells and need a cell confirm first). |
 | **3 · Review queue** | The human gate. Each drafted rule is shown beside its highlighted source clause. Approval needs the approver's name and is **refused** when a selected rule fires in no known answer, when a known answer that reproduced stops reproducing, or when one comes out wrong (trust rule 3). | Empty on the shipped case. |
 | **Rule library** | The five live rules (each naming its clause and approver), the gaps Kenny declined to model, **Try to break it** per rule, and the two **Skeptic reviews**. | `longevity_10yr`'s approver is an analyst label, not a person's name (see above). |
 | **Audit** | The hash-chained ledger: every question, approval and ingest as an event with decision-relevant payloads, `verify()` status, head hash, export, and a **tamper demo** that alters one event in a scratch copy and names the entry that fails. | The ledger file is not in git, so a fresh clone starts empty; the July 2026 authoring trail for the four original rules exists only in the author's local ledger. Without `KENNY_LEDGER_KEY` the chain is unkeyed SHA-256: it detects edits, not a full rewrite by someone with disk access. |
@@ -173,7 +173,9 @@ no pay-type cue asks which pay type you mean instead of guessing.
 The engine, rule DSL, governance and ledger in `core/` are case-agnostic: `CASE=<dir>`
 points the app at another bundle. The demo UI is still Santa Cruz-specific (example
 prompts in `chat.html`, tour targets in `tour.js`, department cue words in `llm.py`). The
-six known answers are analyst-derived from the documents, not from payroll, and are
+eleven known answers (the six known answers the live rules reproduce, plus five
+vacation-accrual tiers pending the queued rules' approval) are analyst-derived from the
+documents, not from payroll, and are
 asserted by `pytest` through the gate and through `/chat` (`tests/test_demo_smoke.py`);
 each proves its rule at one set of inputs only:
 
@@ -201,7 +203,7 @@ Marshal, for instance) is refused with a reason.
   chat/admin templates.
 - **`cases/santacruz/`** — the bundle: `sources/` PDFs, `data/roster.csv`, `rules/`,
   `reviews/` (skeptic), `cell_checks.json`, `catalog.json`, `search_index.jsonl`,
-  `case.yaml` (six known answers), `taxonomy.yaml`, `prompt/`.
+  `case.yaml` (eleven known answers: six reproduced, five pending approval), `taxonomy.yaml`, `prompt/`.
 - **`scripts/`** — `demo_smoke.py` (the demo table), `skeptic.py` (zero-spend bake and
   re-verification), `verify_cells.py`, the back-fills (`backfill_quote_sha.py`,
   `backfill_provenance.py`, `backfill_text_origin.py`), `prepare_deploy.py`, `replay.py`.

@@ -7,6 +7,10 @@ page-image values and cite ONE cell each; the gate refuses a rule whose cited ce
 disputed until a person confirms it (POST /admin/cell_confirm -> ledger cell.confirm),
 and chat answers the 7-year question from the engine with the p.22 citation. Every test
 runs on a private copy of cases/santacruz with no API key.
+
+Integration (2026-10-07): the five tiers ship in the Review queue (rules_proposed.json),
+not the live library — an agent drafted them and three cite disputed cells. Their known
+answers read as *pending* on the shipped library and pass once the tiers are approved.
 """
 import json
 import os
@@ -39,7 +43,22 @@ def _shipped_rules():
 
 
 def _vacation_rules():
-    return [r for r in _shipped_rules() if ":vacation_accrual_" in r["id"]]
+    """The five tiers as shipped: in the Review queue, status proposed, no approver."""
+    with open(os.path.join(SRC, "rules", "rules_proposed.json")) as f:
+        return [r for r in json.load(f)["rules"] if ":vacation_accrual_" in r["id"]]
+
+
+def _approve_all(c, case_dir):
+    """What the owner does live: confirm the three disputed cells, then approve all five
+    tiers (the queue of the copied case already holds them)."""
+    for r in _vacation_rules():
+        cell = r["citation"]["cell"]
+        if cell["stored_text"] != cell["quoted_text"]:
+            assert _confirm(c, value=cell["quoted_text"], row=cell["row"], col=cell["col"]).status_code == 200
+    ids = [r["id"] for r in _vacation_rules()]
+    res = c.post("/admin/ratify", json={"approver": "kenny", "rule_ids": ids}).json()
+    assert sorted(res["ratified"]) == sorted(ids), res
+    return ids
 
 
 @pytest.fixture
@@ -88,7 +107,23 @@ def test_five_tier_rules_ship_with_page_image_values_and_one_cell_each():
         assert r["citation"]["doc_id"] == FIRE and r["citation"]["page"] == 22
         assert cell["col"] == 1 and float(cell["quoted_text"]) == hours
         # the rule says what the page shows AND what the text layer printed
-        assert cell["stored_text"] != "" and "human-ratified" in r["approver"]
+        assert cell["stored_text"] != ""
+        # shipped in the Review queue, honestly labelled, nobody's name on them
+        assert r["status"] == "proposed" and "approver" not in r
+        assert r["note"].startswith("agent-drafted 2026-10-07") and "disputes" in r["note"]
+
+
+def test_shipped_library_has_no_vacation_rule_and_their_known_answers_read_pending(env):
+    assert not any(":vacation_accrual_" in r["id"] for r in _shipped_rules())
+    c, _ = env
+    v = c.get("/admin/verification").json()
+    by_status = {}
+    for g in v["goldens"]:
+        by_status.setdefault(g["status"], []).append(g["name"])
+    assert len(by_status.get("pass", [])) == 6 and "fail" not in by_status
+    assert sorted(by_status["pending"]) == sorted(
+        g["name"] for g in v["goldens"] if g["name"].startswith("vacation accrual"))
+    assert v["pending"] == 5 and v["rule_count"] == 5 and v["all_passing"] is False
 
 
 def test_rule_values_are_the_reread_not_the_stored_text():
@@ -131,14 +166,14 @@ def test_tiers_are_mutually_exclusive():
 def test_vacation_accrual_7yr_is_10_15():
     case = load_case(SRC)
     g = next(g for g in case.golden_cases() if "7-year member" in g["name"])
-    ok, detail = _check_golden(case, _shipped_rules(), g)
+    ok, detail = _check_golden(case, _shipped_rules() + _vacation_rules(), g)
     assert ok and detail["status"] == "pass", detail
     assert detail["actual"] == 10.15 and detail["chosen"] == [SIX_TEN]
 
 
 def test_every_tier_has_a_passing_known_answer_and_the_money_goldens_are_untouched():
     case = load_case(SRC)
-    rules = _shipped_rules()
+    rules = _shipped_rules() + _vacation_rules()      # the library once the tiers are approved
     by_name = {g["name"]: _check_golden(case, rules, g)[1] for g in case.golden_cases()}
     fired = {d["chosen"][0]: d["actual"] for n, d in by_name.items() if "vacation accrual" in n}
     assert fired == {f"{FIRE}:vacation_accrual_{t}": v for t, v in TIERS.items()}
@@ -189,7 +224,7 @@ def test_confirmed_cell_ratifies_and_is_ledgered(env):
     c, case_dir = env
     six = next(r for r in _vacation_rules() if r["id"] == SIX_TEN)
     _propose(case_dir, [_as_proposed(six)])
-    before = c.get("/admin/cell_gate").json()
+    before = c.get("/admin/cell_gate", params={"rule_id": SIX_TEN}).json()
     assert SIX_TEN in before["blocked"]
     res = _confirm(c, note="read on the p.22 page image").json()
     assert res["ok"] and res["cell"]["confirmed"]["by"] == "kenny"
@@ -203,7 +238,7 @@ def test_confirmed_cell_ratifies_and_is_ledgered(env):
                                 "col": 1, "value": "10.15", "by": "kenny",
                                 "stored": "0) £5", "reread": "10.15",
                                 "status_before": "disputed"}
-    after = c.get("/admin/cell_gate").json()
+    after = c.get("/admin/cell_gate", params={"rule_id": SIX_TEN}).json()
     assert SIX_TEN not in after["blocked"]
     ok = c.post("/admin/ratify", json={"approver": "kenny", "rule_ids": [SIX_TEN]}).json()
     assert ok["ratified"] == [SIX_TEN], ok
@@ -274,17 +309,23 @@ def test_confirmed_cell_is_no_longer_refused_as_evidence(env):
 
 def test_shipped_state_blocks_exactly_the_three_misread_tiers(env):
     c, _ = env
-    body = c.get("/admin/cell_gate").json()
-    assert set(body["blocked"]) == {f"{FIRE}:vacation_accrual_{t}" for t in ("6_10", "14_16", "17_plus")}
-    rows = {r["rule_id"]: r for r in body["rules"]}
+    rows, blocked = {}, set()
+    for r in _vacation_rules():                       # queued, judged one at a time
+        body = c.get("/admin/cell_gate", params={"rule_id": r["id"]}).json()
+        rows.update({x["rule_id"]: x for x in body["rules"]})
+        blocked |= set(body["blocked"])
+    assert blocked == {f"{FIRE}:vacation_accrual_{t}" for t in ("6_10", "14_16", "17_plus")}
     assert rows[SIX_TEN]["cell"]["stored"] == "0) £5" and rows[SIX_TEN]["cell"]["reread"] == "10.15"
     assert rows[SIX_TEN]["cell"]["confirmed"] is None
-    assert all(r["cell"] is None and r["approvable"] for r in rows.values() if not r["cell_ref"])
+    live = c.get("/admin/cell_gate").json()           # the live library cites no cell
+    assert live["blocked"] == []
+    assert all(r["cell"] is None and r["approvable"] for r in live["rules"] if not r["cell_ref"])
 
 
 # ---------------- chat ----------------
 def test_chat_answers_the_7_year_question_from_the_engine(env):
     c, case_dir = env
+    _approve_all(c, case_dir)
     res = c.post("/chat", json={"prompt": Q7}).json()
     assert res["mode"] == "entitlement", res
     assert res["result"]["total"] == 10.15
@@ -310,7 +351,8 @@ def test_chat_twenty_years_hits_the_open_tier(env):
     """'Fire Captain' names two roster rows (56 hr and 40 hr); each row gets the 17+
     tier. (The entitlement path sums rows into `total` — 29.56 for two rows — which
     is that path's own convention, not this rule's; each line is 14.78.)"""
-    c, _ = env
+    c, case_dir = env
+    _approve_all(c, case_dir)
     res = c.post("/chat", json={"prompt": "How many vacation hours does a Fire Captain with 20 years of service accrue per pay period?"}).json()
     assert res["mode"] == "entitlement", res
     items = res["result"]["line_items"]

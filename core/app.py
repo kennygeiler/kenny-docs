@@ -3122,9 +3122,12 @@ async def admin_cell_confirm(request: Request):
         "agrees_with_reread": cell["confirmed"]["agrees_with_reread"],
         "agrees_with_stored": cell["confirmed"]["agrees_with_stored"],
     }, actor="admin")
-    now_blocked = {r["rule_id"] for r in _cell_gate_rows(case, _live_dicts(case))
+    # live rules AND the Review queue: the demo confirms a cell so a QUEUED tier can be
+    # approved, so the response must name the queued rules the confirm unblocked
+    judged = _live_dicts(case) + list(admin_proposed().get("rules", []))
+    now_blocked = {r["rule_id"] for r in _cell_gate_rows(case, judged)
                    if not r["approvable"]}
     return {"ok": True, "cell": cell, "ledger_seq": ev["seq"],
-            "unblocked": [r.get("id") for r in _live_dicts(case)
+            "unblocked": [r.get("id") for r in judged
                           if (r.get("citation") or {}).get("cell")
                           and r.get("id") not in now_blocked]}

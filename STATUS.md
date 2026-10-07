@@ -54,7 +54,10 @@ asked at the public link since August; export it before any redeploy.
   `refused` (only overtime approved); firefighter + Fire Marshal → $640.80 plus a
   not-covered row naming the Management MOU — `scripts/demo_smoke.py`,
   `tests/test_demo_smoke.py`.
-- Six known answers pass and all five live rules fire in one — `/admin/verification`
+- Of eleven known answers, six pass and all five live rules fire in one; the five
+  vacation-accrual answers are *pending* until the queued tiers are approved in Review
+  (`rules/rules_proposed.json`, agent-drafted; the 6-10, 14-16 and 17+ tiers need a
+  `POST /admin/cell_confirm` first) — `/admin/verification`
   (`all_passing: true`, `unverified: []`), `tests/test_gate.py`, `tests/test_goldens_chat.py`.
 - Every answer replays from its frozen snapshot with matching hashes —
   `GET /chat/replay/{id}` (`status: match`, 6 checks), `tests/test_replay.py`.
