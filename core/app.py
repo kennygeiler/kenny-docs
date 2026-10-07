@@ -2706,3 +2706,69 @@ def admin_cell_checks():
     return {"engine": data.get("engine"), "generated_at": data.get("generated_at"),
             "generated_by": data.get("generated_by"), "pages": pages,
             "showcase": _showcase(case)}
+
+
+# --- tour-and-gate-demo --- (DEMO_TICKETS.md I15: the human gate, shown live)
+# --------------------------------------------------------------------------- #
+# A seeded, deliberately WRONG but plausible draft (cases/santacruz/rules/
+# demo_wrong_draft.json): the $640.80 overtime rule at double time, citing the same
+# p.8 clause. Loading it into the review queue is idempotent (merged by id); approving
+# it goes through the ordinary gate, which refuses it ($854.40 is not $640.80) and
+# ledgers authoring.blocked. Nothing here writes rules_ratified.json. No model call.
+DEMO_DRAFT_FILE = "rules/demo_wrong_draft.json"
+
+
+def _demo_drafts(case) -> list[dict]:
+    """The seeded demo drafts, verbatim from the tracked file ([] when absent)."""
+    import json
+    path = os.path.join(case.dir, DEMO_DRAFT_FILE)
+    if not os.path.exists(path):
+        return []
+    with open(path) as f:
+        return [r for r in json.load(f).get("rules", []) if r.get("id")]
+
+
+def _demo_draft_status(case) -> dict:
+    drafts = _demo_drafts(case)
+    queued = {r.get("id") for r in admin_proposed().get("rules", [])}
+    live = {r.get("id") for r in _raw_ratified(case)}
+    ids = [r["id"] for r in drafts]
+    return {"rules": drafts, "ids": ids,
+            "loaded": [i for i in ids if i in queued],
+            "live": [i for i in ids if i in live],   # must stay empty: the gate's promise
+            "file": DEMO_DRAFT_FILE}
+
+
+@app.get("/admin/demo_draft")
+def admin_demo_draft():
+    """The seeded wrong draft and whether it is in the review queue:
+    {rules, ids, loaded: [ids in the queue], live: [ids in the library, expected []]}."""
+    return _demo_draft_status(_case())
+
+
+@app.post("/admin/demo_draft/load")
+def admin_demo_draft_load():
+    """Merge the seeded demo draft(s) into rules/rules_proposed.json BY ID (idempotent:
+    a second call changes nothing). Other queued drafts and needs_data are kept. One
+    ledger event records the load; approving it is a separate, ordinary /admin/ratify."""
+    case = _case()
+    drafts = _demo_drafts(case)
+    if not drafts:
+        return JSONResponse({"error": f"no demo draft file at {DEMO_DRAFT_FILE}"},
+                            status_code=404)
+    current = admin_proposed()
+    queue = list(current.get("rules", []))
+    before = {r.get("id") for r in queue}
+    merged = {r.get("id"): r for r in queue}
+    for r in drafts:
+        merged[r["id"]] = r
+    added = [r["id"] for r in drafts if r["id"] not in before]
+    if added:
+        _write_proposed(case, list(merged.values()), current.get("needs_data") or [])
+        case.ledger().append("authoring.demo_draft_loaded",
+                             {"rule_ids": added, "file": DEMO_DRAFT_FILE,
+                              "note": "deliberately wrong draft seeded for the gate demo; "
+                                      "not approved, nothing computes from it"},
+                             actor="admin")
+    return {"loaded": [r["id"] for r in drafts], "added": added,
+            "already_loaded": not added, "queue_size": len(merged)}

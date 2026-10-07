@@ -96,6 +96,17 @@
           the handful a real scenario needs — not the whole contract — so each is quick to check against
           its clause (<strong>View source</strong> highlights it on the page). Approve the ones that match.</p>
         <div id="reviewMsg" role="status" aria-live="polite"></div>
+        <!-- tour-and-gate-demo (I15): one button that loads the seeded, deliberately wrong
+             draft into this queue so the gate can be seen refusing it. Always visible —
+             #reviewBtns is hidden while the queue is empty, which is exactly when this is
+             needed. The draft file is tracked; the queue file is not. -->
+        <div class="toolbar" id="demoDraftBar">
+          <button type="button" class="ghost small" id="loadDemoDraft" onclick="loadDemoDraft(this)"
+                  title="Puts a well-formed but deliberately wrong draft (double time on the $640.80 rule) in this queue, so you can watch the known-answer check refuse it. No model call.">
+            Load the demo draft</button>
+          <span class="muted" id="demoDraftMsg" role="status" aria-live="polite"></span>
+        </div>
+        <!-- /tour-and-gate-demo -->
         <div id="review"></div>
         <div id="reviewBtns" class="toolbar" hidden>
           <input type="text" id="approverName" placeholder="Your name (recorded as the approver)" aria-label="Approver name" autocomplete="name">
@@ -503,6 +514,30 @@
     }
 
     const setAll = v => document.querySelectorAll('.ruleChk').forEach(c => { if (!c.disabled) c.checked = v; });
+
+    /* ---------------- tour-and-gate-demo (I15): load the seeded wrong draft ----------------
+       POST /admin/demo_draft/load merges cases/<case>/rules/demo_wrong_draft.json into the
+       review queue by id (idempotent). The card then renders like any other draft; approving
+       it goes through the ordinary gate, which refuses it. window.loadDemoDraft is what the
+       tour drives. */
+    async function loadDemoDraft(btn) {
+      const note = $('demoDraftMsg');
+      if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+      let res;
+      try {
+        res = await fetch('/admin/demo_draft/load', {method: 'POST'}).then(r => r.json());
+      } catch (e) { res = {error: String(e)}; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Load the demo draft'; }
+      if (!res || res.error) { if (note) note.textContent = res && res.error || 'request failed'; return res; }
+      if (note) note.textContent = res.already_loaded
+        ? 'The demo draft is already in the queue below.'
+        : 'Loaded: a deliberately wrong draft (double time on the $640.80 rule). Try approving it.';
+      await loadRules();
+      loadLedger();
+      return res;
+    }
+    window.loadDemoDraft = loadDemoDraft;
+    /* ---------------- /tour-and-gate-demo ---------------- */
 
     async function ratify() {
       const ids = [...document.querySelectorAll('.ruleChk')].filter(c => c.checked).map(c => c.dataset.id);
@@ -1518,6 +1553,6 @@
     }
   </script>
   <!-- Guided demo tour: resumes here when chat hands off with ?tour=1. -->
-  <script src="/static/tour.js?v=2"></script>
+  <script src="/static/tour.js?v=3"></script>
 </body>
 </html>
