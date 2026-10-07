@@ -140,8 +140,9 @@ def cmd_repin(a) -> int:
         return 1
     rc = 0
     harness = _harness()
+    code_rev = skeptic._code_rev()      # read once, before the first stamp dirties the tree
     for rid in ids:
-        res = skeptic.reverify(case, rid, harness=harness)
+        res = skeptic.reverify(case, rid, harness=harness, code_rev=code_rev)
         _out(res)
         if not res["ok"]:
             rc = 1

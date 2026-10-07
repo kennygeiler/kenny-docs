@@ -189,6 +189,19 @@ def test_repin_stamps_reverified_and_changes_nothing_else(case_dir, tmp_path):
     assert art["provenance"]["reverified"]["code_rev"] == rv["code_rev"]
 
 
+def test_repin_all_reads_the_code_rev_once_before_its_first_stamp(case_dir, tmp_path, monkeypatch):
+    """Two artifacts, one run: the second stamp must not report the first stamp as a
+    dirty tree. The rev is read once; reverify() takes it as given."""
+    _scripted_review(case_dir, tmp_path)
+    calls = []
+    monkeypatch.setattr(skeptic, "_code_rev", lambda: calls.append(1) or "abc1234")
+    case = load_case(case_dir)
+    r1 = skeptic.reverify(case, FF_RULE, code_rev="pinned01")
+    assert r1["reverified"]["code_rev"] == "pinned01" and calls == []
+    r2 = skeptic.reverify(case, FF_RULE)
+    assert r2["reverified"]["code_rev"] == "abc1234" and calls == [1]
+
+
 def test_repin_refuses_a_review_that_does_not_verify(case_dir, tmp_path):
     path = _scripted_review(case_dir, tmp_path)
     rules_path = os.path.join(case_dir, "rules", "rules_ratified.json")

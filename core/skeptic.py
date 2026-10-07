@@ -765,13 +765,16 @@ def verify(case: CaseContext, rule_id: str) -> list[str]:
     return problems
 
 
-def reverify(case: CaseContext, rule_id: str, harness: str = "") -> dict:
+def reverify(case: CaseContext, rule_id: str, harness: str = "",
+             code_rev: str | None = None) -> dict:
     """Re-pin a stored review to the code it was last verified against, with no model
     call and no new content: run `verify`, and only when every quote and every engine
     replay reproduces, stamp provenance.reverified = {code_rev, at, harness, problems: []}.
     `provenance.code_rev` is left as produced — the review's words came from a session
     at that revision, and rewriting it would claim otherwise. A review that does not
-    verify is not stamped (the artifact is untouched) and the problems are returned."""
+    verify is not stamped (the artifact is untouched) and the problems are returned.
+    `code_rev` lets a multi-artifact run read the tree ONCE before its first write, so
+    the second stamp does not report the first stamp as a dirty tree."""
     problems = verify(case, rule_id)
     path = artifact_path(case, rule_id)
     if problems or not os.path.exists(path):
@@ -779,7 +782,7 @@ def reverify(case: CaseContext, rule_id: str, harness: str = "") -> dict:
     with open(path) as f:
         art = json.load(f)
     prov = art.setdefault("provenance", {})
-    prov["reverified"] = {"code_rev": _code_rev(), "at": _utc(),
+    prov["reverified"] = {"code_rev": code_rev or _code_rev(), "at": _utc(),
                           "harness": harness or "unreported", "problems": []}
     _atomic_write(path, art)
     return {"rule_id": rule_id, "ok": True, "problems": [], "stamped": True,
