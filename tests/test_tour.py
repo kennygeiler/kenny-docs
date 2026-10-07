@@ -39,7 +39,7 @@ def test_chat_page_ships_the_tour(client):
     assert '/static/tour.js?v=' in html, "chat must load the tour engine"
     assert 'id="tourStart"' in html and "Take the tour" in html
     assert 'data-page="chat"' in html, "the engine keys its step list off this"
-    assert "styles.css?v=6" in html, "stale cached CSS would ship no coach-mark styles"
+    assert "styles.css?v=7" in html, "stale cached CSS would ship no coach-mark styles"
 
 
 def test_admin_page_ships_the_tour_resume_hook(client):
@@ -47,6 +47,27 @@ def test_admin_page_ships_the_tour_resume_hook(client):
     assert '/static/tour.js?v=' in html, "admin must load the engine so ?tour=1 resumes"
     assert 'data-page="admin"' in html
     assert "styles.css?v=12" in html
+
+
+def test_no_foreign_legal_pages(client):
+    """DEMO_TICKETS I8: the privacy/terms pages described a different product (a
+    call-screening SMS service). They live in that project now; this app must not
+    serve them, and nothing in core/ or tests/ may reference them."""
+    assert client.get("/privacy").status_code == 404
+    assert client.get("/terms").status_code == 404
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for sub in ("core", "tests"):
+        for dirpath, _dirs, files in os.walk(os.path.join(root, sub)):
+            for f in files:
+                if not f.endswith((".py", ".js", ".html", ".css", ".txt", ".yaml")):
+                    continue
+                with open(os.path.join(dirpath, f), encoding="utf-8") as fh:
+                    text = fh.read().lower()
+                for needle in ("twilio", "a2p", "/privacy", "/terms"):
+                    # this test is the one legitimate mention
+                    if f == "test_tour.py":
+                        continue
+                    assert needle not in text, f"{sub}/{f} still mentions {needle!r}"
 
 
 def test_tour_js_defines_both_step_lists_and_the_handoff(client):

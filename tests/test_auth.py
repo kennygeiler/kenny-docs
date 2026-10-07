@@ -31,14 +31,6 @@ def _app(monkeypatch, **env):
     def chat():
         return {"answer": 1}
 
-    @app.get("/privacy")
-    def privacy():
-        return {"page": "privacy"}
-
-    @app.get("/terms")
-    def terms():
-        return {"page": "terms"}
-
     @app.get("/admin/ledger")
     def ledger():
         return {"events": []}
@@ -277,12 +269,3 @@ def test_table_only_page_recovers_rows_not_a_blob():
     assert sergeant["bbox"][0] == 84 and sergeant["bbox"][2] == 240
 
     assert _from_doc_texts(type("D", (), {"texts": []})()) is None
-
-
-def test_legal_pages_are_public_when_auth_is_on(monkeypatch):
-    """Twilio/TCR reviewers fetch the A2P policy links with no credential. If these
-    ever fall behind the sign-in, campaign registration is rejected."""
-    c = _app(monkeypatch, KENNY_VIEWER_PASSWORD="v", KENNY_ADMIN_PASSWORD="a")
-    assert c.get("/").status_code == 401          # guard: auth really is on
-    assert c.get("/privacy").status_code == 200
-    assert c.get("/terms").status_code == 200

@@ -89,10 +89,9 @@ def _origin_ok(request) -> bool:
     return origin_host.lower() == host.lower()
 
 
-# Paths served without a credential. /healthz is the platform's liveness probe; the
-# legal pages must be fetchable by Twilio/TCR reviewers during A2P 10DLC campaign
-# registration, which happens with no login. Nothing here reads case data.
-_PUBLIC = {"/healthz", "/privacy", "/terms"}
+# Paths served without a credential: /healthz is the platform's liveness probe and
+# reads no case data.
+_PUBLIC = {"/healthz"}
 
 
 class RateLimiter:

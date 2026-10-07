@@ -18,7 +18,7 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import audit, auth, governance, index, ingest, llm, queryfacts, rulematch
+from . import audit, auth, governance, index, ingest, llm, queryfacts, refusal, rulematch
 from . import evidence, warm
 from . import qid as qid_mod
 from .caseio import default_case_dir, load_case
@@ -236,6 +236,8 @@ def _enrich_citations(cat, result_dict: dict) -> dict:
             c["parse_source"] = entry.get("parse_source", "")
             c["kind"] = kind
             c["tier"] = _extraction_tier(c["parse_source"], kind)
+            # Declared title, so the proof surfaces can name the contract (I4).
+            c["title"] = entry.get("declared_title") or entry.get("title") or doc_id
     return result_dict
 
 
@@ -717,20 +719,6 @@ def chat_page():
     return FileResponse(os.path.join(TEMPLATES, "chat.html"), headers=_NOCACHE)
 
 
-@app.get("/privacy", response_class=HTMLResponse)
-def privacy_page():
-    """Public — unauthenticated by design (see core/auth.py _PUBLIC). Carrier and
-    platform reviewers (Twilio/TCR A2P 10DLC) must be able to fetch the policy
-    without a credential, or campaign registration is rejected."""
-    return FileResponse(os.path.join(TEMPLATES, "privacy.html"), headers=_NOCACHE)
-
-
-@app.get("/terms", response_class=HTMLResponse)
-def terms_page():
-    """Public — see privacy_page()."""
-    return FileResponse(os.path.join(TEMPLATES, "terms.html"), headers=_NOCACHE)
-
-
 @app.get("/admin", response_class=HTMLResponse)
 def admin_page():
     return FileResponse(os.path.join(TEMPLATES, "admin.html"), headers=_NOCACHE)
@@ -767,7 +755,11 @@ def api_case():
             # Set on the shared deploy. A hosted link gets mistaken for a product; this
             # is a prototype on a synthetic corpus and every viewer must be told so
             # before they read a dollar figure off it.
-            "banner": os.environ.get("KENNY_BANNER", "")}
+            "banner": os.environ.get("KENNY_BANNER", ""),
+            # Declared document titles, so the chat page can name a contract wherever
+            # a response only carries its id (I4).
+            "sources": [_doc_meta(case, s.get("id")) for s in case.manifest.get("sources", [])
+                        if s.get("id")]}
 
 
 # --------------------------------------------------------------------------- #
@@ -1051,35 +1043,24 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                                                   "status": r["status"], "reason": r["reason"]}
                                                  for r in refused]},
                    actor="engine", query_id=qid)
+        # One helper builds every blocked answer (chat-ui I6): contract named by title,
+        # one plain sentence, a `next` link to an admin tab that exists.
         if len(refused) == 1:
-            if o["status"] == "no_contract":
-                message = (o["reason"] + ". I only cost a classification under a contract "
-                           "that governs its bargaining unit on the shift date.")
-            elif o["status"] == "stale":
-                message = (f"I can't cost this right now: the rules for **{chosen}** are "
-                           f"pending re-verification ({len(o['stale'])} rule(s) were marked "
-                           "stale because their source document changed since they were "
-                           "ratified). Re-verify them in Admin → Rule review before "
-                           "costing resumes.")
-            elif o["status"] == "rule_error":
-                message = (f"I can't cost this: a live rule for **{chosen}** failed to "
-                           f"evaluate ({o.get('error')}). Nothing was computed — the rule "
-                           "needs fixing in Admin → Rule review before costing resumes.")
-            elif o["status"] == "integrity":
-                message = ("I can't cost this: the source documents no longer match what the "
-                           "rules were ratified against. Re-ingest and re-verify before "
-                           "answering. Details: " + o["reason"])
-            else:
-                message = (f"I can't cost this yet: **{chosen}** has no human-ratified rules. "
-                           "Policy questions still work (I can quote the document). To enable "
-                           "costing, go to Admin → Ingest, review the drafted rules, and "
-                           "approve them — nothing computes until a human ratifies it.")
+            kind = {"no_contract": "no_contract", "stale": "stale_rules",
+                    "integrity": "provenance", "rule_error": "rule_error"}.get(o["status"],
+                                                                               "no_rules")
+            detail = o["reason"] if kind == "no_contract" else \
+                o.get("error") if kind == "rule_error" else \
+                o["reason"] if kind == "provenance" else None
+            res = refusal.blocked(case, qid, gov_docs, subjects, kind, detail=detail,
+                                  stale=[st for st in o["stale"]])
         else:
-            message = ("I can't cost any of these: " + "; ".join(
-                f"{', '.join(r['subjects'])}: {r['reason']}" for r in refused) + ".")
-        return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
-                "chosen_doc": chosen, "bargaining_units": units, "shift_date": date_iso,
-                "message": message, "uncovered": uncovered, "interpretation": interp}
+            res = refusal.blocked(case, qid, gov_docs, subjects, "not_covered",
+                                  detail="; ".join(f"{', '.join(r['subjects'])}: {r['reason']}"
+                                                   for r in refused))
+        res.update({"bargaining_units": units, "shift_date": date_iso,
+                    "uncovered": uncovered, "interpretation": interp})
+        return res
 
     # 6. Ledger: decision logic + math + citations, straight from the engine trace.
     #    (rule.* and citation payloads keep their shape; bargaining_unit is added.)
@@ -1133,7 +1114,9 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
             if d not in chosen_docs:
                 chosen_docs.append(d)
     return {"query_id": qid, "needs_confirmation": False, "mode": "costing",
-            "chosen_doc": ", ".join(chosen_docs), "routing_path": "governance",
+            "chosen_doc": ", ".join(chosen_docs),
+            "chosen_docs": [_doc_meta(case, d) for d in chosen_docs],   # chat-ui (I4)
+            "routing_path": "governance",
             "bargaining_units": units, "shift_date": date_iso, "params": params,
             "partial": bool(uncovered), "interpretation": interp, "result": result_dict}
 
