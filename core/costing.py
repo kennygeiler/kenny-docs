@@ -281,10 +281,16 @@ def cost_by_unit(case, cat, led, qid: str, subjects: list[dict], eng_params: dic
             # year of benefits (see engine.calculate basis_scope).
             res = calculate(eng_params, members, rules, case.rounding_places(),
                             basis_scope=SHIFT_BASES)
-        except (NoRuleApplies, ValueError, RuleError, ArithmeticError) as e:
-            # A4 (agentic): a rule that fails to evaluate is a refusal, never a 500.
+        except (NoRuleApplies, ValueError) as e:
             out["status"] = "no_rule_for_scenario"
             out["reason"] = f"The approved rules for {titles} don't cover this scenario ({e})"
+            continue
+        except (RuleError, ArithmeticError) as e:
+            # A4 (agentic): a live rule that fails to evaluate blocks the answer with the
+            # error on record — never a 500, never a number.
+            out["status"] = "rule_error"
+            out["reason"] = (f"A live rule for {titles} failed to evaluate "
+                             f"({type(e).__name__}: {e})")
             out["error"] = f"{type(e).__name__}: {e}"
             continue
         used_ids = {li.rule_id for li in res.line_items}

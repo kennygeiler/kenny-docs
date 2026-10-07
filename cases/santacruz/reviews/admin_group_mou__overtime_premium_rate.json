@@ -1263,6 +1263,27 @@
       "admin_group_mou": "3cb35047f29c5e5efd501664e7989cac67de9703694b5862410f18e22ac25707",
       "master_salary_schedule": "5a24779c044baa3b9973949add04fa959b59dd9fe982ce58403ab3eb90a5faa2"
     },
-    "roster_sha256": "935f901ec307b08e0f31aaaf10476a40ca895f55a24583abfc835a5f12d94b31"
-  }
+    "roster_sha256": "1cfcfdfed61c7a854330452d40bff756dfc9645a4bca55fb715821ba59bff2a4"
+  },
+  "repinned": [
+    {
+      "at": "2026-10-07T16:33:24Z",
+      "reason": "wave1/data-goldens archived the police roster rows and moved Battalion Chief into Local 3535; the reviewed subjects' rows are unchanged",
+      "stale_reasons": [
+        "roster changed"
+      ],
+      "previous_inputs": {
+        "roster_sha256": "935f901ec307b08e0f31aaaf10476a40ca895f55a24583abfc835a5f12d94b31",
+        "doc_sha256": {
+          "admin_group_mou": "f35b0cf0d46013d73ba34a6e79087d38b51b42555ccbdcb91faf242eb3e0cc3e",
+          "master_salary_schedule": "8123d794d45221c5a97dea1c0043faede605e7a8cc773361189b8b7b814e4f42"
+        },
+        "catalog_doc_sha256": {
+          "admin_group_mou": "3cb35047f29c5e5efd501664e7989cac67de9703694b5862410f18e22ac25707",
+          "master_salary_schedule": "5a24779c044baa3b9973949add04fa959b59dd9fe982ce58403ab3eb90a5faa2"
+        }
+      },
+      "engine_replays": "every recorded engine call replays to its recorded total"
+    }
+  ]
 }

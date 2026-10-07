@@ -68,7 +68,7 @@ def test_dotenv_does_not_overwrite_an_explicitly_empty_variable(tmp_path, monkey
     monkeypatch.delenv("KENNY_OTHER", raising=False)
     monkeypatch.setattr(os.path, "abspath", lambda p: str(tmp_path / "core" / "app.py")
                         if p.endswith("app.py") else os.path.realpath(p))
-    core_app._load_dotenv()
+    core_app._load_dotenv(force=True)     # the K2 guard would otherwise no-op under pytest
     assert os.environ["ANTHROPIC_API_KEY"] == "", "an empty real variable must win"
     assert os.environ.get("KENNY_OTHER") == "1", "unset variables are still loaded"
     monkeypatch.delenv("KENNY_OTHER", raising=False)

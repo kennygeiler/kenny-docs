@@ -25,7 +25,7 @@ import time
 import uuid
 from typing import Any
 
-from . import governance, index
+from . import governance, index, queryfacts
 from .caseio import CaseContext
 from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
@@ -371,6 +371,9 @@ def run_engine(case: CaseContext, rule: dict, rule_set: str, scenario: dict,
     if not subs:
         return {"error": f"no roster classification matches {names}"}
     params = {"hours": 0.0, "date": "", "date_iso": "", "holiday_weekday": ""}
+    # Every declared numeric question fact at its safe default (data-goldens J1a: the
+    # live longevity rule references years_of_service), exactly as the chat path does.
+    params.update(queryfacts.query_defaults(case))
     raw = dict((scenario or {}).get("params") or {})
     try:
         hours = float(raw.get("hours", 0.0) or 0.0)

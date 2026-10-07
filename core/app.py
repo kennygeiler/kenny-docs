@@ -30,14 +30,15 @@ from .ruledsl import SHIFT_BASES, Rule, RuleError, load_rules, validate_rules
 from . import costing  # costing-correctness (B1, B2, B4)
 from starlette.concurrency import run_in_threadpool
 
-def _load_dotenv() -> None:
+def _load_dotenv(force: bool = False) -> None:
     """Load the repo's .env at startup so the server works with a plain `uvicorn`
     command — no --env-file flag required. Real environment variables always win.
     Skipped under pytest (and when KENNY_NO_DOTENV is set): this runs at import, during
     test collection, which is exactly how a developer's real ANTHROPIC_API_KEY used to
-    leak into the suite (DEMO_TICKETS K2; tests/conftest.py is the other half)."""
+    leak into the suite (DEMO_TICKETS K2; tests/conftest.py is the other half).
+    `force` is for tests of the loader itself: it skips that guard, nothing else."""
     import sys
-    if os.environ.get("KENNY_NO_DOTENV") or "pytest" in sys.modules:
+    if not force and (os.environ.get("KENNY_NO_DOTENV") or "pytest" in sys.modules):
         return
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(root, ".env")
@@ -1042,7 +1043,9 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                    {"reason": {"no_contract": "no governing contract",
                                "stale": "rules pending re-verification",
                                "no_rules": "no ratified rules",
-                               "integrity": "provenance mismatch"}.get(o["status"], o["status"]),
+                               "integrity": "provenance mismatch",
+                               "rule_error": "rule evaluation error"}.get(o["status"], o["status"]),
+                    "error": o.get("error"),   # A4: the exception text, when a rule failed
                     "doc": gov_docs, "stale": [s for r in refused for s in r["stale"]],
                     "units": units, "per_unit": [{"bargaining_unit": r["bargaining_unit"],
                                                   "status": r["status"], "reason": r["reason"]}
@@ -1058,6 +1061,10 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                            "stale because their source document changed since they were "
                            "ratified). Re-verify them in Admin → Rule review before "
                            "costing resumes.")
+            elif o["status"] == "rule_error":
+                message = (f"I can't cost this: a live rule for **{chosen}** failed to "
+                           f"evaluate ({o.get('error')}). Nothing was computed — the rule "
+                           "needs fixing in Admin → Rule review before costing resumes.")
             elif o["status"] == "integrity":
                 message = ("I can't cost this: the source documents no longer match what the "
                            "rules were ratified against. Re-ingest and re-verify before "
