@@ -1,13 +1,20 @@
 description: >
   Extract the parameters of a costing question against a multi-department corpus:
-  which employees, how many hours, and the date (with its weekday).
+  which employees, how many hours, the date (with its weekday), and any completed years
+  of service the question states.
 entities:
   subjects: Employee names mentioned in the prompt.
   hours: Number of hours in the shift or holdover.
   date: The calendar date referenced (free text is fine).
   holiday_weekday: Three-letter weekday abbreviation for that date, e.g. Sat.
+  years_of_service: >
+    Completed years of service stated in the question (e.g. "12 years of service",
+    "a 12-year firefighter"). Absent means 0 — never infer it. The roster is
+    classifications, not people, so this fact can only come from the question and is
+    unverified.
 output_shape:
   subjects: [str]
   hours: float
   date: str
   holiday_weekday: str
+  years_of_service: float
