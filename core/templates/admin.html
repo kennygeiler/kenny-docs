@@ -390,7 +390,7 @@
              deliberate error in this rule${(res.fires_in || []).length ? '' : ' — it fires in no passing known answer'}.</span>`
         : `<strong>${res.caught} of ${res.total} deliberate errors caught</strong>
            <span class="muted">· ${esc(res.verdict)} · no model call, nothing written, attempt recorded in the ledger</span>`;
-      panel.innerHTML = `<p>${head}</p>
+      panel.innerHTML = `<p>${head}</p><div class="xtable-wrap">
         <table class="lines"><thead><tr><th>Deliberate error</th><th>Result</th><th>Known answer</th><th>Expected</th><th>Computed</th></tr></thead>
         <tbody>${res.mutants.map(m => m.caught
           ? `<tr><td>${esc(m.label)}</td><td class="ok">Caught</td><td>${esc(m.caught_by.scenario)}</td>
@@ -398,7 +398,7 @@
                <td>${m.caught_by.actual == null ? `<span class="muted">refused (${esc(m.caught_by.status)})</span>` : esc(fmtAmount(m.caught_by.actual, t))}</td></tr>`
           : `<tr><td>${esc(m.label)}</td><td class="warn-text">Survived</td>
                <td colspan="3" class="warn-text">No known answer tests this part of the rule</td></tr>`).join('')}
-        </tbody></table>`;
+        </tbody></table></div>`;
       loadLedger();
     }
 
