@@ -190,6 +190,12 @@ def test_moved_box_same_text_rebinds(case_copy):
 def test_unchanged_pdf_is_skipped(case_copy, monkeypatch):
     from fastapi.testclient import TestClient
     case, cat, _ = _load(case_copy)
+    # The shipped catalog is hashed on every document (C7); this test wants exactly
+    # ONE unchanged document, so the other four are made pre-hashing again.
+    for d in cat.documents():
+        if d["doc_id"] != "master_salary_schedule":
+            d.pop("pdf_sha256", None)
+            cat.upsert(d)
     entry = cat.get("master_salary_schedule")
     pdf = os.path.join(case.dir, "sources", "master_salary_schedule.pdf")
     entry["pdf_sha256"] = ingest.sha256_file(pdf)

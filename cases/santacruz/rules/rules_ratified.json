@@ -18,7 +18,8 @@
           189.498,
           505.259,
           167.118
-        ]
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800"
       },
       "status": "ratified",
       "_scenario": "bereavement leave, Firefighters Local 3535 (Article XIV)",
@@ -48,7 +49,8 @@
           505.662,
           511.182,
           441.459
-        ]
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800"
       },
       "status": "ratified",
       "approver": "kenny",
@@ -79,7 +81,8 @@
           263.49,
           511.56,
           212.751
-        ]
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800"
       },
       "status": "ratified",
       "_scenario": "8-hour overtime shift, 12-year Firefighter/Paramedic top step (longevity 2.5% into the 1.5x rate)",
@@ -104,7 +107,8 @@
           575.8,
           526.7,
           552.8
-        ]
+        ],
+        "doc_sha256": "20d85857b6cf4035e7c7f2eccb2c3991a82d2ebb10550c8b9d0a6c51f6bf5e09"
       },
       "status": "ratified",
       "approver": "kenny",
@@ -133,7 +137,8 @@
           137.7,
           509.6,
           113.8
-        ]
+        ],
+        "doc_sha256": "f35b0cf0d46013d73ba34a6e79087d38b51b42555ccbdcb91faf242eb3e0cc3e"
       },
       "status": "ratified",
       "approver": "kenny",

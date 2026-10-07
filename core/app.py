@@ -1273,6 +1273,8 @@ def doc_clauses(doc_id: str, page: int = 1):
     pdf_path = _resolve_pdf(case, doc_id)
     if not pdf_path:
         return JSONResponse({"error": "unknown doc"}, status_code=404)
+    if (blocked := _provenance_gate(case, doc_id, pdf_path, "doc_clauses")) is not None:  # C7
+        return blocked
     dims = page_dims(pdf_path, page)
     if dims is None:
         return JSONResponse({"error": "page metrics unavailable"}, status_code=503)
@@ -2748,6 +2750,24 @@ def _cover_title(entry: dict | None) -> str:
     date line there (a pre-C4 bake) — a date is not something to show as a name."""
     extracted = str((entry or {}).get("title") or "").strip()
     return "" if not extracted or ingest._date_like(extracted) else extracted
+
+
+def _provenance_gate(case, doc_id: str, pdf_path: str, route: str):
+    """409 when the PDF on disk no longer matches the hash the catalog recorded (C7):
+    the same check doc_file and doc_page make, for the X-ray/Compare clause route,
+    which otherwise lists clauses of a document that is not the one on disk. Returns
+    None when the source is intact (or was never hashed)."""
+    ok, expected, actual = _check_source_hash(_catalog(case), doc_id, pdf_path)
+    if ok:
+        return None
+    case.ledger().append("provenance.mismatch",
+                         {"doc_id": doc_id, "expected": expected, "actual": actual,
+                          "route": route}, actor="system")
+    return JSONResponse({"error": "source document changed since ingestion — "
+                         "its extracted clauses no longer describe the file on disk",
+                         "reason": "provenance", "doc_id": doc_id,
+                         "expected": expected[:12], "actual": actual[:12]},
+                        status_code=409)
 
 
 def _page_render_params(bbox: str, crop: str) -> tuple[dict, str | None]:
