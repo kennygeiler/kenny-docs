@@ -209,6 +209,12 @@ def test_approving_the_shipped_rules_again_keeps_the_response_shape(env):
     c, case = env
     _propose(case, [{k: v for k, v in r.items() if k not in ("status", "approver", "approved_at")}
                     for r in _library(case)])
+    # J1b: three vacation tiers cite p.22 cells the OCR misread; a person must confirm
+    # each on the page image before the gate will (re-)approve them.
+    for row, value in ((2, "10.15"), (4, "13.85"), (5, "14.78")):
+        assert c.post("/admin/cell_confirm", json={
+            "doc_id": FF, "page": 22, "row": row, "col": 1, "value": value,
+            "by": "tester"}).status_code == 200
     res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert sorted(res["ratified"]) == sorted(r["id"] for r in _library(case))
     assert res["library_size"] == N_LIVE and set(res["proved_by"]) == set(res["ratified"])
@@ -315,10 +321,17 @@ def test_mutation_report_over_the_live_library(env):
     c, case = env
     n_before = len(_ledger(case))
     res = c.get("/admin/mutation_report").json()
-    # 7 mutants per currency rule, 3 per selector, 9 for the longevity modifier
-    assert (res["total"], res["caught"]) == (29, 19)
+    # 7 mutants per currency rule, 3 per selector, 9 for the longevity modifier; J1b's
+    # five vacation tiers add 9+9+9+9+7 (value, drop/invert condition, move each
+    # threshold, re-home). Their survivors are the moved-threshold mutants: the known
+    # answers sit mid-tier (3, 7, 12, 15, 20 years), so an edge moved by one year is
+    # not exercised (E10 boundary known answers would catch them).
+    assert (res["total"], res["caught"]) == (72, 43)
+    vac = {f"{FF}:vacation_accrual_{t}" for t in ("1_5", "6_10", "11_13", "14_16", "17_plus")}
     assert {s["rule_id"] for s in res["survivors"]} == {FF_OT, FF_LONG,
-                                                        "admin_group_mou:overtime_premium_rate"}
+                                                        "admin_group_mou:overtime_premium_rate"} | vac
+    assert all("move threshold" in s["label"] or "drop condition" in s["label"]
+               for s in res["survivors"] if s["rule_id"] in vac)
     assert len(_ledger(case)) == n_before
 
 
