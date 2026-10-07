@@ -7,7 +7,9 @@ fetch('/api/case').then(r => r.json()).then(c => {
   CASE = c;
   document.getElementById('caseName').textContent = c.name || '';
   const b = document.getElementById('keyBadge');
-  b.textContent = c.has_api_key ? 'LLM: Claude' : 'LLM: deterministic fallback';
+  b.textContent = c.llm_mode === 'off' ? 'LLM: off (deterministic)'
+    : c.llm_status === 'degraded' ? 'LLM: Claude (degraded, using fallbacks)'
+    : c.has_api_key ? 'LLM: Claude' : 'LLM: deterministic fallback';
   showBanner(c.banner);
 });
 

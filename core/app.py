@@ -24,7 +24,8 @@ from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
 from .pdfview import page_dims, render_page_with_bbox
 from .retriever import CatalogLLMRetriever
-from .ruledsl import SHIFT_BASES, Rule, load_rules, validate_rules
+from .ruledsl import SHIFT_BASES, Rule, RuleError, load_rules, validate_rules
+from starlette.concurrency import run_in_threadpool
 
 def _load_dotenv() -> None:
     """Load the repo's .env at startup so the server works with a plain `uvicorn`
@@ -41,7 +42,7 @@ def _load_dotenv() -> None:
             continue
         k, v = line.split("=", 1)
         k, v = k.strip(), v.strip().strip('"').strip("'")
-        if v and not os.environ.get(k):
+        if v and k not in os.environ:   # an explicitly EMPTY real variable still wins
             os.environ[k] = v
 
 
@@ -473,7 +474,9 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
            "holiday_weekday": params.get("holiday_weekday", "")}
     try:
         result = calculate(eng, subjects, rules, case.rounding_places())
-    except ValueError:
+    except (ValueError, RuleError, ArithmeticError) as e:   # A4: a rule error is not a 500
+        led.append("costing.blocked", {"reason": "rule evaluation error", "error": str(e)},
+                   actor="engine", query_id=qid)
         return _policy_answer(case, led, qid, prompt, department)
 
     rd = _enrich_citations(_catalog(case), result.to_dict())
@@ -554,6 +557,8 @@ def api_case():
     case = _case()
     return {"name": case.manifest.get("name"), "department": case.manifest.get("department"),
             "has_api_key": llm.have_key(),
+            "llm_mode": llm.llm_mode(),          # 'claude' | 'off' | 'no-key' (G9)
+            "llm_status": llm.llm_status(),      # 'claude' | 'degraded' | 'none' (A8)
             # Set on the shared deploy. A hosted link gets mistaken for a product; this
             # is a prototype on a synthetic corpus and every viewer must be told so
             # before they read a dollar figure off it.
@@ -596,18 +601,21 @@ async def _chat(body: dict, qid: str):
         led.append("chat.prompt", {"text": prompt, "department": department},
                    actor="chat", query_id=qid)
         # Router: costing vs policy Q&A. Both return an answer WITH clickable proof.
-        intent = llm.classify_intent(prompt)
+        intent = await run_in_threadpool(llm.classify_intent, prompt)   # A8: off the loop
         led.append("intent.classify", {"intent": intent}, actor="chat", query_id=qid)
         if intent == "policy":
-            return _policy_answer(case, led, qid, prompt, department)
+            return await run_in_threadpool(_policy_answer, case, led, qid, prompt, department)
         if intent == "lookup":
-            return _policy_answer(case, led, qid, prompt, department, lookup=True)
+            return await run_in_threadpool(_policy_answer, case, led, qid, prompt,
+                                           department, lookup=True)
         if intent == "entitlement":
-            return _entitlement_answer(case, led, qid, prompt, department)
+            return await run_in_threadpool(_entitlement_answer, case, led, qid, prompt,
+                                           department)
 
     # 1. Parse intent (LLM translation layer, with deterministic fallback).
     subjects_all = case.subjects()
-    params = llm.parse_intent(prompt, _extraction(case), subjects_all)
+    params = await run_in_threadpool(llm.parse_intent, prompt, _extraction(case),
+                                     subjects_all)
     led.append("llm.parse_intent", params, actor="chat", query_id=qid)
 
     # A model-extracted number the question doesn't contain never reaches the engine
@@ -666,7 +674,8 @@ async def _chat(body: dict, qid: str):
             chosen_docs = gov.doc_ids
             routing_path = "governance"
         else:
-            routing = _retriever().route(prompt, cat, _backend(case))
+            routing = await run_in_threadpool(_retriever().route, prompt, cat,
+                                              _backend(case))
             led.append("retrieval.shortlist",
                        {"candidates": routing.candidates, "reason": routing.reason},
                        actor="chat", query_id=qid)
@@ -751,8 +760,9 @@ async def _chat(body: dict, qid: str):
         # shift cost?" and are filtered out (they answer a different question).
         result = calculate(eng_params, subjects, rules, case.rounding_places(),
                            basis_scope=SHIFT_BASES)
-    except ValueError as e:
-        led.append("costing.blocked", {"reason": str(e), "doc": chosen_docs},
+    except (ValueError, RuleError, ArithmeticError) as e:   # A4: a rule error is not a 500
+        led.append("costing.blocked", {"reason": str(e), "doc": chosen_docs,
+                                       "error": f"{type(e).__name__}: {e}"},
                    actor="engine", query_id=qid)
         return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
                 "chosen_doc": chosen, "message":
@@ -1521,8 +1531,8 @@ async def admin_draft_scenario(request: Request):
     needs: list[dict] = []
     with llm.record() as trail:
         for d, clauses in clauses_by_doc.items():
-            rules = llm.draft_rules(clauses, d, case.known_facts(),
-                                    case.field_values(), case.bool_facts())
+            rules = await run_in_threadpool(llm.draft_rules, clauses, d, case.known_facts(),
+                                            case.field_values(), case.bool_facts())
             doc_sha = (cat.get(d) or {}).get("pdf_sha256", "")
             for r in rules:
                 r["_doc_id"] = d

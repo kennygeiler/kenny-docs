@@ -73,8 +73,27 @@ _WEEKDAYS = {
 }
 
 
+_LLM_OFF_VALUES = ("off", "0", "false", "no")
+
+
+def llm_switched_off() -> bool:
+    """KENNY_LLM=off (or 0/false/no, any case) disables every model touchpoint even when a
+    key is present (DEMO_TICKETS.md G9). The only way to run a model-free demo on a
+    laptop whose .env holds a key, short of renaming .env."""
+    return os.environ.get("KENNY_LLM", "").strip().lower() in _LLM_OFF_VALUES
+
+
 def have_key() -> bool:
+    if llm_switched_off():
+        return False
     return bool(os.environ.get("ANTHROPIC_API_KEY"))
+
+
+def llm_mode() -> str:
+    """'claude' | 'off' | 'no-key' — what the header badge tells the audience."""
+    if llm_switched_off():
+        return "off"
+    return "claude" if os.environ.get("ANTHROPIC_API_KEY") else "no-key"
 
 
 # --------------------------------------------------------------------------- #
@@ -120,9 +139,9 @@ def classify_intent(prompt: str) -> str:
     arithmetic step exists: a cost is DERIVED from a person, hours and a date; a rate is
     READ from a cell.
     """
-    if have_key():
+    if _model_on("classify_intent"):
         try:
-            out = _claude_json(  # noqa: labelled below
+            out = _ask("classify_intent", IntentOut,
                 "Classify the question about a labor contract:\n"
                 "'costing'     = asks what something WOULD COST — a dollar amount that "
                 "must be CALCULATED from a person, hours, a shift or a date.\n"
@@ -137,7 +156,7 @@ def classify_intent(prompt: str) -> str:
                 "'What does an 8-hour holiday shift cost for a graveyard sergeant?' = costing. "
                 "'What is a Sergeant's Step C rate?' = lookup.\n"
                 "Return ONLY {\"intent\": \"costing\"|\"lookup\"|\"entitlement\"|\"policy\"}.",
-                prompt, label="classify_intent")
+                prompt)
             it = out.get("intent")
             if it in ("costing", "lookup", "entitlement", "policy"):
                 return it
@@ -186,22 +205,24 @@ _DEPT_CUES = {
 def extract_department(prompt: str, departments: list[str]) -> str | None:
     """Return the department the question is about, or None if not stated. Used to
     shortlist candidate documents in a multi-department corpus."""
-    if have_key():
+    if _model_on("extract_department"):
         try:
-            out = _claude_json(
+            out = _ask("extract_department", DepartmentOut,
                 "Which department is this question about? Choose exactly one of "
                 + json.dumps(departments) + " or null if the question does not say. "
                 "Do not guess from topic alone — only answer if the question names or "
                 "clearly implies the department (e.g. 'officer' -> police, "
                 "'firefighter' -> fire). Return ONLY {\"department\": \"...\"|null}.",
-                prompt, label="extract_department")
+                prompt)
             d = out.get("department")
             if d in departments:
                 return d
-            if d in (None, "null", ""):
+            if d is None:
                 return None
+            _note("extract_department", "fallback",
+                  rule=f"model named {d!r}, not a department in the corpus")
         except Exception:
-            pass
+            _note("extract_department", "fallback", rule="keyword cues (model failed)")
     p = prompt.lower()
     # An explicit department NAME governs (TICKETS.md B5). Rank words are ambiguous
     # across departments — "captain" exists in fire AND police — so "police captain"
@@ -277,7 +298,7 @@ def answer_policy(query: str, passages: list[dict], lookup: bool = False) -> dic
     if not passages:
         return {"answer": "I couldn't find a relevant clause in the governing document(s).",
                 "source": "none"}
-    if have_key():
+    if _model_on("answer_policy"):
         try:
             ctx = "\n\n".join(f"[{p.get('doc_id')} §{p.get('clause')}] {p.get('text')}"
                               for p in passages)
@@ -301,9 +322,8 @@ def answer_policy(query: str, passages: list[dict], lookup: bool = False) -> dic
                     "- Name the document and section the figure came from.\n"
                     "- " + _DATA_GUARD + "\n"
                     "Return ONLY {\"answer\": \"...\"}.")
-            out = _claude_json(system,
-                               f"Question: {query}\n\n{_as_document_data(ctx)}",
-                               label="answer_policy" + ("/lookup" if lookup else ""))
+            out = _ask("answer_policy" + ("/lookup" if lookup else ""), PolicyOut,
+                       system, f"Question: {query}\n\n{_as_document_data(ctx)}")
             ans = out.get("answer")
             if ans:
                 stray = _ungrounded_figures(ans, passages)
@@ -330,9 +350,146 @@ def answer_policy(query: str, passages: list[dict], lookup: bool = False) -> dic
     return {"answer": f"Per §{top.get('clause')}: {top.get('text')}", "source": "stub"}
 
 
+# --------------------------------------------------------------------------- #
+# The model client (DEMO_TICKETS.md A8 / G2): ONE shared client, a short timeout and one
+# retry. The SDK default is a 600 s read timeout with 2 retries, so one stalled
+# connection could hold a touchpoint for up to 30 minutes mid-demo.
+# --------------------------------------------------------------------------- #
+_CLIENT = None
+_CLIENT_LOCK = __import__("threading").Lock()
+DEFAULT_TIMEOUT_S = 30.0
+DEFAULT_MAX_RETRIES = 1
+
+
+def _timeout_s() -> float:
+    try:
+        return float(os.environ.get("KENNY_LLM_TIMEOUT_S") or DEFAULT_TIMEOUT_S)
+    except ValueError:
+        return DEFAULT_TIMEOUT_S
+
+
 def _client():
-    from anthropic import Anthropic
-    return Anthropic()
+    """The module-level Anthropic client, built once (tests monkeypatch this callable)."""
+    global _CLIENT
+    with _CLIENT_LOCK:
+        if _CLIENT is None:
+            import httpx
+            from anthropic import Anthropic
+            _CLIENT = Anthropic(timeout=httpx.Timeout(_timeout_s(), connect=5.0),
+                                max_retries=DEFAULT_MAX_RETRIES)
+        return _CLIENT
+
+
+def _reset_client() -> None:
+    global _CLIENT
+    with _CLIENT_LOCK:
+        _CLIENT = None
+
+
+# Circuit breaker (A8): after 3 consecutive call errors every touchpoint skips the model
+# for 60 s and records the skip, so a dead API degrades to the fallbacks in one request
+# instead of costing a timeout per touchpoint per question.
+BREAKER_THRESHOLD = 3
+BREAKER_COOLDOWN_S = 60.0
+_BREAKER = {"errors": 0, "open_until": 0.0}
+_BREAKER_LOCK = __import__("threading").Lock()
+_clock = time.monotonic   # monkeypatched by tests to advance the cool-down
+
+
+def _breaker_note_error() -> None:
+    with _BREAKER_LOCK:
+        _BREAKER["errors"] += 1
+        if _BREAKER["errors"] >= BREAKER_THRESHOLD:
+            _BREAKER["open_until"] = _clock() + BREAKER_COOLDOWN_S
+
+
+def _breaker_note_success() -> None:
+    with _BREAKER_LOCK:
+        _BREAKER["errors"] = 0
+        _BREAKER["open_until"] = 0.0
+
+
+def _breaker_reset() -> None:
+    _breaker_note_success()
+
+
+def _cooling_down() -> bool:
+    with _BREAKER_LOCK:
+        if _BREAKER["open_until"] and _clock() < _BREAKER["open_until"]:
+            return True
+        if _BREAKER["open_until"] and _clock() >= _BREAKER["open_until"]:
+            _BREAKER["open_until"] = 0.0      # cool-down over: try the model again
+            _BREAKER["errors"] = 0
+        return False
+
+
+def model_available() -> bool:
+    """Should a touchpoint call the model right now? Key present, switch not off, and the
+    breaker not open. Every touchpoint gates on this, never on have_key() alone."""
+    return have_key() and not _cooling_down()
+
+
+def llm_status() -> str:
+    """'claude' | 'degraded' | 'none' for the header badge."""
+    if not have_key():
+        return "none"
+    return "degraded" if _cooling_down() else "claude"
+
+
+def _skipped(fn: str) -> None:
+    """A touchpoint that would have called the model but the breaker is open."""
+    _note(fn, "fallback", rule="model unavailable: cooling down after repeated errors")
+
+
+def _model_on(fn: str) -> bool:
+    """The gate every touchpoint uses. False with no key or the switch off (silent: the
+    fallback notes itself), and False — recorded — while the breaker is open."""
+    if not have_key():
+        return False
+    if _cooling_down():
+        _skipped(fn)
+        return False
+    return True
+
+
+class ModelRefused(ValueError):
+    """stop_reason 'refusal': the model declined. Reported as what it is, not as
+    'no JSON object in model response'."""
+
+
+class ModelOutputInvalid(ValueError):
+    """The model answered, but not in the shape the caller's schema requires (G2). A
+    string where a number belongs used to reach the engine and 500 the question."""
+
+
+def _parse_json_object(text: str) -> dict:
+    """The first complete JSON object in a model reply.
+
+    Order: the whole text; a ``` fence; the first '{' with trailing prose ignored
+    (json.JSONDecoder.raw_decode). Valid JSON followed by a sentence that happens to
+    contain a brace used to be rejected as 'Extra data'."""
+    text = (text or "").strip()
+    try:
+        out = json.loads(text)
+        if isinstance(out, dict):
+            return out
+    except ValueError:
+        pass
+    m = re.search(r"```(?:json)?\s*(.*?)```", text, re.S)
+    if m:
+        try:
+            out = json.loads(m.group(1).strip())
+            if isinstance(out, dict):
+                return out
+        except ValueError:
+            pass
+    start = text.find("{")
+    if start == -1:
+        raise ValueError("no JSON object in model response")
+    out, _ = json.JSONDecoder().raw_decode(text[start:])
+    if not isinstance(out, dict):
+        raise ValueError("model response is not a JSON object")
+    return out
 
 
 class ResponseTruncated(ValueError):
@@ -343,6 +500,13 @@ class ResponseTruncated(ValueError):
     delimiter`, which reads like the model emitted bad JSON rather than good JSON that
     was truncated. That misdiagnosis is what let a 26-page MOU silently draft 0 rules.
     """
+
+
+# Per-touchpoint timeout override, read by _claude_json. A ContextVar rather than a
+# parameter so the chokepoint's signature stays exactly what the existing tests fake.
+_TIMEOUT_OVERRIDE: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "llm_timeout_override", default=None)
+DRAFT_TIMEOUT_S = 90.0
 
 
 def _claude_json(system: str, user: str, max_tokens: int = 1500,
@@ -356,6 +520,9 @@ def _claude_json(system: str, user: str, max_tokens: int = 1500,
     started = time.time()
     try:
         client = _client()
+        override = _TIMEOUT_OVERRIDE.get()
+        if override is not None and hasattr(client, "with_options"):
+            client = client.with_options(timeout=override)
         msg = client.messages.create(
             model=MODEL,
             max_tokens=max_tokens,
@@ -367,19 +534,239 @@ def _claude_json(system: str, user: str, max_tokens: int = 1500,
         if stop == "max_tokens":
             raise ResponseTruncated(
                 f"model hit the {max_tokens}-token output cap; the JSON is incomplete")
-        start, end = text.find("{"), text.rfind("}")
-        if start == -1 or end == -1:
-            raise ValueError("no JSON object in model response")
-        out = json.loads(text[start:end + 1])
+        if stop == "refusal":
+            raise ModelRefused("the model refused to answer (stop_reason=refusal)")
+        out = _parse_json_object(text)
     except Exception as e:
         # Recorded, then re-raised. A model call that failed and was quietly absorbed by
         # a fallback is the single most common way this system has lied about itself.
+        # A truncation is the caller's problem (ask for less), not an outage: it must not
+        # count toward the breaker.
+        if not isinstance(e, ResponseTruncated):
+            _breaker_note_error()
         _note(label, "error", ms=int((time.time() - started) * 1000),
               error=f"{type(e).__name__}: {e}")
         raise
-    _note(label, "claude", ms=int((time.time() - started) * 1000),
-          prompt_chars=len(system) + len(user), stop_reason=stop)
+    _breaker_note_success()
+    detail = {"ms": int((time.time() - started) * 1000),
+              "prompt_chars": len(system) + len(user), "stop_reason": stop}
+    usage = getattr(msg, "usage", None)
+    if usage is not None:
+        for k in ("input_tokens", "output_tokens"):
+            v = getattr(usage, k, None)
+            if isinstance(v, int):
+                detail[k] = v
+    _note(label, "claude", **detail)
     return out
+
+
+# --------------------------------------------------------------------------- #
+# Schema-validated model I/O (G2). One wrapper, per-function schemas: the model's reply
+# is validated BEFORE a caller touches it, so a type slip becomes a recorded fallback
+# instead of a 500 three frames deeper. pydantic ships with FastAPI — no new dependency.
+# --------------------------------------------------------------------------- #
+from typing import Literal, Optional  # noqa: E402
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator  # noqa: E402
+from pydantic import create_model  # noqa: E402
+
+
+class _Out(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+
+class IntentOut(_Out):
+    intent: Literal["costing", "lookup", "entitlement", "policy"]
+
+
+class DepartmentOut(_Out):
+    department: Optional[str] = None
+
+    @field_validator("department", mode="before")
+    @classmethod
+    def _null_strings(cls, v):
+        if v in (None, "", "null", "none", "None"):
+            return None
+        if not isinstance(v, str):
+            raise ValueError("department must be a string or null")
+        return v
+
+
+class PolicyOut(_Out):
+    answer: str = Field(min_length=1, max_length=4000)
+
+
+class Candidate(_Out):
+    doc_id: str
+    score: float = Field(ge=0.0, le=1.0)
+    reason: str = ""
+
+    @field_validator("score", mode="before")
+    @classmethod
+    def _coerce_score(cls, v):
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError as e:
+                raise ValueError(f"score {v!r} is not numeric") from e
+        return v
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def _reason_str(cls, v):
+        return "" if v is None else str(v)
+
+
+class RankOut(_Out):
+    candidates: list[Candidate] = []
+
+
+def _str_list(v) -> list[str]:
+    if v is None or v == "":
+        return []
+    if isinstance(v, str):
+        return [v]
+    if isinstance(v, (list, tuple)):
+        return [str(x) for x in v if x is not None]
+    raise ValueError("expected a list of strings")
+
+
+class TagOut(_Out):
+    department: str = ""
+    tags: list[str] = []
+    summary: str = ""
+    proposed_tags: list[str] = []
+
+    @field_validator("department", "summary", mode="before")
+    @classmethod
+    def _to_str(cls, v):
+        return "" if v is None else str(v)
+
+    @field_validator("tags", "proposed_tags", mode="before")
+    @classmethod
+    def _to_list(cls, v):
+        return _str_list(v)
+
+
+class DraftOut(_Out):
+    rules: list[dict] = []
+    needs_data: list[dict] = []
+
+    @field_validator("rules", "needs_data", mode="before")
+    @classmethod
+    def _dict_list(cls, v):
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            raise ValueError("expected a list")
+        out = []
+        for x in v:
+            if isinstance(x, dict):
+                out.append(x)
+            else:
+                raise ValueError(f"entry {x!r} is not an object")
+        return out
+
+    @field_validator("rules", mode="after")
+    @classmethod
+    def _citation_dict(cls, rules):
+        for r in rules:
+            cit = r.get("citation")
+            if cit is None:
+                r["citation"] = {}
+            elif isinstance(cit, str):
+                r["citation"] = {"clause": cit}      # 'p.8' -> {clause: 'p.8'}
+            elif not isinstance(cit, dict):
+                raise ValueError(f"citation {cit!r} is not an object")
+        return rules
+
+
+MAX_HOURS = 744.0   # 31 days × 24 h: the largest number of hours a month can hold
+
+
+def _coerce_float(v):
+    if v is None or v == "":
+        return 0.0
+    if isinstance(v, bool):
+        raise ValueError("boolean is not a number")
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        try:
+            return float(v.replace(",", "").strip())
+        except ValueError as e:
+            raise ValueError(f"{v!r} is not a number") from e
+    raise ValueError(f"{type(v).__name__} is not a number")
+
+
+def _coerce_str(v):
+    if v is None:
+        return ""
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, (int, float, str)):
+        return str(v)
+    raise ValueError(f"{type(v).__name__} is not text")
+
+
+_PARSE_MODELS: dict[str, type[BaseModel]] = {}
+
+
+def parse_model_for(output_shape: dict) -> type[BaseModel]:
+    """A pydantic model built from the case's extraction.yaml output_shape: 'float' ->
+    float (None/'' -> 0.0, `hours` bounded 0..MAX_HOURS), 'str' -> str (numbers
+    stringified, None -> ''), [str] -> list[str]."""
+    key = json.dumps(output_shape, sort_keys=True)
+    if key in _PARSE_MODELS:
+        return _PARSE_MODELS[key]
+    fields: dict = {}
+    validators: dict = {}
+    for name, typ in (output_shape or {}).items():
+        if isinstance(typ, list):
+            fields[name] = (list[str], [])
+            validators[f"_v_{name}"] = field_validator(name, mode="before")(
+                classmethod(lambda cls, v: _str_list(v)))
+        elif typ == "float":
+            if name == "hours":
+                fields[name] = (float, Field(default=0.0, ge=0.0, le=MAX_HOURS))
+            else:
+                fields[name] = (float, 0.0)
+            validators[f"_v_{name}"] = field_validator(name, mode="before")(
+                classmethod(lambda cls, v: _coerce_float(v)))
+        else:
+            fields[name] = (str, "")
+            validators[f"_v_{name}"] = field_validator(name, mode="before")(
+                classmethod(lambda cls, v: _coerce_str(v)))
+    model = create_model("ParseOut", __base__=_Out, __validators__=validators, **fields)
+    _PARSE_MODELS[key] = model
+    return model
+
+
+def _ask(label: str, schema: type[BaseModel], system: str, user: str, *,
+         max_tokens: int = 1500, repair: int = 0) -> dict:
+    """Call the chokepoint, then validate the reply against `schema`.
+
+    On a shape failure the error is recorded under `label` and ModelOutputInvalid is
+    raised, so the caller's existing `except Exception` takes its deterministic fallback.
+    `repair=1` (drafting only) makes one more call with the validation errors appended.
+    """
+    out = _claude_json(system, user, max_tokens=max_tokens, label=label)
+    for attempt in range(repair + 1):
+        try:
+            return schema.model_validate(out).model_dump()
+        except ValidationError as e:
+            errs = e.errors()[:2]
+            summary = "; ".join(
+                f"{'.'.join(str(p) for p in err.get('loc', ()))}: {err.get('msg')}"
+                for err in errs)
+            _note(label, "error", error=f"schema: {summary}")
+            if attempt >= repair:
+                raise ModelOutputInvalid(f"schema: {summary}") from e
+            out = _claude_json(system,
+                               user + "\n\nYour previous reply did not match the required "
+                                      f"shape ({summary}). Return ONLY the corrected JSON.",
+                               max_tokens=max_tokens, label=label)
+    raise ModelOutputInvalid("unreachable")  # pragma: no cover
 
 
 # --------------------------------------------------------------------------- #
@@ -387,7 +774,7 @@ def _claude_json(system: str, user: str, max_tokens: int = 1500,
 # --------------------------------------------------------------------------- #
 def parse_intent(prompt: str, extraction_cfg: dict, subjects: list[dict]) -> dict:
     names = [str(s.get("name", "")) for s in subjects]
-    if have_key():
+    if _model_on("parse_intent"):
         try:
             system = ("You extract query parameters for a costing engine. "
                       "Return ONLY a JSON object matching this shape: "
@@ -397,9 +784,14 @@ def parse_intent(prompt: str, extraction_cfg: dict, subjects: list[dict]) -> dic
                       "\n'subjects' must be labels copied EXACTLY from that list — resolve a "
                       "description like 'the graveyard police classifications' to every label "
                       "it covers. [] if the question names none.")
-            out = _claude_json(system, prompt, label="parse_intent")
+            schema = parse_model_for(extraction_cfg.get("output_shape", {}))
+            out = _ask("parse_intent", schema, system, prompt)
             out["source"] = "claude"
             return _normalize_intent(out, subjects, prompt)
+        except ModelOutputInvalid as e:
+            # The model answered in the wrong shape (hours as a word, a list, a 400-digit
+            # number). Recorded as a fallback; the regex stub reads the prompt instead.
+            _note("parse_intent", "fallback", rule=f"schema: {e}")
         except Exception:
             pass
     return _normalize_intent(_parse_intent_stub(prompt, names), subjects, prompt)
@@ -447,9 +839,23 @@ def _resolve_classifications(text: str, subjects: list[dict]) -> list[str]:
 def _normalize_intent(out: dict, subjects: list[dict], prompt: str = "") -> dict:
     """Align raw LLM/stub output to the data's own vocabulary so downstream matching is
     exact: 3-letter weekdays, and subjects resolved to exact classification labels."""
-    wd = str(out.get("holiday_weekday") or "").strip()
-    if wd:
-        out["holiday_weekday"] = wd[:3].title()
+    # Coerced values are WRITTEN BACK (A4): the old code computed float(hours) for the
+    # echo-back check and threw the result away, so '8.0' (a string the real model
+    # returned on 2026-07-17) reached the engine and 500'd the headline question.
+    try:
+        out["hours"] = _coerce_float(out.get("hours"))
+    except ValueError:
+        out.setdefault("unverified_numbers", {})
+        out["unverified_numbers"]["hours"] = str(out.get("hours"))
+        out["hours"] = 0.0
+    out["date"] = _coerce_str(out.get("date")) if not isinstance(
+        out.get("date"), (list, dict)) else ""
+    wd_raw = out.get("holiday_weekday")
+    wd = str(wd_raw or "").strip() if not isinstance(wd_raw, (list, dict)) else ""
+    out["holiday_weekday"] = wd[:3].title() if wd else ""
+    subs_raw = out.get("subjects")
+    out["subjects"] = _str_list(subs_raw) if isinstance(
+        subs_raw, (list, tuple, str)) or subs_raw is None else []
     labels = {str(s.get("name", "")) for s in subjects}
     resolved: list[str] = []
     for r in out.get("subjects") or []:
@@ -474,10 +880,7 @@ def _normalize_intent(out: dict, subjects: list[dict], prompt: str = "") -> dict
     if out.get("source") == "claude" and prompt:
         stated = {float(n) for n in re.findall(r"\d+(?:\.\d+)?", prompt)}
         unverified: dict[str, float] = {}
-        try:
-            h = float(out.get("hours") or 0.0)
-        except (TypeError, ValueError):
-            h = 0.0
+        h = float(out.get("hours") or 0.0)
         if h and h not in stated:
             unverified["hours"] = h
             out["hours"] = 0.0
@@ -586,7 +989,7 @@ class _DraftRules:
         anything it still gets wrong is caught by validate_rules() before ratification."""
         self._errors.set([])
         self._needs.set([])
-        if have_key() and known_facts:
+        if known_facts and _model_on("draft_rules"):
             system = _dsl_contract(known_facts, field_values, bool_facts)
             # Map-reduce over sections so a large doc (50+ pages, hundreds of clauses)
             # never overflows a single request or the output cap (PRD §8B).
@@ -636,10 +1039,11 @@ def _draft_group(system: str, group: list[dict], doc_id: str):
     """
     payload = [{"clause": c.get("clause"), "page": c.get("page"),
                 "text": c.get("text", "")} for c in group]
+    token = _TIMEOUT_OVERRIDE.set(DRAFT_TIMEOUT_S)   # the one long call in the product
     try:
-        out = _claude_json(system,
-                           _as_document_data("Clauses:\n" + json.dumps(payload, indent=2)),
-                           max_tokens=_DRAFT_MAX_TOKENS, label="draft_rules")
+        out = _ask("draft_rules", DraftOut, system,
+                   _as_document_data("Clauses:\n" + json.dumps(payload, indent=2)),
+                   max_tokens=_DRAFT_MAX_TOKENS, repair=1)
     except ResponseTruncated:
         if len(group) == 1:
             return None  # a single clause that cannot fit its own answer: report it
@@ -656,6 +1060,8 @@ def _draft_group(system: str, group: list[dict], doc_id: str):
         return rules, needs
     except Exception:
         return None
+    finally:
+        _TIMEOUT_OVERRIDE.reset(token)
 
     rules, needs = [], []
     for nd in out.get("needs_data", []):
@@ -663,6 +1069,8 @@ def _draft_group(system: str, group: list[dict], doc_id: str):
         needs.append(nd)
     for r in out.get("rules", []):
         cit = r.get("citation") or {}
+        if not isinstance(cit, dict):
+            cit = {"clause": str(cit)}
         cit["doc_id"] = doc_id
         # carry the bbox from the parsed clause so citations highlight
         for c in group:
@@ -745,19 +1153,18 @@ def _draft_rules_stub(clauses: list[dict], doc_id: str) -> list[dict]:
 # tag_document (ingestion)
 # --------------------------------------------------------------------------- #
 def tag_document(text: str, taxonomy: dict) -> dict:
-    if have_key():
+    if _model_on("tag_document"):
         try:
             system = ("You classify a policy document. Return ONLY JSON with "
                       "keys: department (str), tags (list of strings from or "
                       "extending the taxonomy), summary (one paragraph), "
                       "proposed_tags (new tags not in the taxonomy). "
                       + _DATA_GUARD + " Taxonomy: " + json.dumps(taxonomy))
-            out = _claude_json(system, _as_document_data(text[:6000]),
-                               label="tag_document")
+            out = _ask("tag_document", TagOut, system, _as_document_data(text[:6000]))
             out["source"] = "claude"
             return out
         except Exception:
-            pass
+            _note("tag_document", "fallback", rule="keyword tagger (model failed)")
     return _tag_document_stub(text, taxonomy)
 
 
@@ -813,7 +1220,7 @@ def _first_sentences(text: str, n: int) -> str:
 # --------------------------------------------------------------------------- #
 def rank_documents(query: str, catalog: list[dict]) -> list[dict]:
     """Return candidates: [{doc_id, score, reason}], ranked best-first."""
-    if have_key():
+    if _model_on("rank_documents"):
         try:
             system = ("Given a user question and a catalog of documents "
                       "(id, tags, summary), rank which documents can answer it. "
@@ -823,13 +1230,19 @@ def rank_documents(query: str, catalog: list[dict]) -> list[dict]:
                       "\"score\": 0..1, \"reason\":...}]} best first.")
             user = (f"Question: {query}\n"
                     f"{_as_document_data('Catalog: ' + json.dumps(catalog))}")
-            out = _claude_json(system, user, label="rank_documents")
-            cands = out.get("candidates", [])
+            out = _ask("rank_documents", RankOut, system, user)
+            # A candidate naming a document the catalog does not hold is dropped: the
+            # retriever indexes by doc_id and a phantom id was a KeyError (G2 step 5).
+            known = {d.get("doc_id") for d in catalog}
+            cands = [c for c in out.get("candidates", []) if c.get("doc_id") in known]
             for c in cands:
                 c["source"] = "claude"
-            return cands
+            if cands:
+                return cands
+            _note("rank_documents", "fallback",
+                  rule="model named no document in the catalog")
         except Exception:
-            pass
+            _note("rank_documents", "fallback", rule="keyword overlap (model failed)")
     return _rank_documents_stub(query, catalog)
 
 
