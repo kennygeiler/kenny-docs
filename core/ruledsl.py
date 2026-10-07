@@ -47,6 +47,11 @@ class Citation:
     # human reviewed: if the document is later replaced, the mismatch is detectable
     # instead of the highlight silently rendering over different text.
     doc_sha256: str = ""
+    # 16-hex SHA-256 of the cited clause's normalised text (core/evidence.py). Binds the
+    # rule to the WORDS it was approved against, so a re-read that keeps the box but
+    # changes the text is caught, and one that moves the box but keeps the text is not
+    # a false alarm (DEMO_TICKETS.md A2). Frozen into snapshots with the rest.
+    quote_sha256: str = ""
 
     @classmethod
     def from_dict(cls, d: dict | None) -> "Citation":
@@ -58,6 +63,7 @@ class Citation:
             bbox=list(d.get("bbox", []) or []),
             char_span=list(d.get("char_span", []) or []),
             doc_sha256=d.get("doc_sha256", ""),
+            quote_sha256=d.get("quote_sha256", "") or "",
         )
 
     def to_dict(self) -> dict:
@@ -68,6 +74,7 @@ class Citation:
             "bbox": self.bbox,
             "char_span": self.char_span,
             "doc_sha256": self.doc_sha256,
+            "quote_sha256": self.quote_sha256,
         }
 
 
