@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import audit, auth, cellcheck, governance, index, ingest, llm, queryfacts, refusal, rulematch
 from . import evidence, warm
+from . import version as _version  # handoff (K1): the commit this process runs
 from . import qid as qid_mod
 from .caseio import default_case_dir, load_case
 from .catalog import Catalog
@@ -780,6 +781,7 @@ def api_case():
             # is a prototype on a synthetic corpus and every viewer must be told so
             # before they read a dollar figure off it.
             "banner": os.environ.get("KENNY_BANNER", ""),
+            "version": _version.running_version(),   # handoff (K1): {sha, dirty, source}
             # Declared document titles, so the chat page can name a contract wherever
             # a response only carries its id (I4).
             "sources": [_doc_meta(case, s.get("id")) for s in case.manifest.get("sources", [])
