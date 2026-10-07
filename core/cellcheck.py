@@ -713,9 +713,162 @@ def disputed_for_citation(case_dir: str, cat, doc_id: str, clause: str = "",
             if not c["_hit"] or c.get("kind") != "table-row":
                 continue
             for cell in c.get("cells") or []:
-                if cell.get("status") != "verified":
+                if not cell_ok(cell):
                     out.append({"page": pg, "col": cell["col"], "header": cell["header"],
                                 "stored": cell["stored"], "reread": cell.get("reread"),
                                 "score": cell.get("score"), "status": cell["status"],
                                 "flags": cell.get("flags", [])})
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# vacation-accrual (J1b / D2 "confirm value"): a human confirms a disputed cell, and a
+# rule may cite ONE cell of a table row — {page, row, col, quoted_text, stored_text}
+# on its citation — so the ratify gate verifies that cell, not the whole table box.
+# --------------------------------------------------------------------------- #
+def cell_ok(cell: dict) -> bool:
+    """A cell is evidence when the second engine verified it, or a person confirmed
+    its value on the page image (cells[i].confirmed, written by confirm_cell)."""
+    return cell.get("status") == "verified" or bool(cell.get("confirmed"))
+
+
+def cell_value(cell: dict) -> str:
+    """The value a rule may rely on: the confirmed value when a person wrote one,
+    else the stored text (which, for a verified cell, the re-read agreed with)."""
+    conf = cell.get("confirmed") or {}
+    return str(conf.get("value")) if conf.get("value") not in (None, "") else str(cell.get("stored") or "")
+
+
+def _same_value(a: str, b: str) -> bool:
+    """'10.15' == '10,15' == '10.15 ' ; '12' == '12.0'. Numbers compare as numbers,
+    anything else after stripping spaces and punctuation."""
+    va, vb = parse_cell(a)[0], parse_cell(b)[0]
+    if va is not None and vb is not None:
+        return _close(va, vb, 0.005)
+    norm = lambda s: re.sub(r"[\s.,;:'\"()£$]", "", s or "").lower()  # noqa: E731
+    return norm(a) == norm(b)
+
+
+def find_cell(case_dir: str, doc_id: str, page: int, row: int, col: int) -> dict | None:
+    """The stored verification record for one cell: `row` is the row's ordinal among
+    the page's table-row clauses (the header row is 0), `col` its column in the grid
+    the Compare view draws. None when the page was never verified or the cell is
+    not in the grid."""
+    rec = load_checks(case_dir).get("pages", {}).get(page_key(doc_id, page))
+    for r in (rec or {}).get("rows", []):
+        if r.get("ordinal") == row:
+            for c in r.get("cells", []):
+                if c.get("col") == col:
+                    return c
+    return None
+
+
+def confirm_cell(case_dir: str, doc_id: str, page: int, row: int, col: int,
+                 value: str, by: str, note: str = "") -> dict:
+    """Record that `by` read `value` for this cell on the page image. Writes
+    cells[i].confirmed = {value, by, at, note, agrees_with_reread} into
+    cell_checks.json and returns the updated cell. Never rewrites `stored` or
+    `reread`: the OCR text and the second engine's reading stay beside the human's.
+    Raises KeyError when the cell has no record, ValueError on an empty value/name."""
+    import datetime as dt
+    by = (by or "").strip()
+    value = str(value if value is not None else "").strip()
+    if not by:
+        raise ValueError("a confirmation names the person who read the page")
+    if not value:
+        raise ValueError("a confirmation carries the value read on the page")
+    data = load_checks(case_dir)
+    rec = data.get("pages", {}).get(page_key(doc_id, page))
+    if not rec:
+        raise KeyError(f"{doc_id} p.{page} has no cell verification record")
+    for r in rec.get("rows", []):
+        if r.get("ordinal") != row:
+            continue
+        for c in r.get("cells", []):
+            if c.get("col") != col:
+                continue
+            c["confirmed"] = {
+                "value": value, "by": by,
+                "at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+                "note": note or "",
+                "agrees_with_reread": (_same_value(value, c.get("reread") or "")
+                                       if c.get("reread") else None),
+                "agrees_with_stored": _same_value(value, c.get("stored") or ""),
+            }
+            save_checks(case_dir, data)
+            return c
+    raise KeyError(f"{doc_id} p.{page} row {row} col {col} is not in the verified grid")
+
+
+def _cell_label(doc_id: str, page: int, row: int, col: int, cell: dict | None = None) -> str:
+    head = (cell or {}).get("header") or f"col {col}"
+    return f"{doc_id} p.{page} row {row} '{head}'"
+
+
+def gate_rule(case_dir: str, cat, rule: dict) -> list[str]:
+    """Why this rule's cited evidence is not yet usable — [] when it is.
+
+    A citation that names a cell ({page, row, col} under citation.cell) is judged on
+    that cell alone: it must be verified by the second engine or confirmed by a
+    person; the value the rule quotes (citation.cell.quoted_text) and the number it
+    computes (a bare numeric `compute`) must both equal that cell's value. A citation
+    without a cell that lands on table rows is judged on every cell of those rows
+    (disputed_for_citation) — the whole-table box cannot say which row it meant."""
+    cit = rule.get("citation") or {}
+    doc_id = cit.get("doc_id") or ""
+    cell_ref = cit.get("cell") or None
+    errs: list[str] = []
+    if cell_ref:
+        try:
+            page = int(cell_ref.get("page", cit.get("page")))
+            row = int(cell_ref["row"])
+            col = int(cell_ref["col"])
+        except (KeyError, TypeError, ValueError):
+            return ["citation.cell must carry integer page, row and col"]
+        cell = find_cell(case_dir, doc_id, page, row, col)
+        label = _cell_label(doc_id, page, row, col, cell)
+        if cell is None:
+            return [f"cited cell {label} has no verification record — run "
+                    f"scripts/verify_cells.py --pages {doc_id}:{page} first"]
+        if not cell_ok(cell):
+            reread = cell.get("reread")
+            errs.append(
+                f"cited cell {label} reads {cell.get('stored')!r} in the text layer"
+                + (f"; the second engine read {reread!r}" if reread else "")
+                + f" ({cell.get('status')}). Confirm the value on the page image "
+                  f"(POST /admin/cell_confirm) before approving.")
+            return errs
+        have = cell_value(cell)
+        quoted = str(cell_ref.get("quoted_text") or "").strip()
+        if quoted and not _same_value(quoted, have):
+            errs.append(f"rule quotes {quoted!r} but cell {label} holds {have!r} "
+                        f"({'confirmed by ' + cell['confirmed']['by'] if cell.get('confirmed') else 'verified'})")
+        comp = str(rule.get("compute") or "").strip()
+        if comp and parse_cell(comp)[0] is not None and not _same_value(comp, have):
+            errs.append(f"rule computes {comp!r} but cell {label} holds {have!r}")
+        return errs
+    page = cit.get("page")
+    bbox = cit.get("bbox") or None
+    if page is None or not bbox:
+        return []
+    bad = disputed_for_citation(case_dir, cat, doc_id, clause="", page=int(page), bbox=list(bbox))
+    if bad:
+        first = bad[0]
+        errs.append(f"citation lands on a table whose cells are not all verified "
+                    f"({len(bad)} cell(s), e.g. '{first.get('header')}' reads "
+                    f"{first.get('stored')!r}, {first.get('status')}). Cite one cell "
+                    f"(citation.cell {{page, row, col}}) and confirm it in Compare first.")
+    return errs
+
+
+def gate_rules(case_dir: str, cat, rules: list[dict]) -> dict[str, list[str]]:
+    """{rule_id: [errors]} over a selection — empty dict means every cited cell is
+    evidence. The ratify gate calls this after the known-answer checks, so a wrong
+    number is still caught as a wrong number, and only a RIGHT number resting on an
+    unconfirmed OCR cell is refused here."""
+    out: dict[str, list[str]] = {}
+    for r in rules:
+        e = gate_rule(case_dir, cat, r)
+        if e:
+            out[str(r.get("id") or "<no id>")] = e
     return out

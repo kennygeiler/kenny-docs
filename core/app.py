@@ -655,6 +655,7 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
     lookup = rulematch.chunk_lookup(backend, cat)
     eng = {"hours": params.get("hours", 0.0), "date": params.get("date", ""),
            "date_iso": date_iso, "holiday_weekday": params.get("holiday_weekday", "")}
+    eng = {**queryfacts.query_defaults(case), **eng, **queryfacts.engine_extras(case, params)}  # vacation-accrual: seed every question fact (J1a/J1b)
     line_items: list[dict] = []
     matches: list[dict] = []
     not_covered: list[dict] = []
@@ -1921,6 +1922,7 @@ def _gate_verdict(case, selected: list[dict], approver: str, led=None,
                                   + ". A rule nothing proves cannot go live. Add a known "
                                     "answer that uses it, or untick it."},
                       uncovered=uncovered, orphaned=orphaned)
+    if (cb := _cell_gate(case, selected, _block)): return cb   # vacation-accrual (J1b/D2): a right number on an unconfirmed OCR cell  # noqa: E701
     return {"approved": True, "response": None,
             "proved_by": {i: proved_after[i] for i in sel_ids}, "checks": checks,
             "ledger_checks": ledger_checks}
@@ -3017,3 +3019,112 @@ def tree_js():
     renderTree(tree, el). Served like app.js; chat.html includes it after app.js."""
     return FileResponse(os.path.join(TEMPLATES, "tree.js"),
                         media_type="application/javascript", headers=_NOCACHE)
+
+
+# --------------------------------------------------------------------------- #
+# --- vacation-accrual ---
+# DEMO_TICKETS.md J1b (+ the "confirm value" slice of D2): five tiered vacation-accrual
+# rules cite ONE cell each of the OCR-damaged p.22 table ({page, row, col, quoted_text,
+# stored_text} under citation.cell). The ratify gate refuses a rule whose cited cell is
+# disputed until a person confirms the value on the page image; the confirmation is
+# written beside the stored and re-read values (never over them) and ledgered.
+def _cell_gate(case, selected: list[dict], block) -> dict | None:
+    """The hook _gate_verdict calls last: cellcheck.gate_rules over the selection.
+    Returns the gate's blocked verdict (via `block`) or None when every cited cell is
+    evidence. Runs after the known-answer checks on purpose — a wrong number is still
+    refused as a wrong number; this refuses a RIGHT number resting on an unread cell."""
+    errors = cellcheck.gate_rules(case.dir, _catalog(case), selected)
+    if not errors:
+        return None
+    first = next(iter(errors.values()))[0]
+    return block("unverified OCR cell",
+                 {"rejected": errors,
+                  "warning": "Nothing was approved — the evidence behind "
+                             + ", ".join(errors) + " is an OCR cell nobody has confirmed: "
+                             + first},
+                 rejected=errors)
+
+
+def _cell_gate_rows(case, rules: list[dict]) -> list[dict]:
+    """Per-rule cell evidence, for the admin surface: what the gate would say today."""
+    cat = _catalog(case)
+    out = []
+    for r in rules:
+        cit = r.get("citation") or {}
+        ref = cit.get("cell") or None
+        cell = None
+        if ref:
+            try:
+                cell = cellcheck.find_cell(case.dir, cit.get("doc_id", ""),
+                                           int(ref.get("page", cit.get("page"))),
+                                           int(ref["row"]), int(ref["col"]))
+            except (KeyError, TypeError, ValueError):
+                cell = None
+        errs = cellcheck.gate_rule(case.dir, cat, r)
+        out.append({"rule_id": r.get("id"), "doc_id": cit.get("doc_id"),
+                    "page": cit.get("page"), "cell_ref": ref,
+                    "cell": ({k: cell.get(k) for k in ("col", "header", "stored", "reread",
+                                                       "score", "status", "confirmed")}
+                             if cell else None),
+                    "errors": errs, "approvable": not errs})
+    return out
+
+
+@app.get("/admin/cell_gate")
+def admin_cell_gate(rule_id: str = ""):
+    """What the cell-evidence gate says about the live library (or one rule, proposed
+    queue first): [{rule_id, cell_ref, cell: {stored, reread, status, confirmed},
+    errors, approvable}]. Read-only, no ledger event — the demo's 'before' and
+    'after' view around POST /admin/cell_confirm."""
+    case = _case()
+    if rule_id:
+        rule = _rule_for_break(case, rule_id)
+        if rule is None:
+            return JSONResponse({"error": f"no proposed or live rule with id {rule_id!r}"},
+                                status_code=404)
+        rules = [rule]
+    else:
+        rules = _live_dicts(case)
+    rows = _cell_gate_rows(case, rules)
+    return {"rules": rows, "blocked": [r["rule_id"] for r in rows if not r["approvable"]]}
+
+
+@app.post("/admin/cell_confirm")
+async def admin_cell_confirm(request: Request):
+    """A person confirms what a disputed table cell says on the page image:
+    {doc_id, page, row, col, value, by, note?}. Writes cells[i].confirmed into
+    cell_checks.json (stored and re-read values stay beside it) and appends the
+    ledger event `cell.confirm`. `row` is the row's ordinal among the page's
+    table-row clauses (header = 0), `col` the grid column, as /doc/{id}/clauses and
+    the Compare view number them. 400 without a value or a name; 404 for a cell the
+    verifier never recorded."""
+    body = await request.json()
+    try:
+        doc_id = str(body.get("doc_id") or "")
+        page, row, col = int(body["page"]), int(body["row"]), int(body["col"])
+    except (KeyError, TypeError, ValueError):
+        return JSONResponse({"error": "doc_id, page, row and col are required"}, status_code=400)
+    case = _case()
+    try:
+        cell = cellcheck.confirm_cell(case_dir=case.dir, doc_id=doc_id, page=page, row=row,
+                                      col=col, value=body.get("value"), by=body.get("by") or "",
+                                      note=str(body.get("note") or ""))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    except KeyError as e:
+        return JSONResponse({"error": str(e).strip("'")}, status_code=404)
+    ev = case.ledger().append("cell.confirm", {
+        "doc_id": doc_id, "page": page, "row": row, "col": col,
+        "header": cell.get("header"), "stored": cell.get("stored"),
+        "reread": cell.get("reread"), "reread_score": cell.get("score"),
+        "status_before": cell.get("status"), "value": cell["confirmed"]["value"],
+        "by": cell["confirmed"]["by"], "note": cell["confirmed"]["note"],
+        "agrees_with_reread": cell["confirmed"]["agrees_with_reread"],
+        "agrees_with_stored": cell["confirmed"]["agrees_with_stored"],
+    }, actor="admin")
+    now_blocked = {r["rule_id"] for r in _cell_gate_rows(case, _live_dicts(case))
+                   if not r["approvable"]}
+    return {"ok": True, "cell": cell, "ledger_seq": ev["seq"],
+            "unblocked": [r.get("id") for r in _live_dicts(case)
+                          if (r.get("citation") or {}).get("cell")
+                          and r.get("id") not in now_blocked]}

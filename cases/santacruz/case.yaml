@@ -183,3 +183,63 @@ golden_cases:
     subjects: ["Administrative Analyst (top step)"]
     params: {hours: 8}
     expected_total: 716.16
+
+  # VACATION ACCRUAL (J1b). Local 3535 MOU Article XV (p.22), "Vacation Accrual Schedule
+  # for all Union Members": hours accrued per pay period by completed years of service.
+  # The OCR text layer misreads three of the five hours cells ('0) £5' for 10.15,
+  # 'fs 13,85' for 13.85, '; 14,78' for 14.78). Every expected value below is what the
+  # PAGE IMAGE shows, as re-read by the second OCR engine (cell_checks.json), NOT the
+  # stored text. Years of service come from the question and are unverified. One known
+  # answer per tier so every tier rule is exercised (the gate's coverage rule).
+  - name: vacation accrual per pay period, 3-year member (Local 3535 XV table p.22, row 1-5)
+    source: "read from the p.22 page image via the cell re-read (7.38, the text layer prints '7,38'); Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 3}
+    expected_total: 7.38
+
+  - name: vacation accrual per pay period, 7-year member (Local 3535 XV table p.22, OCR-corrected cell)
+    source: "read from the p.22 page image by the second OCR engine (cell_checks.json re-read 10.15, score 0.91); the OCR text layer prints '0) £5' for this cell; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "The cited cell is disputed in the text layer; the value awaits a human confirm (POST /admin/cell_confirm) before the rule can be re-approved"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 7}
+    expected_total: 10.15
+
+  - name: vacation accrual per pay period, 12-year member (Local 3535 XV table p.22, row 11-13)
+    source: "read from the p.22 page image via the cell re-read (12, the text layer agrees); Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 12}
+    expected_total: 12
+
+  - name: vacation accrual per pay period, 15-year member (Local 3535 XV table p.22, OCR-corrected cell)
+    source: "read from the p.22 page image by the second OCR engine (re-read 13.85); the OCR text layer prints 'fs 13,85'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "The cited cell is disputed in the text layer; the value awaits a human confirm before the rule can be re-approved"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 15}
+    expected_total: 13.85
+
+  - name: vacation accrual per pay period, 20-year member (Local 3535 XV table p.22, OCR-corrected cell)
+    source: "read from the p.22 page image by the second OCR engine (re-read 14.78); the OCR text layer prints '; 14,78'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "The cited cell is disputed in the text layer; the value awaits a human confirm before the rule can be re-approved"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 20}
+    expected_total: 14.78
