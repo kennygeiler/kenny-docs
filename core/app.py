@@ -1183,12 +1183,18 @@ def admin_proposed():
     return data
 
 
-def _ratified_dicts(case) -> list[dict]:
-    """The live library as plain dicts, so it can be judged alongside a pending selection."""
-    return [{"id": r.id, "kind": r.kind, "result_type": r.result_type, "topic": r.topic,
-             "priority": r.priority, "when": r.when, "set": r.set, "compute": r.compute,
-             "citation": r.citation.to_dict(),
-             "flags": [f.__dict__ for f in r.flags]} for r in case.rules()]
+def _live_dicts(case) -> list[dict]:
+    """The live library exactly as stored (role, pay_basis, flags, human_readable intact),
+    limited to what load_rules() would execute — the same filter as core/ruledsl.py, so a
+    stale rule stays out.
+
+    This replaced a 10-key re-serialisation that dropped `role` and `pay_basis`: the gate
+    re-parsed every live premium as a competing hourly base and every annual term as
+    hourly, so a correct annual premium turned the $640.80 known answer red at 1200.0
+    while chat (reading the real library) still said 640.80 (DEMO_TICKETS.md E2). The
+    gate must judge the library chat runs, not a lossy copy of it."""
+    return [r for r in _raw_ratified(case)
+            if r.get("status") == "ratified" and r.get("approver")]
 
 
 def _with_live(case, extra: list[dict]) -> list[dict]:
@@ -1201,14 +1207,15 @@ def _with_live(case, extra: list[dict]) -> list[dict]:
     rules "broke" a passing scenario at 4747.05. Merge by id; the candidate (newer draft)
     wins over the stored copy.
     """
-    merged = {r["id"]: r for r in _ratified_dicts(case)}
+    merged = {r["id"]: r for r in _live_dicts(case)}
     for r in extra:
         merged[r["id"]] = r
     return list(merged.values())
 
 
 def _check_golden(case, rule_dicts: list[dict], golden: dict) -> tuple[bool, dict]:
-    """Run the candidate rules against the hand-verified scenario.
+    """Run the candidate rules against one known answer (analyst-derived on the shipped
+    case; a real paystub once the district supplies one).
 
     Returns (ok, detail). `detail["status"]` is one of:
       "pass"    — reproduces the known answer.
@@ -1234,6 +1241,14 @@ def _check_golden(case, rule_dicts: list[dict], golden: dict) -> tuple[bool, dic
         # govern these subjects, so rules from other units' MOUs can't contaminate the
         # check (a corpus has many MOUs; only one governs a given employee).
         units = sorted({s.get("bargaining_unit") for s in subs if s.get("bargaining_unit")})
+        # A golden verifies ONE kind of answer. Only rules of that result_type compete,
+        # mirroring run time (a "5 days" bereavement selector must not hijack a money
+        # golden). Pay is one chapter of the rulebook, not all of it. The type filter
+        # runs BEFORE supersession, in the same order as chat (see the costing path), so
+        # an amendment contributing only a non-currency rule cannot trigger supersession
+        # here and not there (E2).
+        want = golden.get("result_type", "currency")
+        rules = [r for r in rules if r.result_type == want]
         if units:
             gov = governance.resolve(units, golden.get("params", {}).get("date_iso"),
                                      case.manifest.get("sources", []))
@@ -1242,11 +1257,6 @@ def _check_golden(case, rule_dicts: list[dict], golden: dict) -> tuple[bool, dic
                          if (not r.citation.doc_id) or (r.citation.doc_id in gov.doc_ids)]
                 rules, _ = governance.apply_supersession(
                     rules, case.manifest.get("sources", []), gov.doc_ids)
-        # A golden verifies ONE kind of answer. Only rules of that result_type compete,
-        # mirroring run time (a "5 days" bereavement selector must not hijack a money
-        # golden). Pay is one chapter of the rulebook, not all of it.
-        want = golden.get("result_type", "currency")
-        rules = [r for r in rules if r.result_type == want]
         # Seed every declared query param so a rule referencing a legitimate fact the
         # golden didn't set (e.g. date_iso) evaluates to a safe default instead of
         # exploding. Mirrors run time, where chat always supplies all of them.
@@ -1280,7 +1290,14 @@ def _check_golden(case, rule_dicts: list[dict], golden: dict) -> tuple[bool, dic
                   # Which selector actually WON for each subject. On a failure this is the
                   # actionable fact: "compare the rule against its clause" is only useful
                   # if the reviewer knows WHICH rule fired.
-                  "fired": sorted({li.rule_id for li in res.line_items})}
+                  "chosen": sorted({li.rule_id for li in res.line_items}),
+                  # EVERY rule that contributed to the number — the winning base plus any
+                  # differential or premium that fired. Coverage ("which known answer
+                  # proves this rule?") is computed from this, so a live premium that
+                  # never fires is reported as unproven instead of hiding behind the base
+                  # that won (E1).
+                  "fired": sorted({t.rule_id for li in res.line_items for t in li.trace
+                                   if t.kind in ("modifier", "selector-chosen", "premium")})}
         if unauthored:
             detail["note"] = (f"Not fully authored: {', '.join(unauthored)} governs this "
                               f"scenario but has no approved rules yet. Draft the rules "
@@ -1299,6 +1316,121 @@ def _check_golden(case, rule_dicts: list[dict], golden: dict) -> tuple[bool, dic
         return False, {"scenario": golden.get("name", "golden"), "status": "fail",
                        "error": str(e),
                        "expected": golden.get("expected_total"), "actual": None}
+
+
+def _coverage(case, rule_dicts: list[dict]) -> tuple[dict, dict]:
+    """(statuses, proved_by) for a candidate library.
+
+    statuses[name]   the _check_golden detail for each known answer.
+    proved_by[id]    the names of the PASSING known answers in which rule `id` actually
+                     fired. A rule absent from proved_by is proven by nothing: no known
+                     answer exercises it, so nothing says it is right (E1).
+    """
+    statuses: dict[str, dict] = {}
+    proved: dict[str, list[str]] = {}
+    for g in case.golden_cases():
+        _, d = _check_golden(case, rule_dicts, g)
+        statuses[g["name"]] = d
+        if d.get("status") == "pass":
+            for rid in d.get("fired") or []:
+                proved.setdefault(rid, []).append(g["name"])
+    return statuses, proved
+
+
+def _gate_verdict(case, selected: list[dict], approver: str, led=None,
+                  attempt: str | None = None) -> dict:
+    """The known-answer gate, as one decision (E1). Used by /admin/ratify and, with
+    `attempt='mutation-test'`, by /admin/try_break so a deliberate error is refused in
+    the gate's own words.
+
+    Judges the live library MERGED BY ID with `selected`, before and after. All-or-nothing:
+      R1  a known answer is 'fail' after and was not 'fail' before   (pass/pending -> fail)
+      R2  a known answer was 'pass' before and is not 'pass' after   (pass -> pending)
+      R3  a `_scenario`-tagged target must pass
+      R4  every selected rule must fire in a passing known answer   (coverage)
+      R5  a live rule outside the selection that was proven before must still be proven
+    'Pending' elsewhere (a unit nobody has authored yet) never blocks: incremental,
+    unit-by-unit authoring must stay possible. Completeness is the Verification tab's job.
+
+    Returns {"approved": bool, "response": <the HTTP body when blocked>, "proved_by": {...},
+             "checks": [detail...]}. Ledger events are written only when `led` is given;
+             a mutation test passes led=None and records one summary event itself.
+    """
+    def _block(reason: str, response: dict, **extra) -> dict:
+        if led is not None:
+            led.append("authoring.blocked",
+                       {"reason": reason, "approver": approver,
+                        **({"attempt": attempt} if attempt else {}), **extra},
+                       actor="admin")
+        return {"approved": False, "response": {"ratified": [], **response},
+                "proved_by": {}, "checks": checks}
+
+    checks: list[dict] = []
+    before_st, proved_before = _coverage(case, _live_dicts(case))
+    before = {n: d.get("status") for n, d in before_st.items()}
+    candidate = _with_live(case, selected)
+    after_st, proved_after = _coverage(case, candidate)
+    targets = {r.get("_scenario") for r in selected if r.get("_scenario")}
+    for golden in case.golden_cases():
+        name = golden["name"]
+        detail = after_st[name]
+        status = detail.get("status")
+        ok = status in ("pass", "pending")
+        checks.append(detail)
+        if led is not None:
+            led.append("authoring.golden_check", {"passed": ok, **detail}, actor="admin")
+        was = before.get(name)
+        # R1: a wrong number where there was a right one, or none.
+        if status == "fail" and was != "fail":
+            if was == "pass":
+                why = (f"this would BREAK a check that was passing. “{name}” dropped "
+                       f"to {detail.get('actual')} (known answer {detail.get('expected')}). "
+                       f"Remove the rule that changed it.")
+            else:
+                why = (f"“{name}” must come to {detail.get('expected')}, but these "
+                       f"rules produce {detail.get('actual')}. Compare each rule against "
+                       f"its clause.")
+            return _block("known answer fails", {"golden_failed": detail,
+                                                 "warning": "Nothing was approved — " + why},
+                          scenario=name, was=was, now=status)
+        # R2: a known answer that reproduced would no longer be answered at all.
+        if was == "pass" and status != "pass":
+            return _block("uncovers a known answer",
+                          {"golden_failed": detail,
+                           "warning": f"Nothing was approved — “{name}” was "
+                                      f"reproduced and would no longer be answered at all. "
+                                      f"A rule you selected replaces the one that proved it."},
+                          scenario=name, was=was, now=status)
+        # R3: the scenario these rules are FOR must actually reproduce its answer.
+        if name in targets and status != "pass":
+            actual = detail.get("actual")
+            fired = detail.get("chosen") or detail.get("fired") or []
+            how = (f"could not be computed ({detail.get('error', 'unknown')})"
+                   if actual is None else
+                   f"produced {actual}" + (f" — the rule that fired was “{fired[0]}”"
+                                           if fired else ""))
+            return _block("target scenario did not reproduce",
+                          {"golden_failed": detail,
+                           "warning": f"Nothing was approved — “{name}” must come "
+                                      f"to {detail.get('expected')}, but the drafted rules "
+                                      f"{how}. Compare each rule against its clause, or "
+                                      f"re-draft the scenario."},
+                          scenario=name, was=was, now=status)
+    # R4 / R5: coverage. A rule nothing proves cannot go live, and approving must not
+    # leave a previously-proven live rule proven by nothing.
+    sel_ids = [r.get("id") for r in selected]
+    uncovered = [i for i in sel_ids if i not in proved_after]
+    orphaned = sorted(i for i in proved_before if i not in proved_after and i not in sel_ids)
+    if uncovered or orphaned:
+        return _block("not exercised by any known answer",
+                      {"uncovered": uncovered, "orphaned": orphaned,
+                       "warning": "Nothing was approved — no known answer exercises: "
+                                  + ", ".join(uncovered + orphaned)
+                                  + ". A rule nothing proves cannot go live. Add a known "
+                                    "answer that uses it, or untick it."},
+                      uncovered=uncovered, orphaned=orphaned)
+    return {"approved": True, "response": None,
+            "proved_by": {i: proved_after[i] for i in sel_ids}, "checks": checks}
 
 
 def _extraction_stats(entry: dict) -> dict:
@@ -1568,26 +1700,26 @@ async def admin_draft_scenario(request: Request):
 
 @app.get("/admin/verification")
 def admin_verification():
-    """The golden cases and what they actually exercise.
+    """The known answers, what each computes, and which live rules each one proves.
 
-    Ratification is only meaningful because a golden must reproduce a known answer —
-    so the goldens belong in the UI, not just in case.yaml. A ratified rule that NO
-    golden exercises is unverified, and this is where you can see it.
+    Ratification is only meaningful because the library must reproduce a known answer —
+    so the known answers belong in the UI, not just in case.yaml. `proved_by` maps each
+    live rule id to the PASSING known answers in which it fired; `unverified` lists the
+    live rules that fired in none. Each rule is checked only at its known answer's
+    inputs — that is what "proved" means here, no more (E1, E7).
     """
     case = _case()
     rules = case.rules()
     goldens = case.golden_cases()
     ingested = {d["doc_id"] for d in _catalog(case).documents()}
     results = []
-    exercised: set[str] = set()
-    live = _ratified_dicts(case)
+    live = _live_dicts(case)
+    statuses, proved = _coverage(case, live)
+    exercised = set(proved)
     for g in goldens:
-        ok, detail = _check_golden(case, live, g)
-        # rules of this golden's type are the ones it could have exercised
+        detail = statuses[g["name"]]
+        ok = detail.get("status") in ("pass", "pending")
         want = g.get("result_type", "currency")
-        for r in rules:
-            if r.result_type == want:
-                exercised.add(r.id)
         # Which documents this scenario needs, and whether each is ingested yet — so the
         # card can say "needs X (not ingested)" instead of only failing on the button.
         subs = [s for s in case.subjects() if s["name"] in set(g.get("subjects") or [])]
@@ -1602,6 +1734,9 @@ def admin_verification():
                         "expected": detail.get("expected"), "actual": detail.get("actual"),
                         "passed": ok, "status": detail.get("status", "fail"),
                         "per_subject": detail.get("per_subject"),
+                        # every rule that contributed to this number (base + modifiers +
+                        # premiums), so the card can say which rules it exercises
+                        "fired": detail.get("fired") or [],
                         "note": detail.get("note"),
                         "error": detail.get("error"),
                         "needs_docs": needs_docs,
@@ -1612,7 +1747,7 @@ def admin_verification():
     # "Pending" is not passing — a scenario nothing covers is unproven, not proven. It
     # simply does not BLOCK approval (see _check_golden).
     return {"goldens": results, "rule_count": len(rules),
-            "unverified": unverified,
+            "unverified": unverified, "proved_by": proved,
             "pending": sum(1 for g in results if g["status"] == "pending"),
             "all_passing": (all(g["status"] == "pass" for g in results)
                             if results else None)}
@@ -1693,43 +1828,19 @@ async def admin_ratify(request: Request):
                            "reference facts that don't exist or can't execute. Fix the "
                            "rule (or the data schema) and re-approve."}
 
-    # KNOWN-ANSWER GATE — a REGRESSION guard, not a completeness demand. Two questions:
-    #   1. Does every scenario these rules were DRAFTED FOR now reproduce its paystub?
-    #      (the rules carry `_scenario`; that is the answer they are meant to produce.)
-    #   2. Does approving them BREAK any scenario that was already passing?
-    # Anything else — a scenario still pending because its own rules are not drafted yet
-    # (e.g. the 2026 side letter, not yet authored) — is left alone. It never blocks an
-    # unrelated approval, which is what made incremental, scenario-by-scenario ratification
-    # deadlock before.
-    before = {g["name"]: _check_golden(case, _ratified_dicts(case), g)[1].get("status")
-              for g in case.golden_cases()}
-    candidate = _with_live(case, selected)
-    targets = {r.get("_scenario") for r in selected if r.get("_scenario")}
-    for golden in case.golden_cases():
-        name = golden["name"]
-        ok, detail = _check_golden(case, candidate, golden)
-        led.append("authoring.golden_check", {"passed": ok, **detail}, actor="admin")
-        status = detail.get("status")
-        # (2) regression: something that worked now doesn't.
-        if before.get(name) == "pass" and status == "fail":
-            return {"ratified": [], "golden_failed": detail,
-                    "warning": f"Nothing was approved — this would BREAK a check that was "
-                               f"passing. “{name}” dropped to {detail.get('actual')} "
-                               f"(known answer {detail.get('expected')}). Remove the rule "
-                               f"that changed it."}
-        # (1) the scenario these rules are FOR must actually reproduce its answer.
-        if name in targets and status != "pass":
-            actual = detail.get("actual")
-            fired = detail.get("fired") or []
-            why = (f"could not be computed ({detail.get('error', 'unknown')})"
-                   if actual is None else
-                   f"produced {actual}" + (f" — the rule that fired was “{fired[0]}”"
-                                           if fired else ""))
-            return {"ratified": [], "golden_failed": detail,
-                    "warning": f"Nothing was approved — “{name}” must come to "
-                               f"{detail.get('expected')}, but the drafted rules {why}. "
-                               f"Compare each rule against its clause, or re-draft the "
-                               f"scenario."}
+    # KNOWN-ANSWER GATE (E1) — see _gate_verdict for the five rules. A selection is
+    # approved as a whole or not at all: no known answer may come out wrong, none that
+    # reproduced may stop reproducing, the scenario a draft was made for must pass, and
+    # every selected rule must fire in a passing known answer. A unit nobody has authored
+    # yet stays 'pending' and never blocks an unrelated approval.
+    if not selected:
+        # Never let an empty/failed draft wipe a working ratified library.
+        return {"ratified": [], "warning": "No proposed rules to ratify — the existing "
+                "ratified library was left untouched."}
+    verdict = _gate_verdict(case, selected, approver, led)
+    if not verdict["approved"]:
+        return verdict["response"]
+    proved_by = verdict["proved_by"]
 
     import time
     newly = []
@@ -1739,17 +1850,13 @@ async def admin_ratify(request: Request):
         r["approver"] = approver
         r["approved_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         newly.append(r)
-    if not newly:
-        # Never let an empty/failed draft wipe a working ratified library.
-        return {"ratified": [], "warning": "No proposed rules to ratify — the existing "
-                "ratified library was left untouched."}
 
     # Ratification ADDS to the library, it does not replace it. Merge the existing live
     # rules with the newly-approved ones, keyed by id (a re-approval updates in place).
     # Writing only the new selection silently dropped every previously-ratified rule:
-    # approve A -> library {A}; approve B,C -> library {B,C}, and A was gone. The golden
-    # gate above already judges the UNION (_ratified_dicts + selected), so the write must
-    # persist that same union or the gate and the library disagree.
+    # approve A -> library {A}; approve B,C -> library {B,C}, and A was gone. The gate
+    # above already judges the UNION (_live_dicts + selected), so the write must persist
+    # that same union or the gate and the library disagree.
     existing = _raw_ratified(case)
     merged = {r["id"]: r for r in existing}
     for r in newly:
@@ -1758,10 +1865,14 @@ async def admin_ratify(request: Request):
 
     for r in newly:
         led.append("authoring.ratify",
-                   {"rule_id": r.get("id"), "approver": approver}, actor="admin")
+                   {"rule_id": r.get("id"), "approver": approver,
+                    # which known answer(s) this rule fired in and reproduced — the
+                    # evidence the approval rests on, recorded with it
+                    "proved_by": proved_by.get(r.get("id"), [])}, actor="admin")
     _write_ratified(case, library)
     return {"ratified": [r.get("id") for r in newly],
-            "library_size": len(library)}
+            "library_size": len(library),
+            "proved_by": {r.get("id"): proved_by.get(r.get("id"), []) for r in newly}}
 
 
 @app.get("/admin/ledger")
@@ -1825,3 +1936,116 @@ def _write_ratified(case, rules: list[dict]) -> None:
         shutil.copy(path, f"{path}.{stamp}.bak")
     with open(path, "w") as f:
         json.dump({"rules": rules}, f, indent=2)
+
+
+# --- gate ---
+# 'Try to break it' (DEMO_TICKETS.md E3): mutate one rule in memory, run every known
+# answer against each mutant, and report which deliberate errors the known answers catch.
+# No model call, nothing written to any rule file; one ledger event records the attempt.
+def _format_amount(value, result_type: str) -> str:
+    if value is None:
+        return "—"
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if result_type == "currency":
+        return f"${v:,.2f}"
+    if v.is_integer():
+        return f"{int(v)} {result_type}".strip()
+    return f"{v:g} {result_type}".strip()
+
+
+def _rule_for_break(case, rule_id: str) -> dict | None:
+    """The rule to mutate: the proposed queue's copy first, else the live library's."""
+    for r in admin_proposed().get("rules", []):
+        if r.get("id") == rule_id:
+            return r
+    for r in _live_dicts(case):
+        if r.get("id") == rule_id:
+            return r
+    return None
+
+
+def _try_break(case, rule: dict) -> dict:
+    """Run the mutation check for one rule dict. Pure apart from reading the case."""
+    from .mutate import mutants as _mutants
+    rid = rule.get("id")
+    want = rule.get("result_type", "currency")
+    govern = [s["id"] for s in case.manifest.get("sources", [])
+              if s.get("doc_type") in ("MOU", "amendment")]
+    base_lib = _with_live(case, [rule])
+    base_st, base_proved = _coverage(case, base_lib)
+    rows = []
+    for m in _mutants(rule, case.field_values(), govern):
+        lib = [m["rule"] if r.get("id") == rid else r for r in base_lib]
+        after_st, _ = _coverage(case, lib)
+        caught_by = None
+        for name, b in base_st.items():
+            a = after_st[name]
+            if b.get("status") == "pass" and a.get("status") != "pass":
+                caught_by = {"scenario": name, "expected": b.get("expected"),
+                             "actual": a.get("actual"), "status": a.get("status"),
+                             "expected_text": _format_amount(b.get("expected"), want),
+                             "actual_text": _format_amount(a.get("actual"), want)}
+                break
+        # The gate's own refusal, so the screen shows what Approve would have said.
+        verdict = _gate_verdict(case, [m["rule"]], "mutation-test", None,
+                                attempt="mutation-test")
+        rows.append({"label": m["label"], "kind": m["kind"], "caught": caught_by is not None,
+                     "caught_by": caught_by,
+                     "refusal": (verdict["response"] or {}).get("warning")
+                     if not verdict["approved"] else None,
+                     "when": m["rule"].get("when"), "compute": m["rule"].get("compute")})
+    caught = sum(1 for r in rows if r["caught"])
+    fires = rid in base_proved
+    if not fires or caught == 0:
+        verdict_word = "not actually tested"
+    elif caught == len(rows):
+        verdict_word = "tested"
+    else:
+        verdict_word = "partly tested"
+    return {"rule_id": rid, "result_type": want, "total": len(rows), "caught": caught,
+            "verdict": verdict_word, "fires_in": base_proved.get(rid, []),
+            "survivors": [r["label"] for r in rows if not r["caught"]],
+            "mutants": rows}
+
+
+@app.post("/admin/try_break")
+async def admin_try_break(request: Request):
+    """Mutate the named rule (proposed queue first, else live library) in memory and
+    report, per mutant, whether a known answer catches it: {rule_id, total, caught,
+    verdict, mutants: [{label, kind, caught, caught_by: {scenario, expected, actual,
+    status}}]}. verdict is 'tested' (all caught), 'partly tested', or 'not actually
+    tested' (none caught, or the rule fires in no passing known answer). Never writes a
+    rule file; appends one `authoring.mutation_check` ledger event."""
+    body = await request.json()
+    rule_id = str(body.get("rule_id") or "")
+    case = _case()
+    rule = _rule_for_break(case, rule_id)
+    if rule is None:
+        return JSONResponse({"error": f"no proposed or live rule with id {rule_id!r}"},
+                            status_code=404)
+    out = _try_break(case, rule)
+    case.ledger().append("authoring.mutation_check",
+                         {"rule_id": rule_id, "total": out["total"], "caught": out["caught"],
+                          "survivors": out["survivors"], "verdict": out["verdict"]},
+                         actor="admin")
+    return out
+
+
+@app.get("/admin/mutation_report")
+def admin_mutation_report():
+    """The mutation check over every live rule, for the foot of the Verification tab:
+    {total, caught, survivors: [{rule_id, label}], rules: [{rule_id, total, caught, verdict}]}.
+    Read-only; no ledger event (it is a view, not an attempt)."""
+    case = _case()
+    rules = []
+    survivors = []
+    for r in _live_dicts(case):
+        out = _try_break(case, r)
+        rules.append({"rule_id": out["rule_id"], "total": out["total"],
+                      "caught": out["caught"], "verdict": out["verdict"]})
+        survivors.extend({"rule_id": out["rule_id"], "label": s} for s in out["survivors"])
+    return {"total": sum(r["total"] for r in rules), "caught": sum(r["caught"] for r in rules),
+            "survivors": survivors, "rules": rules}

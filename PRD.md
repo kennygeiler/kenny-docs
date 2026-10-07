@@ -82,7 +82,8 @@ product indefensible.
 2. **Governance is a lookup, not a guess.** Which rules apply is fixed by **who** (bargaining unit)
    and **when** (date → which contract version is in force). Search is a fallback, never the spine.
 3. **Nothing computes until a human approves it — and approval is earned.** A rule goes live only
-   after it reproduces a *known answer* (§7). Approval alone is insufficient.
+   if it fires in a known answer and the library then reproduces that answer (§7). Approval alone
+   is insufficient.
 4. **Never bluff.** Unknown attribute, unresolvable governance, no approved rule → **ask** or
    **refuse with a reason**. Never guess silently.
 5. **Everything is on the record.** Prompt, document chosen, each rule fired, each arithmetic step,
@@ -152,13 +153,15 @@ costing product itself never holds a name.
 
 The claim Kenny has to earn: a real contract arrives as an unseen document, and the number that
 comes out the other side survives a union challenge. It earns it by **never letting a rule compute
-until it reproduces a known-correct answer.**
+unless a known answer exercises it and the library reproduces that answer.**
 
-**A known answer is a real paystub** (or, absent one, a figure an analyst worked out by hand). It
-names the classifications, the date, the inputs, and the per-member amount actually paid. To make Kenny able to cost a
-scenario, you point it at that known answer; Kenny retrieves only the clauses that scenario needs,
-drafts the handful of rules they require, and checks them against the amount. Only rules that
-reproduce the known answer can be approved.
+**A known answer is a paystub, or, absent one, a figure an analyst worked out by hand** — the
+four shipped here are analyst-derived. It names the classifications, the date, the inputs, and the
+per-member amount. To make Kenny able to cost a scenario, you point it at that known answer; Kenny
+retrieves only the clauses that scenario needs, drafts the handful of rules they require, and checks
+them against the amount. Approval is refused when a selected rule fires in no known answer, when a
+known answer that reproduced stops reproducing, or when one comes out wrong; each rule is proved at
+its known answer's inputs only.
 
 This inverts the naive approach. Kenny does **not** extract an entire contract into hundreds of
 rules and ask a human to trust them. It models **only what a real paycheck can prove**, one scenario
@@ -244,7 +247,8 @@ data stores (§ARCHITECTURE).
 2. **Provide a classification table** — class × step × shift × certifications × rate, mapped to a
    baseline attribute vocabulary (§6a). Never named individuals. Missing attributes become
    questions, not blockers.
-3. **Provide known answers** — real paystubs. Each is a scenario.
+3. **Provide known answers** — paystubs, or analyst-derived figures until payroll supplies them.
+   Each is a scenario.
 4. Per scenario, **draft, review, and approve** the few rules it needs.
 5. **Ask.** Costing, lookup, entitlement, and policy — every answer cited, every assumption stated.
 

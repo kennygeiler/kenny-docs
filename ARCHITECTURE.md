@@ -219,7 +219,8 @@ catalog entry.
 
 ### 5.2 Author rules for a scenario
 
-A **scenario** is a known answer — a real paystub, or an analyst's hand-computed figure — carrying the
+A **scenario** is a known answer — a paystub, or an analyst's hand-computed figure (the four shipped
+are the latter) — carrying the
 people, the inputs, the expected amount, and a `branch_query` naming the pay it exercises.
 
 ```
@@ -291,11 +292,17 @@ The distinction is load-bearing. A number computed from an *incomplete* library 
 replacement rule nobody drafted yet) is *not-yet-authored*, not *wrong* — treating it as failure would
 train reviewers to ignore red. Only authored-rules-disagree blocks.
 
-**Approval is a regression guard** (`admin_ratify`), not a completeness demand. It compares scenario
-status before and after the approval, over the live library **merged by id** with the selection: the
-scenario the rules were drafted for must pass, a scenario that was passing must not drop to fail, and
-uncovered scenarios stay pending. This makes incremental, scenario-by-scenario authoring work where a
-"every scenario must pass on every approval" gate would deadlock. A **release gate** (`prepare_deploy`)
+**Approval is a coverage-and-regression gate** (`_gate_verdict`, used by `admin_ratify`), not a
+completeness demand. It compares scenario status before and after the approval, over the live library
+**merged by id** with the selection, and refuses the whole selection when any of five rules trips:
+R1 a known answer comes out wrong that did not before; R2 a known answer that reproduced would no
+longer be answered; R3 the scenario a draft was made for does not pass; R4 a selected rule fires in no
+passing known answer; R5 a live rule outside the selection that was proven before would be proven by
+nothing. Scenarios no unit has authored yet stay pending and never block. This makes incremental,
+scenario-by-scenario authoring work where a "every scenario must pass on every approval" gate would
+deadlock, while a rule nothing proves can never go live. Each rule is proved at its known answer's
+inputs only; *Try to break it* (`/admin/try_break`) mutates a rule in memory and shows which
+deliberate errors the known answers catch. A **release gate** (`prepare_deploy`)
 is stricter — it refuses to build a deployable image whose known answers do not all pass, so a
 half-authored state cannot ship as a product.
 

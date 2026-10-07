@@ -35,9 +35,12 @@ Four rules, enforced in the architecture rather than promised in prose:
    deterministic engine from human-approved rules.
 2. **Nothing goes live without a human.** Drafted rules sit in a review queue until a
    person approves each one against its highlighted source clause.
-3. **A rule can't ship unless it reproduces a known-correct answer.** Approval is blocked
-   until the rule set reproduces the verification scenario's known amount. (This gate
-   caught real drafting errors during development.)
+3. **A rule can't go live unless a known answer exercises it and the library reproduces
+   that answer.** Approval is refused when a selected rule fires in no known answer, when
+   a reproduced answer stops reproducing, or when a new one comes out wrong. The shipped
+   known answers are analyst-derived, not payroll. (In the local record, 4 of 5 model
+   drafts failed their known-answer check at draft time and were never approved; the four
+   live rules were written by the analyst.)
 4. **Every answer is traceable.** Each figure clicks through to the exact clause, boxed on
    the rendered PDF page, and every state change lands in a hash-chained audit ledger.
 
@@ -86,7 +89,7 @@ Open `/admin`. The tabs are numbered in the order you use them.
 |---|---|---|
 | **1 · Documents** | Ingest the contract PDFs. Each is parsed by docling for its text, its tables, and the **exact position of every clause**, then tagged and summarized into a searchable catalog. | The five source documents (four MOUs + the master salary schedule) appear in the contract library, searchable immediately. No rules exist yet. |
 | **2 · Verification** | The trust anchor. Pick a known-correct scenario and press **"Draft the rules for this scenario."** The system retrieves only the clauses that answer needs and drafts the few rules they require — then checks them against the known amount. | A short set of candidate rules (≈4, not the ~33 you'd get extracting a whole MOU) with a pass/fail against the known number. Scoping extraction to one verified scenario is deliberate — it keeps review humanly reviewable. |
-| **3 · Review queue** | The human gate. Each drafted rule is shown beside its highlighted source clause, waiting for approval. Nothing here affects an answer yet. | You approve each rule against the clause it came from. Approval is **blocked** until the approved set reproduces the verification amount — a misdrafted rule cannot go live. |
+| **3 · Review queue** | The human gate. Each drafted rule is shown beside its highlighted source clause, waiting for approval. Nothing here affects an answer yet. | You approve each rule against the clause it came from. Approval is **refused** when a selected rule fires in no known answer, when a known answer that reproduced stops reproducing, or when one comes out wrong. *Try to break it* mutates a rule in memory and shows which deliberate errors the known answers catch. |
 | **Rule library** | The ratified rules currently in force, plus gaps (scenarios the classification table can't yet answer, and which data dimension would unlock them). | The approved rules become the live library the engine computes from. |
 | **Audit** | The tamper-evident event log: recent questions and the full hash-chained event chain with a `verify()` status and export. | Every ingest, draft, approval, and query is a chained event. `verify()` reports the chain intact. |
 
@@ -118,7 +121,8 @@ Chat handles four kinds of question:
 ### Expected results
 
 The engine is **config-not-code** — `core/` is case-agnostic; the corpus is a swappable
-data bundle. The Santa Cruz goldens ship as verified acceptance tests (`pytest`):
+data bundle. The Santa Cruz known answers are analyst-derived and are asserted by `pytest`
+through the gate; each proves its rule at one set of inputs only:
 
 | Scenario | Prompt | Expected result | Source |
 |---|---|---|---|

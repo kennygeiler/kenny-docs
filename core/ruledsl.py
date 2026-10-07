@@ -283,6 +283,14 @@ def validate_rules(rules: list[dict], known_facts: set[str]) -> dict[str, list[s
                             f"in {e!r}")
         if not r.get("citation", {}).get("clause"):
             errs.append("missing citation clause (every rule must cite its source)")
+        # Nothing load_rules() cannot load may be approved. The static checks above do
+        # not cover everything from_dict refuses (role 'zzz', priority 'high', a flag
+        # with the wrong shape); such a rule used to pass validation, get written, and
+        # then every /chat and /admin page 500'd until the JSON was hand-edited (E1).
+        try:
+            Rule.from_dict({**r, "status": "ratified", "approver": "validator"})
+        except (RuleError, ValueError, TypeError, KeyError) as e:
+            errs.append(f"the engine cannot load this rule: {e}")
         if errs:
             errors[rid] = errs
     return errors

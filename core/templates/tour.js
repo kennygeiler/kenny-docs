@@ -233,9 +233,9 @@
       },
       {
         title: 'Verification: known answers first',
-        body: 'Each card is ground truth — a real paystub or a hand-verified figure. '
-          + 'Rules are drafted per scenario and cannot go live unless they reproduce '
-          + 'the known answer. Trust is verified up front, not promised.',
+        body: 'Each card is a known answer: the four shipped here were worked out by '
+          + 'hand from the contract, not taken from payroll. A rule goes live only if '
+          + 'it fires in a known answer and the library then reproduces that answer.',
         pre: async () => {
           if (q('#xray:not([hidden])') && typeof window.closeXray === 'function') window.closeXray();
           const t = q('#tab-verify');
