@@ -644,7 +644,8 @@ async def _chat(body: dict, qid: str):
                {"adapter": case.manifest.get("data", {}).get("adapter"),
                 "rows": [s.get("name") for s in subjects],
                 "bargaining_units": units, "shift_date": date_iso,
-                "fields": list((subjects[0].keys() if subjects else []))},
+                "fields": list((subjects[0].keys() if subjects else [])),
+                "records": subjects, "data_sha256": audit.data_sha256(case)},
                actor="chat", query_id=qid)
 
     # 3. Resolve the governing document(s). PRIMARY path = deterministic governance
@@ -763,7 +764,7 @@ async def _chat(body: dict, qid: str):
     # 5. Ledger: decision logic + math + citations, straight from the engine trace.
     for li in result.line_items:
         for step in li.trace:
-            if step.kind in ("modifier", "selector-considered", "selector-chosen", "math", "flag"):
+            if step.kind in ("modifier", "selector-considered", "selector-chosen", "math", "flag", "premium"):
                 led.append(f"rule.{step.kind.replace('-', '_')}",
                            {"subject": li.subject, "rule_id": step.rule_id,
                             "detail": step.detail, "value": step.value},
@@ -772,11 +773,9 @@ async def _chat(body: dict, qid: str):
             led.append("citation", {"subject": li.subject, **c},
                        actor="engine", query_id=qid)
 
-    # 6. Snapshot + answer.
-    snap = audit.snapshot(case.path("snapshots", "snapshots"), qid, eng_params, rules,
-                          result.to_dict())
-    led.append("answer.snapshot", {"total": result.total, "snapshot": os.path.basename(snap)},
-               actor="engine", query_id=qid)
+    # 6. Snapshot + answer (schema 2: every input frozen, file bound to the chain — F1).
+    audit.record_answer(case, led, qid, eng_params, subjects, rules, result,
+                        basis_scope=SHIFT_BASES)
 
     result_dict = _enrich_citations(_catalog(case), result.to_dict())
     return {"query_id": qid, "needs_confirmation": False, "mode": "costing",
@@ -1668,7 +1667,10 @@ async def admin_ratify(request: Request):
     sufficient.
     """
     body = await request.json()
-    approver = body.get("approver", "admin")
+    approver = (body.get("approver") or "").strip()
+    if not approver:  # F2: a record of who approved must name someone
+        return {"ratified": [], "warning": "Nothing was approved — enter the approver's "
+                "name first. The approval record names the person who made it."}
     approved_ids = body.get("rule_ids")  # None -> approve all
     case = _case()
     led = case.ledger()
@@ -1705,10 +1707,12 @@ async def admin_ratify(request: Request):
               for g in case.golden_cases()}
     candidate = _with_live(case, selected)
     targets = {r.get("_scenario") for r in selected if r.get("_scenario")}
+    checks = []  # (golden_check seq, detail) — the approval event cites these (F2)
     for golden in case.golden_cases():
         name = golden["name"]
         ok, detail = _check_golden(case, candidate, golden)
-        led.append("authoring.golden_check", {"passed": ok, **detail}, actor="admin")
+        gev = led.append("authoring.golden_check", {"passed": ok, **detail}, actor="admin")
+        checks.append((gev["seq"], detail))
         status = detail.get("status")
         # (2) regression: something that worked now doesn't.
         if before.get(name) == "pass" and status == "fail":
@@ -1756,9 +1760,9 @@ async def admin_ratify(request: Request):
         merged[r["id"]] = r
     library = list(merged.values())
 
-    for r in newly:
-        led.append("authoring.ratify",
-                   {"rule_id": r.get("id"), "approver": approver}, actor="admin")
+    # Full approval record: rule text + fingerprint, clause, source hash, known answers
+    # (F2). Appended first, then approval:{seq, hash} is stamped on the library entry.
+    approvals.record_approvals(case, led, newly, approver, checks)
     _write_ratified(case, library)
     return {"ratified": [r.get("id") for r in newly],
             "library_size": len(library)}
@@ -1767,8 +1771,11 @@ async def admin_ratify(request: Request):
 @app.get("/admin/ledger")
 def admin_ledger():
     led = _case().ledger()
-    ok, msg = led.verify()
-    return {"verified": ok, "verify_message": msg, "events": list(led.read())}
+    d = led.verify_detail()
+    events = list(led.read()) if d["reason"] != "unreadable_line" else []
+    return {"verified": d["ok"], "verify_message": d["message"], "events": events,
+            "count": len(events), "head": led.head() if events else None,
+            "keyed": d["keyed"], "failed_seq": d["failed_seq"], "reason": d["reason"]}
 
 
 @app.get("/admin/ledger/export")
@@ -1825,3 +1832,45 @@ def _write_ratified(case, rules: list[dict]) -> None:
         shutil.copy(path, f"{path}.{stamp}.bak")
     with open(path, "w") as f:
         json.dump({"rules": rules}, f, indent=2)
+
+
+# --- ledger --------------------------------------------------------------- #
+# DEMO_TICKETS.md F1/F2/F3: replay an answer from its frozen inputs, read who approved
+# which rule text, and break the chain on a scratch copy. Nothing here writes to the
+# ledger or the rule file.
+from . import approvals, tamper_demo  # noqa: E402  (end-of-file block, see ownership plan)
+
+_QID_RE = re.compile(r"^[A-Za-z0-9_-]{6,64}$")
+
+
+@app.get("/chat/replay/{query_id}")
+def chat_replay(query_id: str):
+    """Recompute a costing answer from its snapshot and compare hashes. Read-only; the
+    snapshot file name is taken from the ledger event, never from the URL."""
+    if not _QID_RE.match(query_id):
+        return JSONResponse({"status": "not_replayable", "query_id": query_id,
+                             "reason": "malformed query id"}, status_code=400)
+    case = _case()
+    return audit.replay(case, case.ledger(), query_id)
+
+
+@app.get("/admin/approvals")
+def admin_approvals():
+    """Per live rule: the newest full approval event and whether the live text still
+    matches the fingerprint that was approved."""
+    case = _case()
+    return {"approvals": approvals.report(case, case.ledger(), _raw_ratified(case))}
+
+
+@app.get("/admin/ledger/tamper-demo")
+def admin_ledger_tamper_demo(mode: str = "edit", seq: int | None = None,
+                             field: str | None = None, value: str | None = None,
+                             preset: str | None = None):
+    """Tamper with one event in a COPY of the ledger and report which entry fails and
+    why. GET because nothing durable changes: the copy is deleted before returning."""
+    led = _case().ledger()
+    try:
+        return tamper_demo.run(led.path, mode=mode, seq=seq, field=field, value=value,
+                               preset=preset)
+    except tamper_demo.TamperDemoError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)

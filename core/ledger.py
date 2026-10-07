@@ -138,8 +138,14 @@ class Ledger:
         return [e for e in self.read() if e.get("query_id") == query_id]
 
     # ---- integrity ----
-    def verify(self) -> tuple[bool, str]:
-        """Recompute the whole chain.
+    def verify_detail(self) -> dict:
+        """Recompute the whole chain and say exactly where (and why) it fails.
+
+        Returns {ok, message, count, failed_seq, failed_line, reason, event_type,
+        stored_hash, recomputed_hash, keyed, head}. `reason` is one of seq_gap |
+        prev_hash_mismatch | hash_mismatch | unkeyed_event | unreadable_line | None.
+        A torn or malformed line is REPORTED (reason unreadable_line), never raised:
+        one bad byte must not turn every health check into a 500 (DEMO_TICKETS.md F3).
 
         With KENNY_LEDGER_KEY set, every event MUST verify under the HMAC — an event
         hashed without the key fails, because accepting unkeyed events would let an
@@ -148,24 +154,64 @@ class Ledger:
         archive it (export, then reseed) rather than mixing keyed and unkeyed history.
         """
         key = _key()
+        out = {"ok": True, "message": "chain intact", "count": 0, "failed_seq": None,
+               "failed_line": None, "reason": None, "event_type": None,
+               "stored_hash": None, "recomputed_hash": None,
+               "keyed": key is not None, "head": None}
+
+        def fail(reason: str, message: str, ev: dict | None, line_no: int,
+                 recomputed: str | None = None) -> dict:
+            out.update({"ok": False, "message": message, "reason": reason,
+                        "failed_line": line_no,
+                        "failed_seq": ev.get("seq") if ev else None,
+                        "event_type": ev.get("type") if ev else None,
+                        "stored_hash": ev.get("hash") if ev else None,
+                        "recomputed_hash": recomputed})
+            return out
+
+        if not os.path.exists(self.path):
+            return out
         prev_hash = GENESIS
         expected_seq = 0
-        for ev in self.read():
-            if ev["seq"] != expected_seq:
-                return False, f"seq gap at {ev['seq']} (expected {expected_seq})"
-            if ev["prev_hash"] != prev_hash:
-                return False, f"broken chain at seq {ev['seq']}: prev_hash mismatch"
-            if key is not None and ev.get("alg") != "hmac-sha256":
-                return False, (f"unkeyed event at seq {ev['seq']}: KENNY_LEDGER_KEY is "
-                               f"set but this event predates it (or was rewritten "
-                               f"without the key). Archive the old ledger or unset the key.")
-            recomputed = _hash(prev_hash, ev["seq"], ev["ts"], ev["actor"],
-                               ev["type"], ev["payload"], key)
-            if recomputed != ev["hash"]:
-                return False, f"tampered event at seq {ev['seq']}: hash mismatch"
-            prev_hash = ev["hash"]
-            expected_seq += 1
-        return True, "chain intact"
+        with open(self.path) as f:
+            for line_no, raw in enumerate(f, start=1):
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    ev = json.loads(raw)
+                    seq, prev, ts = ev["seq"], ev["prev_hash"], ev["ts"]
+                    actor, type_, payload, stored = (ev["actor"], ev["type"],
+                                                     ev["payload"], ev["hash"])
+                except (ValueError, KeyError, TypeError) as e:
+                    return fail("unreadable_line",
+                                f"unreadable ledger line {line_no}: {e}", None, line_no)
+                if seq != expected_seq:
+                    return fail("seq_gap", f"seq gap at {seq} (expected {expected_seq})",
+                                ev, line_no)
+                if prev != prev_hash:
+                    return fail("prev_hash_mismatch",
+                                f"broken chain at seq {seq}: prev_hash mismatch", ev, line_no)
+                if key is not None and ev.get("alg") != "hmac-sha256":
+                    return fail("unkeyed_event",
+                                f"unkeyed event at seq {seq}: KENNY_LEDGER_KEY is set but "
+                                f"this event predates it (or was rewritten without the key). "
+                                f"Archive the old ledger or unset the key.", ev, line_no)
+                recomputed = _hash(prev_hash, seq, ts, actor, type_, payload, key)
+                if recomputed != stored:
+                    return fail("hash_mismatch", f"tampered event at seq {seq}: hash mismatch",
+                                ev, line_no, recomputed)
+                prev_hash = stored
+                expected_seq += 1
+                out["count"] = expected_seq
+                out["head"] = {"seq": seq, "hash": stored, "count": expected_seq}
+        return out
+
+    def verify(self) -> tuple[bool, str]:
+        """Recompute the whole chain: (ok, message). See verify_detail() for the where
+        and why; the message strings here are unchanged for callers that match on them."""
+        d = self.verify_detail()
+        return d["ok"], d["message"]
 
     def head(self) -> dict | None:
         """The current chain head: {"seq", "hash", "count"}. Record it externally (it is
