@@ -1,0 +1,13 @@
+# ARCHIVED 2026-10-07 (DEMO_TICKETS B5). These eight rows were hand-invented sample data:
+# no document in the Santa Cruz corpus governs a police unit and none of these rates is
+# printed anywhere in it. They were removed from cases/santacruz/data/roster.csv so every
+# live roster row has a governing contract and a printed rate (tests/test_case_sources.py).
+classification,department,rank,base_hourly,shift,bargaining_unit
+Police Officer Step A,police,Police Officer,45.25,Patrol,unrepresented-sample
+Police Officer Step B,police,Police Officer,48.45,Patrol,unrepresented-sample
+Police Officer Step D,police,Police Officer,50.61,Patrol,unrepresented-sample
+Police Officer Step E,police,Police Officer,57.77,Patrol,unrepresented-sample
+Police Officer (Probation),police,Police Officer,42.87,Patrol,unrepresented-sample
+Sergeant Step B,police,Police Sergeant,61.91,Patrol,unrepresented-sample
+Sergeant Step C,police,Police Sergeant,60.65,Patrol,unrepresented-sample
+Sergeant Step D,police,Police Sergeant,59.45,Patrol,unrepresented-sample

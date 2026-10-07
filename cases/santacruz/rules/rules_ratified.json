@@ -35,6 +35,10 @@
       "when": "hours > 0",
       "compute": "effective_base * 1.5 * hours",
       "human_readable": "Premium overtime compensation at one and one half (1.5x) the employee's regular rate of pay (Local 3535 MOU, Overtime Rate, p.8). Reviewed and approved by the analyst against the clause text; the drafted FLSA 182/192-hour cycle rules were deliberately not approved \u2014 they model the 24-day work period, a different pay branch than a premium overtime shift.",
+      "assumptions": [
+        "Hours are premium-overtime hours beyond the 182-hour threshold of the 24-day FLSA work period (MOU p.8 s.3)",
+        "Regular rate is taken as the salary-schedule base rate; special-assignment pay and education incentive (p.8 s.2) are not on the roster and not included"
+      ],
       "citation": {
         "doc_id": "firefighters_local3535_mou",
         "clause": "Overtime Rate (p.8)",
@@ -49,6 +53,38 @@
       "status": "ratified",
       "approver": "kenny",
       "approved_at": "2026-07-18T14:26:28Z"
+    },
+    {
+      "id": "firefighters_local3535_mou:longevity_10yr",
+      "kind": "modifier",
+      "role": "differential",
+      "result_type": "currency",
+      "topic": "longevity",
+      "priority": 10,
+      "when": "years_of_service >= 10",
+      "set": {
+        "effective_base": "round(effective_base * 1.025, 6)"
+      },
+      "human_readable": "2.5% general salary increase upon completion of ten (10) years of service (Local 3535 MOU, Longevity Pay, p.12); corroborated by the 'Longevity >10 yrs 2.50%' column of the CY2026 incentive table (p.38, not citable as a second citation until the DSL allows one). Applies to base plus incentive/specialty pay excluding Education Incentive, so this differential runs after specialty differentials and before any education-incentive differential (priority 10 = lowest among differentials). Years of service come from the question and are unverified. round(..., 6) only strips binary float noise (53.40 x 1.025 -> 54.735); the extension is rounded to cents once by the engine, per the case rounding policy.",
+      "assumptions": [
+        "Years of service are taken from the question and are unverified; the roster carries no service dates",
+        "The intermediate rate is not rounded to cents; only the extension is (case rounding policy)"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "Longevity Pay (p.12)",
+        "page": 12,
+        "bbox": [
+          143.606,
+          263.49,
+          511.56,
+          212.751
+        ]
+      },
+      "status": "ratified",
+      "_scenario": "8-hour overtime shift, 12-year Firefighter/Paramedic top step (longevity 2.5% into the 1.5x rate)",
+      "approver": "claude-agent:data-goldens (authored against the catalog p.12 text; not yet human-ratified)",
+      "approved_at": "2026-10-07T00:00:00Z"
     },
     {
       "id": "chief_officers_mou:bereavement_hours",
@@ -84,6 +120,10 @@
       "when": "hours > 0",
       "compute": "effective_base * 1.5 * hours",
       "human_readable": "One and one-half times the regular rate of pay for hours worked in excess of the normal schedule (Admin Group MOU, Overtime, p.6). Authored by the reviewing analyst against the clause text.",
+      "assumptions": [
+        "Hours are overtime hours worked in excess of the normal schedule (Admin Group MOU p.6)",
+        "Regular rate is taken as the salary-schedule base rate; no incentive or differential pay is on the roster or included"
+      ],
       "citation": {
         "doc_id": "admin_group_mou",
         "clause": "Overtime (p.6)",
