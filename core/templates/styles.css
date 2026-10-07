@@ -549,3 +549,44 @@ details.tech .mono { font-size: 11.5px; overflow-wrap: anywhere; margin: 4px 0; 
   box-shadow: 0 0 0 7px rgba(11, 95, 255, .18) !important;
   border-radius: 4px;
 }
+
+/* ---------------- search tree + cited math line (DEMO_TICKETS.md L3, C1/I13) ----
+   Audit drawer only. Plain indented lists: no fixed widths, wraps at 375px under the
+   existing #drawer{width:100vw} rule. Rejected branches are greyed, never hidden —
+   the reason stays readable; the badge says who decided each fork. */
+.counts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--grey); margin: 8px 0 6px; }
+.counts b { color: var(--navy); font-weight: 600; }
+.tree, .tree ol { list-style: none; margin: 0; padding: 0; }
+.tree > .node { margin: 6px 0; }
+.tree ol { margin: 3px 0 0 6px; padding-left: 10px; border-left: 1px solid var(--line); }
+.node { padding: 2px 0 2px 2px; font-size: 13px; overflow-wrap: anywhere; }
+.node.fork > .nl { font-weight: 600; color: var(--navy); }
+.node.rejected { color: var(--grey); opacity: .78; }
+.node.rejected > .nl::before { content: "\2717\00a0"; color: var(--grey); }
+.node.chosen > .nl::before { content: "\2713\00a0"; color: var(--ok); }
+.node.info > .nl { font-style: italic; color: var(--grey); }
+.node .why { color: var(--grey); font-style: italic; }
+.node .tally { color: var(--grey); font-size: 11px; }
+.node .badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-right: 6px; vertical-align: 1px; font-weight: 600; letter-spacing: .02em; }
+.badge.fixed { background: var(--light); color: var(--grey); border: 1px solid var(--line); }
+.badge.ai { background: #eef3ff; color: #2a4a9a; border: 1px solid #c8d6f5; }
+.badge.human { background: #edf7ee; color: #2b6a3a; border: 1px solid #c7e3cc; }
+.badge.user { background: #fff6e5; color: #7a4b00; border: 1px solid #f0d9a8; }
+.node details > summary { cursor: pointer; color: var(--grey); font-size: 12px; margin-top: 2px; }
+.node details > summary:hover { color: var(--navy); }
+.tree button.ref {
+  background: none; border: 1px dashed var(--line); border-radius: 6px; padding: 0 6px;
+  font: inherit; font-size: 12px; color: var(--steel); cursor: pointer; margin-left: 4px;
+  max-width: 100%; overflow-wrap: anywhere; text-align: left;
+}
+.tree button.ref:hover { border-style: solid; color: var(--navy); }
+.math-line .math-row { font-size: 15px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px; }
+.math-line .op {
+  font: inherit; font-size: 15px; background: none; border: 0; border-bottom: 2px solid var(--steel);
+  color: var(--navy); cursor: pointer; padding: 0 2px; font-variant-numeric: tabular-nums;
+}
+.math-line .op:hover { background: var(--light); }
+.math-line .op.unsourced { border-bottom-color: var(--warn); color: var(--warn); }
+.math-line .x { color: var(--grey); margin: 0 4px; }
+.math-line .eq { font-weight: 600; color: var(--navy); margin-left: 2px; }
+.tree-host { margin-top: 8px; }

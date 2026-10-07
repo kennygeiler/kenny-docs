@@ -574,14 +574,26 @@ async function openAudit(queryId, li, res) {
   body.appendChild(sub);
 
   // --- decision trace (wave 2: search tree + replay button extend THIS block) ---
+  // search-tree (C1/I13 + L3): the sum as a person writes it, each factor a button
+  // that opens its source; then the decision tree drawn from the ledger. The old
+  // flat trace list is the fallback for an answer recorded before decision events.
   const traceBlock = el('<div class="trace-block"></div>');
-  trace.forEach(t => {
-    const cls = t.kind === 'selector-chosen' ? 'chosen' : (t.kind === 'flag' ? 'flag' : '');
-    const step = el(`<div class="trace-step ${cls}"><span class="k">${esc(TRACE_LABELS[t.kind] || t.kind)}</span><br></div>`);
-    step.appendChild(document.createTextNode(traceText(t, li)));
-    traceBlock.appendChild(step);
-  });
+  const mathStep = trace.find(t => t.kind === 'math' && t.operands && t.operands.length);
+  if (mathStep) traceBlock.appendChild(mathLineEl(mathStep, li, res));
+  const legacyTrace = () => {
+    const frag = document.createDocumentFragment();
+    trace.forEach(t => {
+      const cls = t.kind === 'selector-chosen' ? 'chosen' : (t.kind === 'flag' ? 'flag' : '');
+      const step = el(`<div class="trace-step ${cls}"><span class="k">${esc(TRACE_LABELS[t.kind] || t.kind)}</span><br></div>`);
+      step.appendChild(document.createTextNode(traceText(t, li)));
+      frag.appendChild(step);
+    });
+    return frag;
+  };
+  const treeHost = el('<div class="tree-host"><div class="muted">Loading the decision tree from the ledger…</div></div>');
+  traceBlock.appendChild(treeHost);
   body.appendChild(traceBlock);
+  loadTree(queryId, treeHost, legacyTrace, res);
 
   // --- citations with the bbox highlighted on the page ----------------------
   const seen = new Set();
@@ -620,6 +632,92 @@ async function openAudit(queryId, li, res) {
   // --- AI involvement (section 5) --------------------------------------------
   renderAiTrail(queryId, body, li.result_type === 'currency' ? 'costing' : 'entitlement');
 }
+
+// --- search-tree helpers (used only inside the .trace-block region above) ----------
+// The cited math line (C1/I13): "$53.40/hr × 1.5 × 8 h = $640.80". Every factor is a
+// button: the rate opens the salary-schedule row with its cell boxed, a multiplier
+// opens the MOU clause the rule cites, the hours say "from your question". A rate
+// with no source document on file is shown amber, never silently.
+function mathLineEl(step, li, res) {
+  const wrap = el('<div class="trace-step chosen math-line"><span class="k">Arithmetic</span><br></div>');
+  const line = el('<div class="math-row"></div>');
+  step.operands.forEach((o, i) => {
+    if (i) line.appendChild(el('<span class="x">×</span>'));
+    const src = o.source || {};
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'op' + (src.unsourced ? ' unsourced' : '');
+    b.textContent = opText(o);
+    b.title = opTitle(o, res);
+    b.onclick = () => openOperand(o, res);
+    line.appendChild(b);
+  });
+  const eq = el('<span class="eq"></span>');
+  eq.textContent = ` = ${fmtVal(step.value, li.result_type)}`;
+  line.appendChild(eq);
+  wrap.appendChild(line);
+  const notes = step.operands.filter(o => o.source && o.source.unsourced);
+  notes.forEach(o => wrap.appendChild(el(`<div class="warn-text" style="font-size:12px;margin-top:4px">${esc(opText(o))} comes from the roster file — ${esc(o.source.reason || 'no source document on file')}</div>`)));
+  return wrap;
+}
+
+function opText(o) {
+  const v = Number(o.value);
+  if (o.role === 'rate') return fmt(v) + '/hr';
+  if (o.role === 'hours') return `${v} h`;
+  return String(v);
+}
+
+function opTitle(o, res) {
+  const s = o.source || {};
+  if (s.kind === 'schedule-cell' && !s.unsourced) return `${s.title || docTitle(s.doc_id, res)}, p.${s.page} · ${s.row} · ${s.column}`;
+  if (s.kind === 'clause') return `${docTitle(s.doc_id, res)}, ${cite(s.clause, s.page)}`;
+  if (s.kind === 'question') return 'Stated in your question';
+  if (s.kind === 'roster') return `Roster field ${s.field}`;
+  return s.reason || '';
+}
+
+function openOperand(o, res) {
+  const s = o.source || {};
+  if (s.kind === 'schedule-cell' && !s.unsourced) {
+    // The row band (label to cell) is boxed so the row is findable on the landscape
+    // page; the cell itself is named in the heading and quoted in the passage.
+    openSource({doc_id: s.doc_id, page: s.page, bbox: s.context_bbox || s.bbox || [],
+                clause: `${s.row} · ${s.column}`, title: s.title,
+                text: `${s.row} — ${s.column}: ${s.text}`}, res);
+    return;
+  }
+  if (s.kind === 'clause' && s.doc_id) {
+    openSource({doc_id: s.doc_id, page: s.page, bbox: s.bbox || [], clause: s.clause || '',
+                text: ''}, res);
+    return;
+  }
+  const body = document.getElementById('drawerBody');
+  const note = el('<div class="muted" style="margin-top:6px"></div>');
+  note.textContent = s.kind === 'question'
+    ? `${opText(o)} — stated in your question; the engine used it as given.`
+    : `${opText(o)} — ${s.reason || 'no source document on file'}`;
+  const host = body.querySelector('.math-line');
+  (host || body).appendChild(note);
+}
+
+// The tree (L3) is fetched from the ledger, never built from the HTTP answer. A query
+// recorded before decision events existed gets the old trace list and says so.
+async function loadTree(queryId, host, legacyTrace, res) {
+  let tree = null, seq = null;
+  try {
+    const r = await fetch(`/chat/audit/${queryId}`);
+    if (r.ok) { const j = await r.json(); tree = j.tree; seq = tree && tree.seq; }
+  } catch (e) { /* fall through to the text fallback */ }
+  const onRef = ref => openSource({...ref, title: docTitle(ref.doc_id, res)}, res);
+  const drawn = window.KennyTree && tree && !tree.legacy
+    ? window.KennyTree.renderTree(tree, host, onRef) : false;
+  if (drawn) return;
+  host.innerHTML = '';
+  host.appendChild(legacyTrace());
+  host.appendChild(el(`<div class="muted" style="font-size:12px">Recorded before decision events existed${seq !== null && seq !== undefined ? ` (ledger seq ${esc(seq)})` : ''} — showing the engine trace.</div>`));
+}
+// --- end search-tree helpers -----------------------------------------------------
 
 // ============================================================================ //
 // 5. AI-involvement panel (I3)

@@ -136,6 +136,13 @@ class Rule:
     status: str = "proposed"
     approver: str = ""
 
+    # search-tree (L2): a rule may DECLARE where each operand of its expression comes
+    # from — [{name, kind: multiplier|definition|fact, source: clause|roster|question,
+    # query, citation?: {doc_id, page, bbox, clause}, field?}]. Deliberately NOT a
+    # dataclass field: dataclasses.asdict() feeds provenance.rule_fingerprint, and a
+    # declared input must not change the fingerprint a human approved the rule under.
+    # Read with `rule_inputs(rule)`; set by from_dict; absent on a bare Rule(...).
+
     @classmethod
     def from_dict(cls, d: dict) -> "Rule":
         kind = d.get("kind")
@@ -153,7 +160,7 @@ class Rule:
         role = d.get("role") or ("base" if kind == "selector" else "differential")
         if role not in ROLES:
             raise RuleError(f"rule {d.get('id')!r}: role must be one of {ROLES}")
-        return cls(
+        rule = cls(
             id=d["id"],
             kind=kind,
             result_type=rt,
@@ -171,6 +178,50 @@ class Rule:
             status=d.get("status", "proposed"),
             approver=d.get("approver", ""),
         )
+        rule.inputs = parse_inputs(d.get("inputs"), d.get("id"))   # L2 (not a field)
+        return rule
+
+
+INPUT_KINDS = ("multiplier", "definition", "fact")
+INPUT_SOURCES = ("clause", "roster", "question")
+
+
+def parse_inputs(raw, rule_id=None) -> list[dict]:
+    """Validate and normalise a rule's declared `inputs` (L2). Optional: None/[] load
+    as no inputs. Malformed entries raise RuleError, so validate_rules reports them and
+    load_rules refuses them — a declaration that cannot be shown is worse than none."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise RuleError(f"rule {rule_id!r}: inputs must be a list")
+    out: list[dict] = []
+    for i, it in enumerate(raw):
+        if not isinstance(it, dict) or not it.get("name"):
+            raise RuleError(f"rule {rule_id!r}: inputs[{i}] must be an object with a name")
+        kind = it.get("kind") or "fact"
+        src = it.get("source") or "clause"
+        if kind not in INPUT_KINDS:
+            raise RuleError(f"rule {rule_id!r}: inputs[{i}].kind must be one of {INPUT_KINDS}")
+        if src not in INPUT_SOURCES:
+            raise RuleError(f"rule {rule_id!r}: inputs[{i}].source must be one of {INPUT_SOURCES}")
+        cit = it.get("citation") or {}
+        if src == "clause":
+            if not cit.get("doc_id") or not cit.get("page"):
+                raise RuleError(f"rule {rule_id!r}: inputs[{i}] (clause) needs citation.doc_id and page")
+            if not it.get("query"):
+                raise RuleError(f"rule {rule_id!r}: inputs[{i}] (clause) needs a search query")
+        entry = {"name": str(it["name"]), "kind": kind, "source": src,
+                 "query": str(it.get("query") or ""),
+                 "citation": {"doc_id": cit.get("doc_id", ""), "page": int(cit.get("page") or 0),
+                              "bbox": list(cit.get("bbox") or []), "clause": cit.get("clause", "")}
+                 if cit else {},
+                 "field": str(it.get("field") or "")}
+        out.append(entry)
+    return out
+
+
+def rule_inputs(rule) -> list[dict]:
+    return list(getattr(rule, "inputs", None) or [])
 
 
 def _make_evaluator(facts: dict[str, Any]):
@@ -290,6 +341,10 @@ def validate_rules(rules: list[dict], known_facts: set[str]) -> dict[str, list[s
                             f"in {e!r}")
         if not r.get("citation", {}).get("clause"):
             errs.append("missing citation clause (every rule must cite its source)")
+        try:
+            parse_inputs(r.get("inputs"), rid)                       # L2: optional, but sound
+        except RuleError as e:
+            errs.append(str(e))
         # Nothing load_rules() cannot load may be approved. The static checks above do
         # not cover everything from_dict refuses (role 'zzz', priority 'high', a flag
         # with the wrong shape); such a rule used to pass validation, get written, and
