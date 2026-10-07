@@ -33,7 +33,12 @@ def client(tmp_path, monkeypatch):
     src = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                        "cases", "santacruz")
     case = tmp_path / "santacruz"
-    shutil.copytree(src, case)
+    # Local (gitignored) snapshots/ledger must not leak into the copy: the
+    # assertions below count snapshot files.
+    shutil.copytree(src, case, ignore=shutil.ignore_patterns("*.json.bak", "ledger.jsonl"))
+    for f in os.listdir(case / "snapshots") if (case / "snapshots").exists() else []:
+        if f.endswith(".json"):
+            os.remove(case / "snapshots" / f)
     monkeypatch.setattr(core_app, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient

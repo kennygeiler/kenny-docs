@@ -247,6 +247,7 @@ def test_backfill_script_is_idempotent_and_minimal(case_copy):
     import backfill_quote_sha
     path = os.path.join(case_copy, "rules", "rules_ratified.json")
     before = json.load(open(path))
+    baks_before = {f for f in os.listdir(os.path.dirname(path)) if f.endswith(".bak")}
     n1 = backfill_quote_sha.run(case_copy)
     assert n1 == 4
     after = json.load(open(path))
@@ -258,4 +259,5 @@ def test_backfill_script_is_idempotent_and_minimal(case_copy):
     bytes1 = open(path, "rb").read()
     assert backfill_quote_sha.run(case_copy) == 0
     assert open(path, "rb").read() == bytes1                 # second run is a no-op
-    assert not [f for f in os.listdir(os.path.dirname(path)) if f.endswith(".bak")]
+    # no NEW backup file (the laptop's own gitignored .bak files may be copied in)
+    assert {f for f in os.listdir(os.path.dirname(path)) if f.endswith(".bak")} == baks_before
