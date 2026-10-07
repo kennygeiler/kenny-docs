@@ -1,0 +1,36 @@
+{
+  "_comment": "DEMO_TICKETS.md I15: a seeded, deliberately WRONG but plausible draft for showing the known-answer gate live, with no model call. It is well-formed, cites the real p.8 Overtime Rate clause, and says double time (2x) where the clause says one and one half (1.5x). Loaded into the review queue by POST /admin/demo_draft/load (idempotent, merged by id); approving it must be refused because the $640.80 known answer would come to $854.40. It is never written to rules_ratified.json by anything in this repo.",
+  "rules": [
+    {
+      "id": "firefighters_local3535_mou:overtime_double_time_draft",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "currency",
+      "pay_basis": "hourly",
+      "topic": "overtime",
+      "priority": 5,
+      "when": "hours > 0",
+      "compute": "effective_base * 2 * hours",
+      "human_readable": "DEMO DRAFT, deliberately wrong: overtime at double time (2x) the employee's regular rate of pay (Local 3535 MOU, Overtime Rate, p.8). The clause says one and one half (1.5). Approving this must be refused by the known-answer check.",
+      "assumptions": [
+        "Hours are premium-overtime hours beyond the 182-hour threshold of the 24-day FLSA work period (MOU p.8 s.3)"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "Overtime Rate (p.8)",
+        "page": 8,
+        "bbox": [
+          141.418,
+          505.662,
+          511.182,
+          441.459
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "97bd147f7e3aec58",
+        "quote": "Employees shall  be entitled to premium overtime compensation at the rate of one and one  half (1,5) times the employee's 'regular rate of pay', as that term is defined under the  FLSA,  for all  the "
+      },
+      "_scenario": "8-hour overtime shift at base rate, hours beyond the 182-hour threshold, Firefighter/Paramedic top step (1.5x per Local 3535 MOU)",
+      "_demo": true
+    }
+  ]
+}
