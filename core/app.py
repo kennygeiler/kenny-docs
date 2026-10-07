@@ -336,7 +336,7 @@ def _revalidate_citations(case, cat, doc_ids: list[str], led) -> list[dict]:
 
 def _doc_meta(case, doc_id: str) -> dict:
     s = case.source_by_id(doc_id) or {}
-    return {"doc_id": doc_id, "title": s.get("title", doc_id),
+    return {"doc_id": doc_id, "title": _display_title(case, _catalog(case), doc_id),  # C4
             "department": s.get("department"), "doc_type": s.get("doc_type")}
 
 
@@ -1904,10 +1904,11 @@ def admin_coverage():
         did = entry["doc_id"]
         src = case.source_by_id(did) or {}
         docs.append({
-            # The document's own header wins over the name case.yaml files it under: the
-            # library should show what a user reading the contract would see on it.
+            # The declared name is what every surface calls the document (C4); the
+            # cover's own heading travels beside it as `extracted_title`.
             "doc_id": did,
-            "title": entry.get("title") or src.get("title", did),
+            "title": _display_title(case, cat, did),
+            "extracted_title": _cover_title(entry),
             "declared_title": src.get("title", ""),
             "department": src.get("department"), "doc_type": src.get("doc_type"),
             "bargaining_unit": src.get("bargaining_unit"),
@@ -2706,3 +2707,29 @@ def admin_cell_checks():
     return {"engine": data.get("engine"), "generated_at": data.get("generated_at"),
             "generated_by": data.get("generated_by"), "pages": pages,
             "showcase": _showcase(case)}
+
+
+# --------------------------------------------------------------------------- #
+# --- citations-polish --- (DEMO_TICKETS.md C4/C2/I12/C7: declared names, readable
+# highlights, armed source hashes)
+# --------------------------------------------------------------------------- #
+def _display_title(case, cat, doc_id: str) -> str:
+    """What every surface calls a document (C4): the name case.yaml declares, else
+    the catalog's own cover heading when it is a name and not a date line, else the
+    id. Uploads have no declaration, so their extracted heading is kept."""
+    src = case.source_by_id(doc_id) or {}
+    declared = str(src.get("title") or "").strip()
+    if declared:
+        return declared
+    entry = cat.get(doc_id) if cat is not None else None
+    extracted = str((entry or {}).get("title") or "").strip()
+    if extracted and not ingest._date_like(extracted):
+        return extracted
+    return doc_id
+
+
+def _cover_title(entry: dict | None) -> str:
+    """The heading the cover page itself carries, or "" when the catalog stored a
+    date line there (a pre-C4 bake) — a date is not something to show as a name."""
+    extracted = str((entry or {}).get("title") or "").strip()
+    return "" if not extracted or ingest._date_like(extracted) else extracted

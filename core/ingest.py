@@ -613,8 +613,10 @@ def extract_title(clauses: list[dict], pdf_path: str, fallback: str = "") -> str
 
     # Cover pages read: ISSUING BODY / DOCUMENT NAME / effective date. The org line is
     # first and is the same on every document in a corpus, so it cannot identify any of
-    # them — prefer the LAST line before the contract's first article.
-    header: list[str] = []
+    # them — prefer the LAST line before the contract's first article. The term line
+    # ("December 31, 2028", "January 1, 2024 Through December 31, 2026") comes last of
+    # all and is NOT a name: _clean_title rejects it (C4), so the heading above it wins.
+    header: list[tuple[str, str]] = []           # (label, text), page 1 only
     for c in clauses:
         if c.get("page", 1) != 1:
             break
@@ -625,10 +627,18 @@ def extract_title(clauses: list[dict], pdf_path: str, fallback: str = "") -> str
         # item; _clean_title cuts the body back off. Too tight a cap silently drops the
         # only line that names the document.
         if 4 < len(text) <= 400:
-            header.append(text)
+            header.append((str(c.get("label") or ""), text))
         if len(header) >= 4:
             break
-    for line in reversed(header):
+    # Lines the layout model called a heading first (a cover's typeset title), unless
+    # the heading only names the document TYPE ("Memorandum of Understanding"), which
+    # identifies nothing in a corpus of MOUs; then every cover line, last first.
+    for label, line in reversed(header):
+        if label in ("section_header", "title"):
+            cleaned = _clean_title(line)
+            if cleaned and not _GENERIC_TITLE_RE.match(cleaned):
+                return cleaned
+    for _label, line in reversed(header):
         cleaned = _clean_title(line)
         if cleaned:
             return cleaned
@@ -639,7 +649,7 @@ def extract_title(clauses: list[dict], pdf_path: str, fallback: str = "") -> str
         meta = (pdf.get_metadata_dict() or {}).get("Title", "")
         pdf.close()
         # Producers leave junk here: the source filename, "Microsoft Word - foo.doc",
-        # or an empty string. Only trust it if it reads like a name.
+        # "untitled", or an empty string. Only trust it if it reads like a name.
         meta = " ".join((meta or "").split())
         if meta and len(meta) > 4 and not meta.lower().endswith((".pdf", ".doc", ".docx")):
             cleaned = _clean_title(meta)
@@ -662,12 +672,61 @@ _TITLE_TAIL_RE = re.compile(
 _TITLE_BODY_RE = re.compile(r"\s+\b(article|appendix|section|preamble|witnesseth)\b.*$", re.I)
 
 
+# A cover's term line is a DATE, not a name (DEMO_TICKETS.md C4): "December 31, 2028",
+# "DECEMBER 31, 2028", "January 1, 2024 Through December 31, 2026", "2026", "12/31/2028",
+# and the producer placeholder "untitled". Four of the five shipped documents were
+# titled with exactly these lines, because the term is the last thing on the cover.
+_MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?"
+_YEAR = r"(?:19|20)\d{2}"   # a plausible year — "Local 3535" is a union, not a date
+_DATE = (rf"(?:{_MONTH}\s+\d{{1,2}}\s*,?\s+{_YEAR}"       # December 31, 2028
+         rf"|\d{{1,2}}\s+{_MONTH}\s*,?\s+{_YEAR}"         # 31 December 2028
+         rf"|{_MONTH}\s+{_YEAR}"                         # December 2028
+         rf"|\d{{1,2}}[/.-]\d{{1,2}}[/.-]\d{{2,4}}"      # 12/31/2028
+         rf"|{_YEAR}-\d{{2}}-\d{{2}}"                     # 2028-12-31
+         rf"|{_YEAR})")                                  # 2028  ("FY26" names a schedule)
+_JOIN = r"(?:through|thru|to|until|and|-|–|—|,)"
+_LEAD = r"(?:effective|from|dated|as of|beginning|ending|through|thru|to|-|–|—|,|:)"
+_DATE_LIKE_RE = re.compile(
+    rf"^\s*(?:{_LEAD}\s*)*{_DATE}(?:\s*{_JOIN}\s*(?:{_DATE})?)*\s*[.,;:]?\s*$", re.I)
+_DATE_TAIL_RE = re.compile(
+    rf"\s*[-–—·|,:(]?\s*(?:{_LEAD}\s+)?{_DATE}(?:\s*{_JOIN}\s*(?:{_DATE})?)*\s*[.,;:)]?\s*$",
+    re.I)
+_DANGLING_TAIL_RE = re.compile(
+    r"\s*[-–—·|,:]?\s*\b(?:through|thru|effective|from|dated|as of|beginning|ending|to)\s*$",
+    re.I)
+_GENERIC_TITLE_RE = re.compile(
+    r"^(?:memorandum\s+of\s+understanding|memorandum\s+of\s+agreement|agreement|"
+    r"contract|policy|resolution|side\s+letter|salary\s+schedule)\s*$", re.I)
+
+
+def _date_like(text: str) -> bool:
+    """Is this line a date, a date range, a bare number, or a producer placeholder —
+    anything that cannot NAME a document?"""
+    t = " ".join((text or "").split())
+    if not t:
+        return False
+    if t.lower().strip(" .") in ("untitled", "none", "null", "document", "pdf"):
+        return True
+    if re.fullmatch(r"[\d\s./,:-]+", t):
+        return True
+    return bool(_DATE_LIKE_RE.match(t))
+
+
 def _clean_title(text: str) -> str:
-    """Normalise one header line into a document name."""
+    """Normalise one header line into a document name; "" when the line is a date
+    (or ends up as nothing once its date tail is trimmed)."""
     text = " ".join((text or "").split())
     text = _TITLE_BODY_RE.sub("", text)
     text = _TITLE_TAIL_RE.sub("", text).strip(" -–—·|,;:")
-    if len(text) <= 4:
+    # "… Local 3535 December 20, 2025 Through" -> "… Local 3535": trim a trailing date,
+    # range, or the dangling connective a cover leaves when its term wraps lines.
+    while True:
+        trimmed = _DANGLING_TAIL_RE.sub("", text)
+        trimmed = _DATE_TAIL_RE.sub("", trimmed).strip(" -–—·|,;:(")
+        if trimmed == text:
+            break
+        text = trimmed
+    if len(text) <= 4 or _date_like(text):
         return ""
     return text[:160]
 
