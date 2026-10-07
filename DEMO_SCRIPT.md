@@ -66,3 +66,26 @@ Tabs open, in order: `/` · `/admin` (Documents) · `/admin#lib` · `/admin#audi
 Do **not**: click "Re-read all documents" (minutes, multi-GB) · upload a PDF.
 Optional phone: same wifi, `http://<laptop-ip>:8000`, the $640.80 is a 44 px button at 375 px.
 Do not run `scripts/backfill_quote_sha.py` (edits the tracked rule file; correctness doesn't need it).
+
+## 5. Deep dive, model ON (12–15 min) — every main feature, in order
+
+Start with the key present and the model on (`KENNY_LLM` unset or `on`; badge reads **LLM: Claude**). Each question costs a few Opus calls (cents). Two things never to click with the model on: **Draft the rules for this scenario** (unbounded, 40+ calls, freezes the server) and **Re-read all documents** (minutes).
+
+| # | Min | Where | Do | Say / see |
+|---|---|---|---|---|
+| 1 | 0:00 | Admin → Documents | Point at the five cards: four MOUs badged **OCR'd scan** (Tesseract layer detected from the PDF objects, not trusted), one born-digital schedule. Open **X-ray** on the Firefighters MOU, page 8. | "Every clause the parser found, boxed on the page. Filter chips: text, table row, recovered layout, low confidence." |
+| 2 | 1:30 | Documents → **Showcase: p.22** (Compare) | Page image left, extraction right; amber cells. | "OCR read 10.15 as `0) £5`. Two independent checks caught it: column arithmetic (hours × 26 = annual) and a second OCR engine on the pixels. Nothing auto-corrects; a human confirms." |
+| 3 | 3:00 | Chat | `What does the Firefighters Local 3535 MOU say about overtime?` | Model composes the answer **only from the retrieved clauses**, each a chip → boxed page. Open **AI involvement**: which steps used the model (route, compose) and which did not. "It quotes; it never computes." |
+| 4 | 4:00 | Chat | `What is the top-step hourly rate for a Fire Captain (56 hr)?` | A published figure, read out of the schedule row, labelled "read, not computed". |
+| 5 | 4:45 | Chat | `Cost an 8-hour overtime shift for a Firefighter/Paramedic (56 hr, top step) with 12 years of service` | **$656.82**. "Read as" line shows what was parsed. Click the amount → drawer: `$53.40/hr × 1.025 × 1.5 × 8 h = $656.82`, each factor clickable (schedule cell, p.8 clause, p.12 longevity). Below: **search tree** — documents 5 → 1 with the four rejected contracts and why, clauses searched → cited, who decided each fork (fixed logic / AI / human-approved rule). Press **Replay** → "matches (6 checks)". |
+| 6 | 7:00 | Chat | Same question, `regular` instead of `overtime` | **Refused**: "No approved regular rule … approved for this unit: overtime", nearest clause shown. "One word off-script and it stops, with a reason." |
+| 7 | 7:30 | Chat | `Cost an 8-hour overtime shift for a Firefighter/Paramedic (56 hr, top step) and a Fire Marshal (top step)` | Firefighter $640.80 under Local 3535; Fire Marshal row **Not covered — Management MOU has no approved rule**. "Each person under their own contract; no contract contaminates another." |
+| 8 | 8:15 | Chat | `What is the heat pump rebate for a 3 ton system?` | **Out of scope**: "not covered by the 5 documents I have". Relevance floor, not a guess. |
+| 9 | 8:45 | Chat | `How much bereavement leave does a firefighter get? And a Division Chief?` (ask as two questions if it clarifies) | 3 shifts (Local 3535 Art. XIV p.21) vs 40 hours (Chief Officers p.14) — same question, two contracts, two units. |
+| 10 | 9:45 | Admin → Verification | 22 known answers: 8 reproduced, 14 **pending** (their rules are queued). | "A rule cannot go live unless a known answer proves it." |
+| 11 | 10:15 | Admin → Review queue | Select the **vacation 6–10** tier, type your name, **Approve** → refused: "cited cell p.22 row 2 reads `0) £5`; second engine read `10.15` (disputed)". Documents → Showcase p.22 → **Confirm 10.15** with your name → back, **Approve** → ratified. | "The gate blocked a rule that cites a number the OCR got wrong, until a person looked at the page. That approval is on the ledger with my name, the clause and the known answer it reproduced." Then chat: `How many vacation hours does a firefighter with 7 years accrue per pay period?` → **10.15** from the rule you just approved. |
+| 12 | 12:15 | Admin → Rule library | **Try to break it** on the longevity rule: 7 of 9 mutants caught (1.5→1.6, threshold 10→11/9), the two survivors named. Then **Skeptic** on the overtime rule: 5 warnings — the 182-hour/24-day condition and the wider "regular rate" the rule ignores. | "The skeptic reads and challenges with tools; it cannot change a number. This review was produced in a Claude Code session and stored with provenance; the validator re-checks every quote." |
+| 13 | 13:30 | Admin → Audit | Head hash, chain intact, signed/unsigned badge. **Tamper demo**: flip one field in a copy → the failing sequence number. | "Audit-ready means replayable from the record, not readable in a log." |
+| 14 | 14:15 | Linear project page + one PR | Milestones 100%, the board, PR #14 (search tree). | "Audit → tickets → nine agents in worktrees → merged behind 659 tests, twice today." |
+
+If he types his own question: it either computes from an approved rule, quotes with a chip, or refuses with a reason — all three are the point. If it asks a clarifying question (hours, classification, which document), answer it; that is the confidence gate working.
