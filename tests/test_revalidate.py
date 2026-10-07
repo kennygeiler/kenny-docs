@@ -129,10 +129,13 @@ def test_missing_passage_goes_stale(case_copy):
             if e["type"] == "authoring.stale"] == [OT_RULE]
     assert len(case.rules()) == N_LIVE - 1
     res = TestClient(core_app.app).post("/chat", json={"prompt": GOLDEN}).json()
-    assert res["mode"] == "blocked", res
-    # With the overtime rule stale the doc is either empty ("re-verification") or, since
-    # data-goldens added longevity_10yr, left with a modifier only ("don't cover").
-    assert "re-verification" in res["message"] or "cover" in res["message"], res["message"]
+    # No number may come back. With the overtime rule stale the unit is either blocked
+    # (no live rules: "re-verification") or, since data-goldens added longevity_10yr and
+    # costing-correctness refuses unapproved pay types, refused with the reason.
+    assert res["mode"] in ("blocked", "refused"), res
+    assert "result" not in res or not (res["result"] or {}).get("total")
+    msg = res.get("message", "") + res.get("reason", "")
+    assert "re-verification" in msg or "cover" in msg or "No approved" in msg, msg
 
 
 def test_jitter_is_not_stale(case_copy):

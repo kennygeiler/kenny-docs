@@ -492,7 +492,11 @@ def _normalize_intent(out: dict, subjects: list[dict], prompt: str = "") -> dict
         except (TypeError, ValueError):
             y = 0.0
             out["years_of_service"] = 0.0
-        if y and y not in stated:
+        # Years are checked against the year-cued numbers in the question (the B4 hour
+        # candidates above deliberately exclude them).
+        stated_years = {float(n) for n in re.findall(
+            r"(\d+(?:\.\d+)?)\s*-?\s*(?:year|yr)s?\b", prompt.lower())}
+        if y and y not in stated_years:
             unverified["years_of_service"] = y
             out["years_of_service"] = 0.0
         if unverified:
