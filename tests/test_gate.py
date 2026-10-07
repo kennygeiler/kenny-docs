@@ -21,6 +21,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "cases", "santacruz")
 FF = "firefighters_local3535_mou"
 FF_OT = f"{FF}:overtime_premium_rate"
+FF_LONG = f"{FF}:longevity_10yr"
+# live rules shipped in the case (data-goldens added longevity_10yr as the fifth)
+N_LIVE = len(json.load(open(os.path.join(SRC, "rules", "rules_ratified.json")))["rules"])
+GOLDEN_640 = ("8-hour overtime shift at base rate, hours beyond the 182-hour threshold, "
+              "Firefighter/Paramedic top step (1.5x per Local 3535 MOU)")
+GOLDEN_656 = ("8-hour overtime shift, 12-year Firefighter/Paramedic top step "
+              "(longevity 2.5% into the 1.5x rate)")
 FF_CIT = {"doc_id": FF, "clause": "Overtime Rate (p.8)", "page": 8,
           "bbox": [141.418, 505.662, 511.182, 441.459]}
 MGMT_CIT = {"doc_id": "management_mou", "clause": "Flex time (p.6)", "page": 6,
@@ -85,7 +92,7 @@ def test_gate_sees_role_and_pay_basis(env):
     _set_library(case, lib)
     assert _total(c, Q8) == ("costing", 640.8)
     v = c.get("/admin/verification").json()
-    g = next(g for g in v["goldens"] if g["name"].startswith("8-hour overtime shift, Firefighter"))
+    g = next(g for g in v["goldens"] if g["name"] == GOLDEN_640)
     assert (g["status"], g["actual"]) == ("pass", 640.8)
     # a bogus HOURLY premium is the thing the gate must now see and refuse
     _propose(case, [_rule(f"{FF}:tk_bogus_25", FF_CIT, role="premium", when="True",
@@ -103,7 +110,10 @@ def test_gate_total_equals_chat_total_for_currency_known_answers(env):
         if g.get("result_type", "currency") != "currency":
             continue
         subj = g["subjects"][0]
-        mode, total = _total(c, f"Cost an {int(g['params']['hours'])}-hour overtime shift for a {subj}.")
+        q = f"Cost an {int(g['params']['hours'])}-hour overtime shift for a {subj}"
+        if g["params"].get("years_of_service"):      # J1a: tenure comes from the question
+            q += f" with {int(g['params']['years_of_service'])} years of service"
+        mode, total = _total(c, q + ".")
         actual = next(x["actual"] for x in v["goldens"] if x["name"] == g["name"])
         assert (mode, total) == ("costing", actual), g["name"]
 
@@ -145,7 +155,7 @@ def test_rule_no_known_answer_exercises_is_refused(env):
     res = c.post("/admin/ratify", json={"rule_ids": ["management_mou:tk_99x"]}).json()
     assert res["ratified"] == [] and res["uncovered"] == ["management_mou:tk_99x"]
     assert "no known answer exercises" in res["warning"]
-    assert len(_library(case)) == 4
+    assert len(_library(case)) == N_LIVE
     assert _total(c, "Cost an 8-hour overtime shift for a Fire Marshal (top step).")[0] == "blocked"
 
 
@@ -179,13 +189,18 @@ def test_untagged_wrong_rule_into_empty_library_is_refused(env):
 
 def test_correct_rule_into_empty_library_is_approved(env):
     c, case = env
+    # The 12-year known answer (656.82) fires the overtime rule too, so the overtime
+    # rule alone fails that answer; it must come in with the shipped longevity rule.
+    longevity = next(r for r in _library(case) if r["id"] == FF_LONG)
     _set_library(case, [])
-    _propose(case, [_rule(FF_OT, FF_CIT)])
+    _propose(case, [_rule(FF_OT, FF_CIT),
+                    {k: v for k, v in longevity.items()
+                     if k not in ("status", "approver", "approved_at")}])
     res = c.post("/admin/ratify", json={"approver": "tester"}).json()
-    assert res["ratified"] == [FF_OT] and res["library_size"] == 1
-    assert res["proved_by"][FF_OT] == [
-        "8-hour overtime shift, Firefighter/Paramedic top step (1.5x per Local 3535 MOU)"]
-    ev = [e for e in _ledger(case) if e["type"] == "authoring.ratify"][-1]
+    assert res["ratified"] == [FF_OT, FF_LONG] and res["library_size"] == 2
+    assert res["proved_by"][FF_OT] == [GOLDEN_640, GOLDEN_656]
+    ev = [e for e in _ledger(case) if e["type"] == "authoring.ratify"
+          and e["payload"]["rule_id"] == FF_OT][-1]
     assert ev["payload"]["proved_by"] == res["proved_by"][FF_OT]
     assert _total(c, Q8) == ("costing", 640.8)
 
@@ -196,7 +211,7 @@ def test_approving_the_shipped_rules_again_keeps_the_response_shape(env):
                     for r in _library(case)])
     res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert sorted(res["ratified"]) == sorted(r["id"] for r in _library(case))
-    assert res["library_size"] == 4 and set(res["proved_by"]) == set(res["ratified"])
+    assert res["library_size"] == N_LIVE and set(res["proved_by"]) == set(res["ratified"])
 
 
 def test_verification_lists_a_live_rule_that_never_fires(env):
@@ -300,8 +315,10 @@ def test_mutation_report_over_the_live_library(env):
     c, case = env
     n_before = len(_ledger(case))
     res = c.get("/admin/mutation_report").json()
-    assert (res["total"], res["caught"]) == (20, 14)
-    assert {s["rule_id"] for s in res["survivors"]} == {FF_OT, "admin_group_mou:overtime_premium_rate"}
+    # 7 mutants per currency rule, 3 per selector, 9 for the longevity modifier
+    assert (res["total"], res["caught"]) == (29, 19)
+    assert {s["rule_id"] for s in res["survivors"]} == {FF_OT, FF_LONG,
+                                                        "admin_group_mou:overtime_premium_rate"}
     assert len(_ledger(case)) == n_before
 
 

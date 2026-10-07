@@ -36,3 +36,23 @@ def _hermetic(monkeypatch):
     if hasattr(anthropic, "AsyncAnthropic"):
         monkeypatch.setattr(anthropic.AsyncAnthropic, "__init__", _refuse_real_client)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _fresh_chat_rate_window():
+    """The per-IP chat limiter (core/auth.py, 20 POST /chat per minute per process) is
+    shared by every TestClient built on the module-level core.app.app. Several wave-1
+    files post more than that between them, so each test starts with an empty window;
+    test_auth builds its own app instances and still sees the real 429s."""
+    try:
+        from core import app as core_app
+    except Exception:  # pragma: no cover
+        yield
+        return
+    layer = getattr(core_app.app, "middleware_stack", None)
+    while layer is not None:
+        lim = getattr(layer, "limiter", None)
+        if lim is not None and hasattr(lim, "_hits"):
+            lim._hits.clear()
+        layer = getattr(layer, "app", None)
+    yield
