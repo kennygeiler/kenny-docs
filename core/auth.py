@@ -89,6 +89,12 @@ def _origin_ok(request) -> bool:
     return origin_host.lower() == host.lower()
 
 
+# Paths served without a credential. /healthz is the platform's liveness probe; the
+# legal pages must be fetchable by Twilio/TCR reviewers during A2P 10DLC campaign
+# registration, which happens with no login. Nothing here reads case data.
+_PUBLIC = {"/healthz", "/privacy", "/terms"}
+
+
 class RateLimiter:
     """Fixed-window per-IP counter. Cheap, in-process, and enough for a shared demo.
 
@@ -194,7 +200,7 @@ class AccessMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next):
         path = request.url.path
-        if path == "/healthz":  # the platform's probe has no credentials
+        if path in _PUBLIC:
             return await call_next(request)
 
         ip = _client_ip(request)

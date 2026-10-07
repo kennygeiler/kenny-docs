@@ -510,6 +510,20 @@ def chat_page():
     return FileResponse(os.path.join(TEMPLATES, "chat.html"), headers=_NOCACHE)
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_page():
+    """Public — unauthenticated by design (see core/auth.py _PUBLIC). Carrier and
+    platform reviewers (Twilio/TCR A2P 10DLC) must be able to fetch the policy
+    without a credential, or campaign registration is rejected."""
+    return FileResponse(os.path.join(TEMPLATES, "privacy.html"), headers=_NOCACHE)
+
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms_page():
+    """Public — see privacy_page()."""
+    return FileResponse(os.path.join(TEMPLATES, "terms.html"), headers=_NOCACHE)
+
+
 @app.get("/admin", response_class=HTMLResponse)
 def admin_page():
     return FileResponse(os.path.join(TEMPLATES, "admin.html"), headers=_NOCACHE)
