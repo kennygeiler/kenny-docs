@@ -67,7 +67,7 @@ def test_golden_decision_sequence(client):
     audit_ = _events(client, res["query_id"])
     events = audit_["events"]
     forks = [d["fork"] for d in _decisions(events)]
-    assert forks == ["intent", "subject", "governance", "rule_filter", "rule_select"]
+    assert forks == ["intent", "subject", "governance", "rule_filter", "rule_select"] + ["input"] * 4
     by_fork = {d["fork"]: d for d in _decisions(events)}
     gov = by_fork["governance"]
     assert [c["id"] for c in gov["chosen"]] == ["firefighters_local3535_mou"]
@@ -84,8 +84,9 @@ def test_golden_decision_sequence(client):
     assert [c["id"] for c in sel["chosen"]] == [FF_RULE]
     assert sel["rejected"][0]["id"] == "firefighters_local3535_mou:longevity_10yr"
     assert "years_of_service >= 10" in sel["rejected"][0]["reason"]
-    # every fork says who decided; keyless, that is fixed logic except the ratified rule
-    assert {d["decided_by"] for d in _decisions(events)} == {"fixed-logic", "human-rule"}
+    # every fork says who decided; keyless, that is fixed logic, except the ratified rule
+    # (human-rule) and the hours the visitor stated (user) — never 'ai'
+    assert {d["decided_by"] for d in _decisions(events)} == {"fixed-logic", "human-rule", "user"}
     # the pre-existing event types are still there, in order, and no model call was added
     types = [e["type"] for e in events]
     expected = ["chat.prompt", "intent.classify", "llm.parse_intent", "data.read",
@@ -180,7 +181,9 @@ def test_tree_counts_and_shape(client):
     tree = _events(client, res["query_id"])["tree"]
     assert tree["legacy"] is False
     assert tree["counts"]["documents"] == {"corpus": 5, "candidates": 5, "chosen": 1}
-    assert tree["counts"]["clauses"] == {"searched": 0, "hits": 0, "cited": 1}
+    # the costing path searches no clauses itself; the 10 are the two declared clause
+    # inputs re-found by search (L2), five hits each
+    assert tree["counts"]["clauses"] == {"searched": 10, "hits": 10, "cited": 1}
     forks = [n["fork"] for n in tree["nodes"]]
     assert forks == ["prompt", "intent", "subject", "governance", "rule_filter", "rule_select", "answer"]
     gov = tree["nodes"][3]
@@ -326,6 +329,126 @@ def test_rate_cells_match_the_pdf():
         assert src["context_bbox"][0] < l            # the row band starts at the title
     pdf.close()
     assert unbound == [], unbound
+
+
+# --------------------------------------------------------------------------- #
+# L2 — rules declare their inputs; each input is a sub-search node under the rule
+# --------------------------------------------------------------------------- #
+def _input_decisions(client, qid, rule_id):
+    return [d for d in _decisions(_events(client, qid)["events"])
+            if d["fork"] == "input" and d["detail"]["rule_id"] == rule_id]
+
+
+def test_inputs_become_nodes(client):
+    res = client.post("/chat", json={"prompt": Q_640}).json()
+    ins = _input_decisions(client, res["query_id"], FF_RULE)
+    assert [d["detail"]["name"] for d in ins] == ["multiplier", "regular_rate_definition",
+                                                   "base_hourly", "hours"]
+    mult, defn, base, hours = ins
+    assert mult["decided_by"] == "human-rule" and mult["chosen"][0]["ref"]["page"] == 8
+    assert "declared by approver kenny" in mult["chosen"][0]["detail"]
+    assert "rank #" in mult["chosen"][0]["detail"]
+    assert mult["counts"]["searched"] == 5 and len(mult["rejected"]) + 1 == 5
+    assert all("not the declared clause" in r["reason"] for r in mult["rejected"])
+    assert defn["chosen"][0]["ref"]["page"] == 8 and defn["chosen"][0]["ref"]["bbox"]
+    assert base["decided_by"] == "fixed-logic" and base["chosen"][0]["value"] == 53.4
+    assert base["chosen"][0]["ref"]["doc_id"] == "master_salary_schedule"   # the cell
+    assert base["detail"]["pointer"]["page"] == 6                          # Appendix A pointer
+    assert hours["decided_by"] == "user" and hours["chosen"][0]["value"] == 8.0
+    # the tree nests them under the rule node, after the rule's own children
+    tree = _events(client, res["query_id"])["tree"]
+    rule = next(n for n in tree["nodes"] if n["fork"] == "rule_select")
+    names = [c["label"] for c in rule["children"] if c["fork"] == "input"]
+    assert names == ["Input — multiplier (clause)", "Input — regular_rate_definition (clause)",
+                     "Input — base_hourly (roster)", "Input — hours (question)"]
+    assert tree["counts"]["clauses"]["searched"] == 10
+    assert res["result"]["total"] == 640.80
+
+
+def test_longevity_inputs(client):
+    res = client.post("/chat", json={"prompt": Q_656}).json()
+    lon = _input_decisions(client, res["query_id"], "firefighters_local3535_mou:longevity_10yr")
+    assert [d["detail"]["name"] for d in lon] == ["longevity", "years_of_service"]
+    assert lon[0]["chosen"][0]["ref"]["page"] == 12
+    assert "rank #1" in lon[0]["chosen"][0]["detail"]
+    assert lon[1]["chosen"][0]["value"] == 12.0 and lon[1]["decided_by"] == "user"
+    assert res["result"]["total"] == 656.82
+
+
+def test_not_found_declaration_is_flagged(client, case_dir):
+    """A declared clause the search cannot find in its top 5 is shown with a flag,
+    never dropped and never promoted."""
+    path = os.path.join(case_dir, "rules", "rules_ratified.json")
+    with open(path) as f:
+        data = json.load(f)
+    for r in data["rules"]:
+        if r["id"] == FF_RULE:
+            r["inputs"][0]["citation"]["page"] = 33       # the Term clause, not overtime
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    res = client.post("/chat", json={"prompt": Q_640}).json()
+    mult = _input_decisions(client, res["query_id"], FF_RULE)[0]
+    assert mult["detail"]["flag"] == "declared citation not found by search"
+    assert "not found by search" in mult["chosen"][0]["detail"]
+    assert len(mult["rejected"]) == 5
+    tree = _events(client, res["query_id"])["tree"]
+    rule = next(n for n in tree["nodes"] if n["fork"] == "rule_select")
+    assert any("⚠ declared citation not found" in c["label"] for c in rule["children"])
+
+
+def test_rule_inputs_validate_and_load():
+    from core.ruledsl import RuleError, load_rules, parse_inputs, rule_inputs, validate_rules
+    base = {"id": "r", "kind": "selector", "when": "True", "compute": "hours",
+            "citation": {"doc_id": "d", "clause": "c", "page": 1}}
+    assert validate_rules([base], {"hours"}) == {}                      # no inputs: fine
+    bad = {**base, "inputs": [{"name": "m", "source": "clause", "query": "x",
+                               "citation": {"doc_id": "d"}}]}           # clause needs a page
+    errs = validate_rules([bad], {"hours"})
+    assert "needs citation.doc_id and page" in " ".join(errs["r"])
+    with pytest.raises(RuleError):
+        parse_inputs([{"kind": "nope"}], "r")
+    with pytest.raises(RuleError):
+        Rule.from_dict({**base, "inputs": "multiplier"})
+    ok = Rule.from_dict({**base, "inputs": [{"name": "h", "source": "question"}]})
+    assert rule_inputs(ok) == [{"name": "h", "kind": "fact", "source": "question", "query": "",
+                                "citation": {}, "field": ""}]
+    assert rule_inputs(Rule.from_dict(base)) == []
+    live = load_rules(os.path.join(CASE_DIR, "rules", "rules_ratified.json"))
+    assert {r.id: len(rule_inputs(r)) for r in live} == {
+        "firefighters_local3535_mou:bereavement_shifts": 1,
+        "firefighters_local3535_mou:overtime_premium_rate": 4,
+        "firefighters_local3535_mou:longevity_10yr": 2,
+        "chief_officers_mou:bereavement_hours": 1,
+        "admin_group_mou:overtime_premium_rate": 3}
+
+
+def test_inputs_do_not_change_the_rule_fingerprint():
+    """The fingerprint a human approved under must survive a declared input."""
+    from core import provenance
+    d = {"id": "r", "kind": "selector", "when": "True", "compute": "hours",
+         "citation": {"doc_id": "d", "clause": "c", "page": 1}}
+    with_inputs = {**d, "inputs": [{"name": "h", "source": "question"}]}
+    assert provenance.rule_fingerprint(Rule.from_dict(d)) == \
+        provenance.rule_fingerprint(Rule.from_dict(with_inputs))
+
+
+def test_backfill_is_additive_and_idempotent(tmp_path):
+    """Strip `inputs` from the shipped file; the back-fill restores the shipped bytes
+    exactly — so nothing but `inputs` was touched — and a second run changes nothing."""
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import backfill_rule_inputs as bf
+    shipped = os.path.join(CASE_DIR, "rules", "rules_ratified.json")
+    with open(shipped) as f:
+        shipped_bytes = f.read()
+    data = json.loads(shipped_bytes)
+    for r in data["rules"]:
+        r.pop("inputs", None)
+    stripped = tmp_path / "rules_ratified.json"
+    stripped.write_text(json.dumps(data, indent=2))
+    assert bf.backfill(str(stripped)) is True
+    assert stripped.read_text() == shipped_bytes
+    assert bf.backfill(str(stripped)) is False
+    assert bf.backfill(shipped) is False                 # the shipped file is already filled
 
 
 def test_unsourced_rate_is_said_not_hidden():

@@ -344,8 +344,12 @@ def build_tree(events: list[dict], corpus_size: int | None = None) -> dict:
         nid = f"d{e.get('seq', i)}"
         title = FORK_LABELS.get(fork, fork)
         d = p.get("detail") if isinstance(p.get("detail"), dict) else None
-        if fork in ("rule_select", "input") and d and d.get("subject"):
+        if fork == "rule_select" and d and d.get("subject"):
             title += f" — {d['subject']}"
+        if fork == "input" and d and d.get("name"):
+            title += f" — {d['name']}" + (f" ({d['source']})" if d.get("source") else "")
+            if d.get("flag"):
+                title += f" ⚠ {d['flag']}"
         if fork == "clause_retrieval" and d and d.get("unit"):
             title += f" — {d['unit']}"
         node = _node(nid, fork, title, "fork", p.get("decided_by"), detail=p.get("detail"))
@@ -363,7 +367,7 @@ def build_tree(events: list[dict], corpus_size: int | None = None) -> dict:
             counts_docs["chosen"] += len(p.get("chosen") or [])
             if not corpus_size:
                 counts_docs["corpus"] = max(counts_docs["corpus"], counts_docs["candidates"])
-        if fork == "clause_retrieval" or fork == "input":
+        if fork == "clause_retrieval" or (fork == "input" and (p.get("counts") or {}).get("searched")):
             c = p.get("counts") or {}
             searched += c.get("searched") or c.get("considered") or 0
             hits += len(p.get("chosen") or []) + len(p.get("rejected") or [])

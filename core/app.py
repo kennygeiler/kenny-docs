@@ -26,7 +26,7 @@ from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
 from .pdfview import page_dims, render_page_with_bbox
 from .retriever import CatalogLLMRetriever
-from .ruledsl import SHIFT_BASES, Rule, RuleError, load_rules, validate_rules
+from .ruledsl import SHIFT_BASES, Rule, RuleError, load_rules, rule_inputs, validate_rules
 from . import costing  # costing-correctness (B1, B2, B4)
 from . import decisions, mathline  # search-tree (L1, L3, C1/I13)
 from starlette.concurrency import run_in_threadpool
@@ -1140,6 +1140,16 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
             ml = mathline.build(case, cat, subj, li, eng_params)
             if ml:
                 math_lines[li["subject"]] = ml
+    # search-tree (L2): every input a fired rule DECLARES becomes a sub-search node under
+    # that rule — a clause input is re-found by search and ranked, a roster or question
+    # input is a leaf with the value the engine used. At most a handful of searches.
+    _backend_ = _backend(case)
+    _rate_refs = {s: (m["operands"][0].get("source") or {}) for s, m in math_lines.items()
+                  if m["operands"] and m["operands"][0].get("role") == "rate"}
+    for o in ok:
+        for r in o["rules_used"]:
+            for inp in rule_inputs(r):
+                _input_decision(led, qid, _backend_, o, r, inp, subjects, eng_params, _rate_refs)
     for o in ok:
         for li in o["trace_items"]:
             for step in li.trace:
@@ -2782,6 +2792,73 @@ def admin_cell_checks():
 # --- search-tree --- (DEMO_TICKETS.md L1/L2/L3, C1/I13: decision events, the tree,
 #     the cited math line)
 # --------------------------------------------------------------------------- #
+def _input_decision(led, qid: str, backend, outcome: dict, rule, inp: dict,
+                    subjects: list[dict], eng_params: dict, rate_refs: dict) -> None:
+    """One `decision(input)` event for a declared rule input (L2).
+
+    clause   -> backend.search(query) inside the governing documents, k=5; chosen is the
+                DECLARED citation with 'declared by approver X; verified by search rank
+                #n of 5' (or a 'not found by search' flag, shown never hidden); the
+                other hits are rejected 'rank k, not the declared clause'. human-rule.
+    roster   -> one leaf per covered subject with the field's value (+ the schedule
+                cell ref when the math line bound it). fixed-logic.
+    question -> the parameter the question stated. user.
+    """
+    name, kind, src = inp["name"], inp["kind"], inp["source"]
+    cit = inp.get("citation") or {}
+    approver = getattr(rule, "approver", "") or "?"
+    detail = {"rule_id": rule.id, "name": name, "kind": kind, "source": src,
+              "unit": outcome["bargaining_unit"]}
+    if src == "clause":
+        hits = backend.search(inp["query"], doc_ids=outcome["doc_ids"], k=5) if inp.get("query") else []
+        rank = None
+        for i, h in enumerate(hits, 1):
+            if h.get("doc_id") == cit.get("doc_id") and h.get("page") == cit.get("page") \
+                    and rulematch.bbox_overlap(cit.get("bbox") or [], h.get("bbox") or []) >= rulematch.MIN_OVERLAP:
+                rank = i
+                break
+        verdict = (f"verified by search rank #{rank} of {len(hits)}" if rank
+                   else f"not found by search (top {len(hits)})")
+        chosen = [{"id": f"{rule.id}:{name}",
+                   "label": f"{name}: {cit.get('clause') or 'p.' + str(cit.get('page'))}",
+                   "ref": decisions.ref(cit.get("doc_id"), cit.get("page"), cit.get("bbox"),
+                                        cit.get("clause"), hits[rank - 1].get("text") if rank else None),
+                   "detail": f"declared by approver {approver}; {verdict}"}]
+        rejected = [{"id": f"{h.get('doc_id')}:{h.get('page')}:{i}", "label": decisions.hit_label(h),
+                     "ref": decisions.hit_ref(h), "value": h.get("score"),
+                     "reason": f"rank {i}, not the declared clause"}
+                    for i, h in enumerate(hits, 1) if i != rank]
+        if rank is None:
+            detail["flag"] = "declared citation not found by search"
+        decisions.record(led, qid, "input", chosen, rejected, decisions.HUMAN,
+                         counts={"searched": len(hits)}, detail={**detail, "query": inp.get("query")})
+        return
+    if src == "roster":
+        field = inp.get("field") or name
+        chosen = []
+        for s in subjects:
+            sname = str(s.get("name"))
+            if sname not in outcome["subjects"]:
+                continue
+            ref = None
+            rr = rate_refs.get(sname) if field == "base_hourly" else None
+            if rr and not rr.get("unsourced"):
+                ref = decisions.ref(rr.get("doc_id"), rr.get("page"), rr.get("context_bbox") or rr.get("bbox"),
+                                    f"{rr.get('row')} · {rr.get('column')}", rr.get("text"))
+            chosen.append({"id": f"roster:{field}:{sname}",
+                           "label": f"{field} = {s.get(field)} — roster row {sname}",
+                           "value": s.get(field), "ref": ref,
+                           "detail": "from the roster file"
+                                     + (", printed on the salary schedule" if ref else "")})
+        decisions.record(led, qid, "input", chosen, [], decisions.FIXED,
+                         detail={**detail, "pointer": cit or None})
+        return
+    val = eng_params.get(name)
+    decisions.record(led, qid, "input",
+                     [{"id": f"question:{name}", "label": f"{name} = {val} — stated in the question",
+                       "value": val}], [], decisions.USER, detail=detail)
+
+
 @app.get("/static/tree.js")
 def tree_js():
     """The search-tree renderer for the audit drawer (L3): pure treeHtml(tree) plus

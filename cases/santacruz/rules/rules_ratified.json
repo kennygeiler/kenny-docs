@@ -23,7 +23,26 @@
       "status": "ratified",
       "_scenario": "bereavement leave, Firefighters Local 3535 (Article XIV)",
       "approver": "kenny",
-      "approved_at": "2026-07-18T14:26:28Z"
+      "approved_at": "2026-07-18T14:26:28Z",
+      "inputs": [
+        {
+          "name": "entitlement",
+          "kind": "definition",
+          "source": "clause",
+          "query": "bereavement leave death immediate family",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 21,
+            "bbox": [
+              107.28,
+              189.498,
+              505.259,
+              167.118
+            ],
+            "clause": "XIV"
+          }
+        }
+      ]
     },
     {
       "id": "firefighters_local3535_mou:overtime_premium_rate",
@@ -52,7 +71,66 @@
       },
       "status": "ratified",
       "approver": "kenny",
-      "approved_at": "2026-07-18T14:26:28Z"
+      "approved_at": "2026-07-18T14:26:28Z",
+      "inputs": [
+        {
+          "name": "multiplier",
+          "kind": "multiplier",
+          "source": "clause",
+          "query": "premium overtime compensation at the rate of one and one half times regular rate of pay",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 8,
+            "bbox": [
+              141.418,
+              505.662,
+              511.182,
+              441.459
+            ],
+            "clause": "Overtime Rate (p.8)"
+          }
+        },
+        {
+          "name": "regular_rate_definition",
+          "kind": "definition",
+          "source": "clause",
+          "query": "regular rate of pay definition overtime",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 8,
+            "bbox": [
+              142.138,
+              655.867,
+              513.71,
+              552.405
+            ],
+            "clause": "Regular Rate of Pay (p.8)"
+          }
+        },
+        {
+          "name": "base_hourly",
+          "kind": "fact",
+          "source": "roster",
+          "field": "base_hourly",
+          "query": "salary schedule appendix A",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 6,
+            "bbox": [
+              110.88,
+              526.566,
+              510.48,
+              489.331
+            ],
+            "clause": "Salary Schedule set forth in Appendix A (p.6)"
+          }
+        },
+        {
+          "name": "hours",
+          "kind": "fact",
+          "source": "question"
+        }
+      ]
     },
     {
       "id": "firefighters_local3535_mou:longevity_10yr",
@@ -84,7 +162,31 @@
       "status": "ratified",
       "_scenario": "8-hour overtime shift, 12-year Firefighter/Paramedic top step (longevity 2.5% into the 1.5x rate)",
       "approver": "claude-agent:data-goldens (authored against the catalog p.12 text; not yet human-ratified)",
-      "approved_at": "2026-10-07T00:00:00Z"
+      "approved_at": "2026-10-07T00:00:00Z",
+      "inputs": [
+        {
+          "name": "longevity",
+          "kind": "multiplier",
+          "source": "clause",
+          "query": "longevity pay ten years of service",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 12,
+            "bbox": [
+              143.606,
+              263.49,
+              511.56,
+              212.751
+            ],
+            "clause": "Longevity Pay (p.12)"
+          }
+        },
+        {
+          "name": "years_of_service",
+          "kind": "fact",
+          "source": "question"
+        }
+      ]
     },
     {
       "id": "chief_officers_mou:bereavement_hours",
@@ -108,7 +210,26 @@
       },
       "status": "ratified",
       "approver": "kenny",
-      "approved_at": "2026-07-18T14:26:28Z"
+      "approved_at": "2026-07-18T14:26:28Z",
+      "inputs": [
+        {
+          "name": "entitlement",
+          "kind": "definition",
+          "source": "clause",
+          "query": "bereavement leave death immediate family",
+          "citation": {
+            "doc_id": "chief_officers_mou",
+            "page": 14,
+            "bbox": [
+              90.7,
+              575.8,
+              526.7,
+              552.8
+            ],
+            "clause": "Bereavement Leave (p.14)"
+          }
+        }
+      ]
     },
     {
       "id": "admin_group_mou:overtime_premium_rate",
@@ -137,7 +258,37 @@
       },
       "status": "ratified",
       "approver": "kenny",
-      "approved_at": "2026-07-18T14:26:28Z"
+      "approved_at": "2026-07-18T14:26:28Z",
+      "inputs": [
+        {
+          "name": "multiplier",
+          "kind": "multiplier",
+          "source": "clause",
+          "query": "one and one-half times regular rate of pay hours worked in excess",
+          "citation": {
+            "doc_id": "admin_group_mou",
+            "page": 6,
+            "bbox": [
+              104.4,
+              137.742,
+              509.597,
+              113.838
+            ],
+            "clause": "Overtime (p.6)"
+          }
+        },
+        {
+          "name": "base_hourly",
+          "kind": "fact",
+          "source": "roster",
+          "field": "base_hourly"
+        },
+        {
+          "name": "hours",
+          "kind": "fact",
+          "source": "question"
+        }
+      ]
     }
   ]
 }
