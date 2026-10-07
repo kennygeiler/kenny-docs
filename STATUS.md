@@ -35,8 +35,8 @@ land; the headings stay (tests/test_handoff_docs.py checks them).
 | Where | Commit | Date | Tree | How it got there |
 |---|---|---|---|---|
 | Laptop, demo | `demo-2026-10-07` (after the wave-2 merges; footer shows the hash) | 2026-10-07 | clean after each merge | `uvicorn core.app:app` from `~/holly` |
-| GitHub `main` | `3b326a6` | pushed 2026-08-14 | n/a | last push before the demo build; the demo branch is **not pushed** as of this writing |
-| Production (Railway) | `3b326a6` **plus an uncommitted diff** (`/privacy`, `/terms`, an auth allow-list) | built 2026-08-25 | dirty | `railway up` from the laptop; cannot be rebuilt from GitHub |
+| GitHub `main` | `3b326a6` | pushed 2026-08-14 | n/a | last push before the demo build; the demo branch is pushed; `main` still points at the August commit |
+| Production (Railway) | `2802ad9` on `demo-2026-10-07` (footer/`/api/case` show it) | deployed 2026-10-07 14:16 | clean | `railway up` from `~/holly`; model ON (`KENNY_LLM=on`, key set), `KENNY_CHAT_RATE_LIMIT=1000`; volume reseeded (August case archived at `/data/cases/santacruz.pre-reseed.*`, its ledger exported before) |
 
 Production, further facts (from the 2026-10-07 audit; this build did not contact it):
 variables set by name only — `ANTHROPIC_API_KEY` set, `KENNY_BANNER` unset,
