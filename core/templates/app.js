@@ -44,6 +44,7 @@ function fmtVal(n, type) {
 // renders nothing: no claim beats a wrong claim.
 const TIER_TITLES = {
   'text layer': "Read directly from the PDF's digital text layer with exact clause positions",
+  "OCR'd scan": "Scanned paper; the text was produced by OCR (Tesseract via OCRmyPDF) and can contain misread characters. Check the page image.",
   'recovered layout': 'The layout model misread this page; the text was recovered from raw span geometry',
   'page-level': 'Extracted as raw page text — citations open the page, not the exact clause',
   'sidecar extract': 'Loaded from a hash-bound sidecar extraction',

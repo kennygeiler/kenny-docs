@@ -12,9 +12,10 @@ viewer can see and trust. Build in numbered order; each ticket is self-contained
 > docling exposes) are DONE. The backlog is complete.
 > Known data limitation: the shipped santacruz catalog predates per-row table bboxes,
 > sha recording and per-page OCR confidence — a re-ingest with docling refreshes all
-> three; the X-ray merges shared-bbox rows into one box until then (and, being a
-> digital-text corpus, santacruz will correctly show no confidence markings even
-> after re-ingest).
+> three; the X-ray merges shared-bbox rows into one box until then. The four MOUs are
+> scans carrying an invisible OCRmyPDF/Tesseract text layer (D1 records this as
+> `text_origin: ocr-layer`); only the salary schedule is born-digital. docling trusts
+> the existing layer, so page_confidence stays empty on them even after re-ingest.
 
 Shared data facts (read before building):
 - `cases/<case>/catalog.json` — per doc: `parse_source` (`docling` | `sidecar` |

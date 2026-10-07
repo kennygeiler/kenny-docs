@@ -46,6 +46,86 @@ def _sidecar_path(pdf_path: str) -> str:
 # so "anything below EXCELLENT" is the honest line, not an arbitrary one.
 LOW_OCR_CONFIDENCE = 0.9
 
+# Producers that stamp an invisible OCR text layer onto a scanned page. A second
+# signal only: the page structure (below) is what decides, the producer is recorded
+# so a reader can see WHICH engine produced the text they are about to trust (D1).
+_OCR_PRODUCER_RE = re.compile(r"OCRmyPDF|Tesseract|ABBYY|Paper Capture", re.I)
+# pdfium text render modes that draw nothing: 3 = invisible, 7 = clip-only.
+_INVISIBLE_RENDER_MODES = {3, 7}
+# An image object has to cover this much of the page for the page to count as a scan
+# with an OCR layer (a small logo under visible text is not a scan).
+_SCAN_IMAGE_COVER = 0.9
+
+
+def text_origin(pdf_path: str) -> dict:
+    """Where a PDF's text actually came from, decided from the page objects (D1).
+
+    Per page:
+      'ocr-layer'  — at least one text object, EVERY text object renders invisibly
+                     (mode 3/7) and an image covers >= 90% of the page: a scan with
+                     an OCR text layer stamped over it (OCRmyPDF/Tesseract and co).
+      'digital'    — any visibly rendered text object: born-digital text.
+      'image-only' — no text objects at all: a scan nobody has OCR'd.
+    Document origin is the majority page origin, or 'mixed' when pages disagree.
+    'producer' records the Creator/Producer metadata when it names an OCR engine
+    (empty string otherwise), so the chip tooltip can say WHICH engine.
+
+    Returns {"doc": origin, "pages": {str(page): origin}, "producer": str}. Raises
+    on an unreadable file: a document whose origin cannot be read must not be
+    labelled, and the caller decides what to do with that.
+    """
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as raw
+
+    pdf = pdfium.PdfDocument(pdf_path)
+    try:
+        meta = pdf.get_metadata_dict() or {}
+        stamp = " / ".join(s for s in (meta.get("Creator", ""), meta.get("Producer", ""))
+                           if s)
+        producer = stamp if _OCR_PRODUCER_RE.search(stamp) else ""
+        pages: dict[str, str] = {}
+        for idx in range(len(pdf)):
+            pg = pdf[idx]
+            width, height = pg.get_size()
+            area = max(width * height, 1.0)
+            n_text = n_visible = 0
+            image_cover = 0.0
+            for obj in pg.get_objects(max_depth=1):
+                if obj.type == raw.FPDF_PAGEOBJ_TEXT:
+                    n_text += 1
+                    if raw.FPDFTextObj_GetTextRenderMode(obj) not in _INVISIBLE_RENDER_MODES:
+                        n_visible += 1
+                elif obj.type == raw.FPDF_PAGEOBJ_IMAGE:
+                    try:
+                        l, b, r, t = obj.get_bounds()
+                    except Exception:
+                        continue
+                    image_cover = max(image_cover, (r - l) * (t - b) / area)
+            if n_text == 0:
+                origin = "image-only"
+            elif n_visible > 0:
+                origin = "digital"
+            elif image_cover >= _SCAN_IMAGE_COVER:
+                origin = "ocr-layer"
+            else:
+                # Invisible text and no full-page image underneath: nothing a reader
+                # could see. Call it digital rather than claim a scan that is not there.
+                origin = "digital"
+            pages[str(idx + 1)] = origin
+    finally:
+        pdf.close()
+    counts: dict[str, int] = {}
+    for o in pages.values():
+        counts[o] = counts.get(o, 0) + 1
+    if not counts:
+        doc = "image-only"
+    else:
+        # A clear majority (more than half the pages) names the document; anything
+        # less is 'mixed' — a scan with a few digital pages must not pass as digital.
+        best = max(counts, key=lambda k: counts[k])
+        doc = best if counts[best] * 2 > len(pages) else "mixed"
+    return {"doc": doc, "pages": pages, "producer": producer}
+
 
 def parse_pdf(pdf_path: str, doc_id: str) -> tuple[list[dict], str, str, dict[int, float]]:
     """Return (clauses, full_text, source, page_confidence).
@@ -636,6 +716,16 @@ def ingest_document(pdf_path: str, doc_id: str, title: str, taxonomy: dict,
     # catalog entries and born-digital docs stay byte-identical in shape.
     if page_confidence:
         entry["page_confidence"] = {str(p): s for p, s in page_confidence.items()}
+    # Where the text came from (D1): a scan with an invisible Tesseract layer must not
+    # be presented as a digital text layer. Read from the page objects, never from the
+    # parse tier — docling trusts an existing layer and reports nothing about it.
+    try:
+        origin = text_origin(pdf_path)
+        entry["text_origin"] = origin["doc"]
+        entry["text_origin_pages"] = origin["pages"]
+        entry["producer"] = origin["producer"]
+    except Exception:
+        log.exception("text origin unavailable for %s", doc_id)
     # Index chunks for scalable retrieval (large PDFs). Optional — the catalog still
     # works without it; the index just makes within-doc search rank properly. A failure
     # is RECORDED on the entry (a doc catalogued but absent from search is silently

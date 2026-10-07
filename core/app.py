@@ -18,7 +18,7 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import audit, auth, governance, index, ingest, llm
+from . import audit, auth, cellcheck, governance, index, ingest, llm
 from .caseio import default_case_dir, load_case
 from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
@@ -174,28 +174,49 @@ def _doc_integrity(case, cat, doc_ids: list[str], rules) -> list[str]:
     return problems
 
 
-def _extraction_tier(parse_source: str, kind: str) -> str | None:
+def _extraction_tier(parse_source: str, kind: str, origin: str | None = None) -> str | None:
     """Human label for HOW a piece of cited text was extracted (OCR-4) — the trust
     signal at the moment of reading an answer. The ONE mapping; app.js only renders
     the `tier` field this stamps, so client and server can never disagree.
 
       recovered-* kind        -> "recovered layout"  (layout model misread the page;
                                                       text regrouped from span geometry)
-      docling + normal/table  -> "text layer"        (digital text layer, exact bboxes)
+      docling + normal/table  -> "OCR'd scan"        when the page's text origin is
+                                                      'ocr-layer' (D1: a scan with an
+                                                      invisible OCR layer — misreads
+                                                      possible, check the page image)
+                              -> "text layer"        otherwise (digital text layer,
+                                                      exact bboxes)
       raw-text-fallback       -> "page-level"        (page text only; citations open
                                                       the page, not the clause)
       sidecar                 -> "sidecar extract"   (hash-bound sidecar extraction)
       anything else           -> None                (no claim beats a wrong claim)
+
+    `origin` is the page's (or, failing that, the document's) `text_origin` as
+    recorded at ingest / by scripts/backfill_text_origin.py; None means unknown,
+    which keeps the pre-D1 label rather than inventing a scan.
     """
     if kind in ("recovered-row", "recovered-text"):
         return "recovered layout"
     if parse_source == "docling" and kind in ("text", "table-row"):
-        return "text layer"
+        return "OCR'd scan" if origin == "ocr-layer" else "text layer"
     if parse_source == "raw-text-fallback":
         return "page-level"
     if parse_source == "sidecar":
         return "sidecar extract"
     return None
+
+
+def _page_origin(entry: dict, page) -> str | None:
+    """The text origin of one page of a catalogued document (D1): the per-page
+    record when the back-fill/ingest wrote one, else the document-level origin,
+    else None (a catalog that predates origin capture makes no claim)."""
+    if not entry:
+        return None
+    pages = entry.get("text_origin_pages") or {}
+    if page is not None and str(page) in pages:
+        return pages[str(page)]
+    return entry.get("text_origin") or None
 
 
 def _enrich_citations(cat, result_dict: dict) -> dict:
@@ -226,7 +247,8 @@ def _enrich_citations(cat, result_dict: dict) -> dict:
                     break
             c["parse_source"] = entry.get("parse_source", "")
             c["kind"] = kind
-            c["tier"] = _extraction_tier(c["parse_source"], kind)
+            c["text_origin"] = _page_origin(entry, c.get("page"))
+            c["tier"] = _extraction_tier(c["parse_source"], kind, c["text_origin"])
     return result_dict
 
 
@@ -290,12 +312,14 @@ def _source_entry(case, cat, h: dict) -> dict:
     """One chat source chip's payload: document metadata + the hit's citation fields +
     extraction provenance (parse_source / kind / tier — OCR-4). `kind` may be missing
     from a hit produced by a backend that predates it (OpenSearch) — treat as text."""
-    parse_source = (cat.get(h["doc_id"]) or {}).get("parse_source", "")
+    entry = cat.get(h["doc_id"]) or {}
+    parse_source = entry.get("parse_source", "")
     kind = h.get("kind") or "text"
+    origin = _page_origin(entry, h.get("page"))
     return {**_doc_meta(case, h["doc_id"]), "clause": h["clause"], "page": h["page"],
             "bbox": h["bbox"], "text": h["text"], "score": h["score"],
-            "parse_source": parse_source, "kind": kind,
-            "tier": _extraction_tier(parse_source, kind)}
+            "parse_source": parse_source, "kind": kind, "text_origin": origin,
+            "tier": _extraction_tier(parse_source, kind, origin)}
 
 
 def _is_rate_row(hit: dict) -> bool:
@@ -902,12 +926,20 @@ def doc_clauses(doc_id: str, page: int = 1):
                 "page": page, "bbox": c.get("bbox", []), "text": c.get("text", ""),
                 "low_confidence": bool(c.get("low_confidence"))}
                for c in cat.clauses(doc_id) if c.get("page") == page]
+    # Numeric-cell verification (D2): every table row carries `cells` (per-cell
+    # stored / re-read / status) and `cell_status` from <case>/cell_checks.json;
+    # [] / null where the page was never verified. Computed by scripts/verify_cells.py,
+    # never at request time — the second OCR engine is not a request-path cost.
+    cellcheck.annotate_clauses(case.dir, doc_id, page, clauses)
     entry = cat.get(doc_id) or {}
     conf = (entry.get("page_confidence") or {}).get(str(page))
     return {"doc_id": doc_id, "page": page, "page_count": page_count,
             "width": width, "height": height, "clauses": clauses,
             "ocr_confidence": conf,
-            "low_confidence": conf is not None and conf < ingest.LOW_OCR_CONFIDENCE}
+            "low_confidence": conf is not None and conf < ingest.LOW_OCR_CONFIDENCE,
+            "text_origin": _page_origin(entry, page),
+            "disputed_cells": sum(1 for c in clauses for x in c["cells"]
+                                  if x.get("status") == "disputed")}
 
 
 # --------------------------------------------------------------------------- #
@@ -1392,6 +1424,7 @@ def admin_coverage():
             "summary": entry.get("summary", ""), "tags": entry.get("tags", []),
             "clauses": len(entry.get("clauses", [])),
             "parse_source": entry.get("parse_source"),
+            **_ocr_doc_fields(entry),  # D1 text origin + D2 disputed-cell pages (ocr chunk)
             "live": live_by_doc.get(did, 0),
             "pending": pending_by_doc.get(did, 0),
             "blocked": blocked_by_doc.get(did, 0),
@@ -1400,7 +1433,8 @@ def admin_coverage():
             # opposed to how much of it has been modelled.
             **_extraction_stats(entry),
         })
-    return {"documents": docs, "corpus_size": len(case.manifest.get("sources", []))}
+    return {"documents": docs, "corpus_size": len(case.manifest.get("sources", [])),
+            "showcase": _showcase(case)}  # D4 Compare deep link (ocr chunk)
 
 
 # A gap is only actionable as a FIELD, not as 31 separate clause rows. The LLM's
@@ -1619,7 +1653,8 @@ def admin_verification():
 
 
 @app.get("/admin/clause")
-def admin_clause(doc_id: str, clause: str = "", page: int | None = None):
+def admin_clause(doc_id: str, clause: str = "", page: int | None = None,
+                 bbox: str = ""):
     """The source text + bbox behind a rule's citation, so a reviewer can check the
     drafted rule against the actual contract language before approving it.
 
@@ -1628,8 +1663,24 @@ def admin_clause(doc_id: str, clause: str = "", page: int | None = None):
     404, making View source unusable on exactly the real-world (scanned) documents. So
     when the clause does not resolve, fall back to the page: return the text of the
     clauses on that page and let the citation's own bbox draw the highlight.
+
+    Evidence gate (D2): a citation that lands on a table row whose numeric cells are
+    not all verified is refused with 409 and the cells in question — the stored OCR
+    text of a disputed cell is not evidence until a person confirms it in Compare.
+    The row is found by clause label, or by `bbox` ("l,t,r,b" in PDF points, the
+    citation's own box) on the given page. The same check is exposed to the
+    ratify/draft path as cellcheck.disputed_for_citation.
     """
-    clauses = _catalog(_case()).clauses(doc_id)
+    case = _case()
+    cat = _catalog(case)
+    clauses = cat.clauses(doc_id)
+    cit_bbox = _parse_bbox(bbox)
+    disputed = cellcheck.disputed_for_citation(case.dir, cat, doc_id, clause=clause,
+                                               page=page, bbox=cit_bbox)
+    if disputed:
+        return JSONResponse({"error": "cited cell is disputed, confirm it in Compare first",
+                             "doc_id": doc_id, "clause": clause, "page": page,
+                             "cells": disputed}, status_code=409)
     for c in clauses:
         if clause and str(c.get("clause")) == str(clause):
             return {"doc_id": doc_id, "clause": clause, "page": c.get("page"),
@@ -1825,3 +1876,80 @@ def _write_ratified(case, rules: list[dict]) -> None:
         shutil.copy(path, f"{path}.{stamp}.bak")
     with open(path, "w") as f:
         json.dump({"rules": rules}, f, indent=2)
+
+
+# --------------------------------------------------------------------------- #
+# --- ocr --- (DEMO_TICKETS.md D1/D2/D4: text origin, cell verification, showcase)
+# --------------------------------------------------------------------------- #
+def _parse_bbox(s: str) -> list[float] | None:
+    """'l,t,r,b' query parameter -> [l, t, r, b] in PDF points, or None."""
+    if not s:
+        return None
+    try:
+        parts = [float(x) for x in s.split(",")]
+    except ValueError:
+        return None
+    return parts if len(parts) == 4 else None
+
+
+def _ocr_doc_fields(entry: dict) -> dict:
+    """Per-document origin + verification summary for the Documents tab (D1/D2):
+    text_origin ('ocr-layer' | 'digital' | 'image-only' | 'mixed' | None when the
+    catalog predates origin capture), the producer string when an OCR engine wrote
+    the layer, and the pages whose tables were verified with their disputed counts."""
+    case = _case()
+    checks = cellcheck.load_checks(case.dir).get("pages", {})
+    verified_pages = []
+    for rec in checks.values():
+        if rec.get("doc_id") != entry.get("doc_id"):
+            continue
+        disputed = sum(1 for r in rec.get("rows", []) for c in r.get("cells", [])
+                       if c.get("status") == "disputed")
+        verified_pages.append({"page": rec.get("page"), "disputed": disputed,
+                               "rows": len(rec.get("rows", []))})
+    verified_pages.sort(key=lambda p: p["page"] or 0)
+    return {"text_origin": entry.get("text_origin"),
+            "producer": entry.get("producer", ""),
+            "verified_pages": verified_pages}
+
+
+def _showcase(case) -> dict | None:
+    """The one page the demo opens Compare on (D4): declared in case.yaml under
+    `showcase:` or in cell_checks.json, else derived — the verified page with the
+    most disputed cells. None when nothing has been verified."""
+    checks = cellcheck.load_checks(case.dir)
+    declared = case.manifest.get("showcase") or checks.get("showcase")
+    if declared and declared.get("doc") and declared.get("page"):
+        return {"doc": declared["doc"], "page": int(declared["page"]),
+                "label": declared.get("label") or f"Showcase: p.{declared['page']}"}
+    best = None
+    for rec in checks.get("pages", {}).values():
+        disputed = sum(1 for r in rec.get("rows", []) for c in r.get("cells", [])
+                       if c.get("status") == "disputed")
+        if disputed and (best is None or disputed > best[0]):
+            best = (disputed, rec)
+    if not best:
+        return None
+    rec = best[1]
+    return {"doc": rec["doc_id"], "page": rec["page"],
+            "label": f"Showcase: p.{rec['page']} — {best[0]} cells the OCR misread"}
+
+
+@app.get("/admin/cell_checks")
+def admin_cell_checks():
+    """The stored numeric-cell verification record (D2) — what scripts/verify_cells.py
+    computed, with the engine that computed it. Read-only; the Compare view and the
+    gate read the same file."""
+    case = _case()
+    data = cellcheck.load_checks(case.dir)
+    pages = []
+    for key, rec in data.get("pages", {}).items():
+        cells = [c for r in rec.get("rows", []) for c in r.get("cells", [])]
+        pages.append({"key": key, "doc_id": rec.get("doc_id"), "page": rec.get("page"),
+                      "rows": len(rec.get("rows", [])),
+                      "disputed": sum(1 for c in cells if c.get("status") == "disputed"),
+                      "unverified": sum(1 for c in cells if c.get("status") == "unverified"),
+                      "verified": sum(1 for c in cells if c.get("status") == "verified")})
+    return {"engine": data.get("engine"), "generated_at": data.get("generated_at"),
+            "generated_by": data.get("generated_by"), "pages": pages,
+            "showcase": _showcase(case)}
