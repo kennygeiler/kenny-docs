@@ -97,6 +97,10 @@ def rule_sha256(rule: dict) -> str:
     d = {k: rule.get(k) for k in RULE_HASH_FIELDS}
     cit = rule.get("citation")
     if isinstance(cit, dict):
+        # Only the citation's address is hashed. quote/quote_sha256 (KEN-19) and
+        # doc_sha256 (C7, KEN-122) are bookkeeping the system stamps after approval, not
+        # the rule's substance — same exclusion as provenance.rule_fingerprint. The
+        # review binds the PDF bytes through its own doc_sha256 inputs.
         d["citation"] = {k: cit.get(k) for k in CITATION_HASH_FIELDS if k in cit}
     return _sha(d)
 

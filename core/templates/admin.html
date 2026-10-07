@@ -379,8 +379,8 @@
                   title="${esc(SHOWCASE.label)}: open Compare on the page where a second OCR read disagrees with what was stored">
             Showcase: p.${Number(SHOWCASE.page)}</button>` : ''}</p>
         ${scorecard(d)}
-        ${d.declared_title && d.declared_title !== d.title
-          ? `<p class="muted">Filed in this case as “${esc(d.declared_title)}”.</p>` : ''}
+        ${d.extracted_title && d.extracted_title !== d.title
+          ? `<p class="muted">Cover page reads “${esc(d.extracted_title)}”.</p>` : ''}
         <p class="chips">${chips}</p>
         ${sup}${warn}${bar}
         ${d.summary ? `<p class="summary">${esc(d.summary)}</p>` : ''}

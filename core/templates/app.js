@@ -523,13 +523,9 @@ function openSource(s, res) {
   body.appendChild(el(`<div class="muted">${esc(cite('', s.page))}${tierChip(s.tier)}</div>`));
   const quote = el('<div class="trace-step"></div>'); quote.textContent = s.text || '';
   body.appendChild(quote);
-  const box = (s.bbox || []).join(',');
-  const c = el(`<div class="cite"><div class="muted">Source section highlighted on the PDF:</div></div>`);
-  const img = new Image(); img.src = `/doc/${s.doc_id}/page/${s.page}?bbox=${box}`;
-  img.alt = `Page ${s.page} of ${s.title || s.doc_id} with the quoted passage outlined in red`;
-  img.onerror = () => { img.remove(); c.appendChild(el('<div class="muted">(page render unavailable)</div>')); };
-  c.appendChild(img);
-  body.appendChild(c);
+  // citations-polish (C2/I12): the row's own band when the server derived one, the
+  // readable crop first, the whole page under a disclosure.
+  body.appendChild(citationFigure(s.doc_id, s.page, s.row_bbox || s.bbox, s.title || docTitle(s.doc_id, res), s.tier));
   body.appendChild(el(`<details class="tech"><summary>Technical details</summary>
     <div class="muted mono">document id ${esc(s.doc_id)} · page ${esc(s.page)} · search score ${esc(s.score ?? '')}</div></details>`));
   openDrawer();
@@ -589,18 +585,14 @@ async function openAudit(queryId, li, res) {
   cites.forEach(c => {
     const key = c.doc_id + c.clause;
     if (seen.has(key)) return; seen.add(key);
-    const box = (c.bbox || []).join(',');
-    const url = `/doc/${c.doc_id}/page/${c.page}?bbox=${box}`;
     const title = c.title || docTitle(c.doc_id, res);
     const citeBox = el('<div class="cite"></div>');
     const label = el('<div class="muted"></div>');
     label.textContent = `Source: ${title}, ${cite(c.clause, c.page)}`;
     label.insertAdjacentHTML('beforeend', tierChip(c.tier));
     citeBox.appendChild(label);
-    const img = new Image(); img.src = url;
-    img.alt = `Page ${c.page} of ${title} with the cited clause outlined in red`;
-    img.onerror = () => { img.remove(); citeBox.appendChild(el('<div class="muted">(page render unavailable — bbox: ' + esc(box) + ')</div>')); };
-    citeBox.appendChild(img);
+    // citations-polish (C2/I12): readable crop first, whole page under a disclosure.
+    citeBox.appendChild(citationFigure(c.doc_id, c.page, c.row_bbox || c.bbox, title, c.tier));
     body.appendChild(citeBox);
   });
 
@@ -842,3 +834,43 @@ function renderRefused(res) {
   input.value = q.trim();
   send();
 })();
+
+// --- citations-polish (C2/I12): the cited passage, readable ------------------------ //
+// One figure per citation: a zoomed crop of the boxed passage first (the drawer is
+// 528px wide; a whole landscape page squeezes a 9pt row to 6px), then the whole page
+// under "See it on the whole page", then a link to the PDF itself at that page. The
+// outline is drawn by the server OUTSIDE the padded box (core/pdfview.py), so nothing
+// is struck through. A citation with no box (page-level tier) shows the page only.
+function citationFigure(docId, page, bbox, title, tier) {
+  const wrap = el('<figure class="cite cite-figure"></figure>');
+  const box = (bbox || []).join(',');
+  const pageUrl = `/doc/${encodeURIComponent(docId)}/page/${encodeURIComponent(page)}` + (box ? `?bbox=${box}` : '');
+  const full = new Image();
+  full.src = pageUrl;
+  full.alt = `Page ${page} of ${title}` + (box ? ' with the cited passage outlined in red' : '');
+  full.onerror = () => { full.remove(); wrap.appendChild(el('<div class="muted">(page render unavailable' + (box ? ' — bbox: ' + esc(box) : '') + ')</div>')); };
+  if (box && tier !== 'page-level') {
+    const cap = el('<figcaption class="muted"></figcaption>');
+    cap.textContent = `The cited passage — page ${page} of ${title}`;
+    wrap.appendChild(cap);
+    const crop = new Image();
+    crop.src = pageUrl + '&crop=1';
+    crop.className = 'cite-crop';
+    crop.alt = `The cited passage on page ${page} of ${title}, outlined in red`;
+    crop.onerror = () => { crop.remove(); cap.textContent = `Page ${page} of ${title}`; };
+    wrap.appendChild(crop);
+    const details = el('<details class="cite-full"><summary>See it on the whole page</summary></details>');
+    details.appendChild(full);
+    wrap.appendChild(details);
+  } else {
+    const cap = el('<figcaption class="muted"></figcaption>');
+    cap.textContent = box ? `Source section highlighted on the PDF, page ${page}:` : `Page ${page} of ${title}:`;
+    wrap.appendChild(cap);
+    wrap.appendChild(full);
+  }
+  const link = el('<a class="muted cite-open" target="_blank" rel="noopener"></a>');
+  link.href = `/doc/${encodeURIComponent(docId)}/file#page=${encodeURIComponent(page)}`;
+  link.textContent = `Open the PDF at page ${page}`;
+  wrap.appendChild(link);
+  return wrap;
+}

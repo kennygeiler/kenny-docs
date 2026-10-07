@@ -270,6 +270,12 @@ code {
 #drawer .db { padding: 16px; }
 .cite { margin: 12px 0 0; }
 .cite img { width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+/* citations-polish (C2/I12): crop first, whole page folded, PDF link last */
+figure.cite-figure { margin: 12px 0 0; }
+.cite-figure figcaption { margin-bottom: 4px; }
+.cite-figure details.cite-full { margin-top: 6px; }
+.cite-figure details.cite-full summary { cursor: pointer; color: var(--muted, #666); font-size: 0.9em; }
+.cite-figure a.cite-open { display: inline-block; margin-top: 6px; font-size: 0.9em; }
 figure { margin: 0; }
 
 /* ---------------- document X-ray (OCR_TICKETS.md OCR-1) ---------------- */

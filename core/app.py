@@ -19,12 +19,13 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import audit, auth, cellcheck, governance, index, ingest, llm, queryfacts, refusal, rulematch
-from . import evidence, warm
+from . import evidence, rowbands, warm
 from . import version as _version  # handoff (K1): the commit this process runs
 from . import qid as qid_mod
 from .caseio import default_case_dir, load_case
 from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
+from . import pdfview
 from .pdfview import page_dims, render_page_with_bbox
 from .retriever import CatalogLLMRetriever
 from .ruledsl import SHIFT_BASES, Rule, RuleError, load_rules, validate_rules
@@ -337,7 +338,7 @@ def _revalidate_citations(case, cat, doc_ids: list[str], led) -> list[dict]:
 
 def _doc_meta(case, doc_id: str) -> dict:
     s = case.source_by_id(doc_id) or {}
-    return {"doc_id": doc_id, "title": s.get("title", doc_id),
+    return {"doc_id": doc_id, "title": _display_title(case, _catalog(case), doc_id),  # C4
             "department": s.get("department"), "doc_type": s.get("doc_type")}
 
 
@@ -351,6 +352,7 @@ def _source_entry(case, cat, h: dict) -> dict:
     origin = _page_origin(entry, h.get("page"))
     return {**_doc_meta(case, h["doc_id"]), "clause": h["clause"], "page": h["page"],
             "bbox": h["bbox"], "text": h["text"], "score": h["score"],
+            "row_bbox": rowbands.narrow(case.dir, h["doc_id"], h["page"], h["bbox"], h["text"]),  # C2
             "parse_source": parse_source, "kind": kind, "text_origin": origin,
             "tier": _extraction_tier(parse_source, kind, origin)}
 
@@ -1218,7 +1220,16 @@ def doc_file(doc_id: str):
 
 
 @app.get("/doc/{doc_id}/page/{page}")
-def doc_page(doc_id: str, page: int, bbox: str = ""):
+def doc_page(doc_id: str, page: int, bbox: str = "", crop: str = ""):
+    """The cited page as a PNG with the clause boxed (citations-polish, C2/I12).
+
+    bbox  'l,t,r,b' in PDF points, either corner order; must be 4 finite numbers.
+    crop  '1' cuts the image to the box plus CROP_MARGIN_PT of context above and
+          below (full page width, 3x scale) — the readable image the drawer shows
+          first; 'l,t,r,b' cuts an explicit region instead. Bad arity or a non-finite
+          number in either is a 400, never a confident page with no box on it.
+    A page outside 1..page_count is a 404, not a quietly different page.
+    """
     case = _case()
     pdf_path = _resolve_pdf(case, doc_id)
     if not pdf_path:
@@ -1231,12 +1242,16 @@ def doc_page(doc_id: str, page: int, bbox: str = ""):
         return JSONResponse({"error": "source document changed since ingestion — "
                              "the citation cannot be rendered against it"},
                             status_code=409)
-    try:
-        box = [float(x) for x in bbox.split(",")] if bbox else []
-    except ValueError:
-        return JSONResponse({"error": "bbox must be comma-separated numbers"},
-                            status_code=400)
-    png = render_page_with_bbox(pdf_path, page, box)
+    params, problem = _page_render_params(bbox, crop)
+    if problem:
+        return JSONResponse({"error": problem}, status_code=400)
+    dims = page_dims(pdf_path, page)
+    if dims is None:
+        return JSONResponse({"error": "render unavailable"}, status_code=503)
+    if page < 1 or page > dims[1]:
+        return JSONResponse({"error": f"no page {page}: the document has {dims[1]} pages"},
+                            status_code=404)
+    png = render_page_with_bbox(pdf_path, page, **params)
     if png is None:
         return JSONResponse({"error": "render unavailable"}, status_code=503)
     return Response(content=png, media_type="image/png")
@@ -1260,6 +1275,8 @@ def doc_clauses(doc_id: str, page: int = 1):
     pdf_path = _resolve_pdf(case, doc_id)
     if not pdf_path:
         return JSONResponse({"error": "unknown doc"}, status_code=404)
+    if (blocked := _provenance_gate(case, doc_id, pdf_path, "doc_clauses")) is not None:  # C7
+        return blocked
     dims = page_dims(pdf_path, page)
     if dims is None:
         return JSONResponse({"error": "page metrics unavailable"}, status_code=503)
@@ -1906,10 +1923,11 @@ def admin_coverage():
         did = entry["doc_id"]
         src = case.source_by_id(did) or {}
         docs.append({
-            # The document's own header wins over the name case.yaml files it under: the
-            # library should show what a user reading the contract would see on it.
+            # The declared name is what every surface calls the document (C4); the
+            # cover's own heading travels beside it as `extracted_title`.
             "doc_id": did,
-            "title": entry.get("title") or src.get("title", did),
+            "title": _display_title(case, cat, did),
+            "extracted_title": _cover_title(entry),
             "declared_title": src.get("title", ""),
             "department": src.get("department"), "doc_type": src.get("doc_type"),
             "bargaining_unit": src.get("bargaining_unit"),
@@ -2708,3 +2726,68 @@ def admin_cell_checks():
     return {"engine": data.get("engine"), "generated_at": data.get("generated_at"),
             "generated_by": data.get("generated_by"), "pages": pages,
             "showcase": _showcase(case)}
+
+
+# --------------------------------------------------------------------------- #
+# --- citations-polish --- (DEMO_TICKETS.md C4/C2/I12/C7: declared names, readable
+# highlights, armed source hashes)
+# --------------------------------------------------------------------------- #
+def _display_title(case, cat, doc_id: str) -> str:
+    """What every surface calls a document (C4): the name case.yaml declares, else
+    the catalog's own cover heading when it is a name and not a date line, else the
+    id. Uploads have no declaration, so their extracted heading is kept."""
+    src = case.source_by_id(doc_id) or {}
+    declared = str(src.get("title") or "").strip()
+    if declared:
+        return declared
+    entry = cat.get(doc_id) if cat is not None else None
+    extracted = str((entry or {}).get("title") or "").strip()
+    if extracted and not ingest._date_like(extracted):
+        return extracted
+    return doc_id
+
+
+def _cover_title(entry: dict | None) -> str:
+    """The heading the cover page itself carries, or "" when the catalog stored a
+    date line there (a pre-C4 bake) — a date is not something to show as a name."""
+    extracted = str((entry or {}).get("title") or "").strip()
+    return "" if not extracted or ingest._date_like(extracted) else extracted
+
+
+def _provenance_gate(case, doc_id: str, pdf_path: str, route: str):
+    """409 when the PDF on disk no longer matches the hash the catalog recorded (C7):
+    the same check doc_file and doc_page make, for the X-ray/Compare clause route,
+    which otherwise lists clauses of a document that is not the one on disk. Returns
+    None when the source is intact (or was never hashed)."""
+    ok, expected, actual = _check_source_hash(_catalog(case), doc_id, pdf_path)
+    if ok:
+        return None
+    case.ledger().append("provenance.mismatch",
+                         {"doc_id": doc_id, "expected": expected, "actual": actual,
+                          "route": route}, actor="system")
+    return JSONResponse({"error": "source document changed since ingestion — "
+                         "its extracted clauses no longer describe the file on disk",
+                         "reason": "provenance", "doc_id": doc_id,
+                         "expected": expected[:12], "actual": actual[:12]},
+                        status_code=409)
+
+
+def _page_render_params(bbox: str, crop: str) -> tuple[dict, str | None]:
+    """Parse the /doc/{id}/page/{page} query into render_page_with_bbox kwargs, or
+    name what is wrong with it (-> 400)."""
+    params: dict = {"bbox": []}
+    if bbox:
+        box = pdfview.finite_box(bbox.split(","))
+        if box is None:
+            return params, "bbox must be four finite comma-separated numbers (l,t,r,b)"
+        params["bbox"] = box
+    c = (crop or "").strip().lower()
+    if c in ("1", "true", "yes", "auto"):
+        if params["bbox"]:
+            params["crop_margin_pt"] = pdfview.CROP_MARGIN_PT
+    elif c:
+        region = pdfview.finite_box(c.split(","))
+        if region is None:
+            return params, "crop must be '1' or four finite comma-separated numbers (l,t,r,b)"
+        params["crop"] = region
+    return params, None
