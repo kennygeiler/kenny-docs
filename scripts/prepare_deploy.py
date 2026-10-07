@@ -21,6 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 os.environ.pop("ANTHROPIC_API_KEY", None)  # before core.app imports llm
+os.environ["KENNY_NO_DOTENV"] = "1"        # ...and stop that import putting it back
 
 
 def _baked(case_rel: str) -> bool:

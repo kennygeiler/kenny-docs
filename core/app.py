@@ -29,8 +29,12 @@ from .ruledsl import SHIFT_BASES, Rule, load_rules, validate_rules
 def _load_dotenv() -> None:
     """Load the repo's .env at startup so the server works with a plain `uvicorn`
     command — no --env-file flag required. Real environment variables always win.
-    (Only the app entrypoint does this; tests import the modules directly and stay
-    deterministic on the offline fallbacks.)"""
+    Skipped under pytest (and when KENNY_NO_DOTENV is set): this runs at import, during
+    test collection, which is exactly how a developer's real ANTHROPIC_API_KEY used to
+    leak into the suite (DEMO_TICKETS K2; tests/conftest.py is the other half)."""
+    import sys
+    if os.environ.get("KENNY_NO_DOTENV") or "pytest" in sys.modules:
+        return
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(root, ".env")
     if not os.path.exists(path):
