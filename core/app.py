@@ -19,6 +19,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import audit, auth, governance, index, ingest, llm
+from . import evidence, warm
+from . import qid as qid_mod
 from .caseio import default_case_dir, load_case
 from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
@@ -51,7 +53,7 @@ CASE_DIR = default_case_dir()
 TEMPLATES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
 DEFAULT_YEAR = 2026  # assumed when a prompt gives a date without a year
 
-app = FastAPI(title="Kenny")
+app = FastAPI(title="Kenny", lifespan=warm.lifespan)  # A5: warm retrieval at startup
 # No-op locally; required on any shared deploy (see core/auth.py). The factory lets the
 # middleware ledger auth events (failed logins, role denials, CSRF blocks) without a
 # circular import.
@@ -242,7 +244,7 @@ def _revalidate_citations(case, cat, doc_ids: list[str], led) -> list[dict]:
     to prevent. Rules whose evidence still checks out get their citation's source hash
     backfilled, so pre-hashing approvals become bound going forward."""
     library = _raw_ratified(case)
-    stale, backfilled = [], 0
+    stale, backfilled, rebound = [], 0, []
     for r in library:
         if r.get("status") != "ratified":
             continue
@@ -255,28 +257,49 @@ def _revalidate_citations(case, cat, doc_ids: list[str], led) -> list[dict]:
         sha_then, sha_now = cit.get("doc_sha256", ""), entry.get("pdf_sha256", "")
         if sha_then and sha_now and sha_then != sha_now:
             problems.append("the source PDF changed since ratification")
+        # A2: find the cited evidence by its text or its box on the page, not by a
+        # label the catalog may never have carried (see core/evidence.py).
         clause = str(cit.get("clause") or "")
-        if clause:
-            matches = [c for c in entry.get("clauses", [])
-                       if str(c.get("clause")) == clause]
-            if not matches:
-                problems.append(f"cited clause {clause} no longer exists in {d}")
-            elif cit.get("page") and not any(c.get("page") == cit.get("page")
-                                             for c in matches):
-                problems.append(f"cited clause {clause} is no longer on page "
-                                f"{cit.get('page')}")
+        page = cit.get("page")
+        found, how = evidence.locate(entry.get("clauses", []), cit)
+        if found is None:
+            where = f"p.{page} of {d}" if page else d
+            if how == "text-changed":
+                problems.append(f"the text under cited clause {clause or '?'} on "
+                                f"{where} changed since ratification")
+            else:
+                problems.append(f"cited clause {clause or '?'} no longer exists on "
+                                f"{where}")
         if problems:
             r["status"] = "stale"
             r["stale_reason"] = "; ".join(problems)
             stale.append({"rule_id": r.get("id"), "reason": r["stale_reason"]})
-        elif not sha_then and sha_now:
+            continue
+        changed = False
+        if not sha_then and sha_now:
             cit["doc_sha256"] = sha_now
+            changed = True
+        if found.get("text") and not cit.get("quote_sha256"):
+            cit["quote_sha256"] = evidence.text_sha(found.get("text"))
+            cit["quote"] = evidence.quote_of(found)
+            changed = True
+        if how == "quote-moved":
+            # Same words, new address: follow the evidence and say so on the ledger.
+            was = {"page": cit.get("page"), "bbox": cit.get("bbox")}
+            cit["page"] = found.get("page")
+            cit["bbox"] = found.get("bbox")
+            rebound.append({"rule_id": r.get("id"), "doc_id": d, "from": was,
+                            "to": {"page": cit["page"], "bbox": cit["bbox"]}})
+            changed = True
+        if changed:
             r["citation"] = cit
             backfilled += 1
     if stale or backfilled:
         _write_ratified(case, library)
     for s in stale:
         led.append("authoring.stale", s, actor="system")
+    for rb in rebound:
+        led.append("authoring.rebound", rb, actor="system")
     return stale
 
 
@@ -501,8 +524,22 @@ def healthz():
     but this endpoint is UNAUTHENTICATED, so it reports only pass/fail; the tamper
     detail ("event at seq N") is on /admin/ledger, behind the admin credential."""
     ok, _msg = _case().ledger().verify()
-    return JSONResponse({"status": "ok" if ok else "degraded"},
-                        status_code=200 if ok else 503)
+    # A1: a rule library or catalog that no longer parses makes every /chat and
+    # /admin/* call 500 while a ledger-only probe stays green. Load both here so the
+    # platform sees the outage. A5: report the retrieval warm-up (status unchanged).
+    library_ok = True
+    try:
+        case = _case()
+        case.rules()
+        _catalog(case)
+    except Exception:
+        library_ok = False
+    healthy = ok and library_ok
+    return JSONResponse({"status": "ok" if healthy else "degraded",
+                         "ledger": "ok" if ok else "broken",
+                         "library": "ok" if library_ok else "broken",
+                         "retrieval": warm.state()["state"]},
+                        status_code=200 if healthy else 503)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -554,6 +591,7 @@ def api_case():
     case = _case()
     return {"name": case.manifest.get("name"), "department": case.manifest.get("department"),
             "has_api_key": llm.have_key(),
+            "retrieval": warm.state()["state"],  # A5: header can say "warming up"
             # Set on the shared deploy. A hosted link gets mistaken for a product; this
             # is a prototype on a synthetic corpus and every viewer must be told so
             # before they read a dollar figure off it.
@@ -573,17 +611,20 @@ async def chat(request: Request):
     is an answer with no evidence of how it was reached, and the handler grows exits.
     """
     body = await request.json()
-    qid = body.get("query_id") or uuid.uuid4().hex[:12]
     led = _case().ledger()
+    # The id is ALWAYS server-issued (A1): it names the snapshot file and threads the
+    # ledger, so a client value is only ever a reference to an earlier query.
+    qid = qid_mod.mint()
+    continues = qid_mod.continuation(led, body.get("query_id"))
     with llm.record() as trail:
         try:
-            return await _chat(body, qid)
+            return await _chat(body, qid, continues)
         finally:
             for call in trail:
                 led.append("llm.call", call, actor="llm", query_id=qid)
 
 
-async def _chat(body: dict, qid: str):
+async def _chat(body: dict, qid: str, continues: str | None = None):
     prompt = (body.get("prompt") or "").strip()
     forced_doc = body.get("doc_id")  # set when the user confirms a document
 
@@ -592,9 +633,12 @@ async def _chat(body: dict, qid: str):
     cat = _catalog(case)
 
     department = body.get("department")  # set when the user answers "which department?"
+    # Every query — follow-ups included — opens with its own chat.prompt, so the trail
+    # of a confirmed-document answer starts at a prompt and `continues` links it back.
+    led.append("chat.prompt", {"text": prompt, "department": department,
+                               "doc_id": forced_doc, "continues": continues},
+               actor="chat", query_id=qid)
     if not forced_doc:
-        led.append("chat.prompt", {"text": prompt, "department": department},
-                   actor="chat", query_id=qid)
         # Router: costing vs policy Q&A. Both return an answer WITH clickable proof.
         intent = llm.classify_intent(prompt)
         led.append("intent.classify", {"intent": intent}, actor="chat", query_id=qid)
@@ -786,8 +830,12 @@ async def _chat(body: dict, qid: str):
 
 @app.get("/chat/audit/{query_id}")
 def chat_audit(query_id: str):
+    if not qid_mod.is_qid(query_id):
+        return JSONResponse({"error": "unknown query id"}, status_code=404)
     case = _case()
-    events = audit.trail(case.ledger(), query_id)
+    # A follow-up ("which department?" answered) is its own query that `continues` the
+    # one it clarifies; the drawer shows the whole conversation, parents first (A1).
+    events, continues = qid_mod.trail_with_parents(case.ledger(), query_id)
     # Summarise the AI involvement up front. "How did AI reach this answer" starts with
     # whether AI was involved at all — and with a deterministic fallback behind every
     # touchpoint, that is a real question with a non-obvious answer.
@@ -797,7 +845,7 @@ def chat_audit(query_id: str):
           "fell_back": [c["fn"] for c in calls if c.get("source") == "fallback"],
           "errors": [c for c in calls if c.get("source") == "error"],
           "total_ms": sum(c.get("ms", 0) for c in calls)}
-    return {"query_id": query_id, "events": events, "ai": ai}
+    return {"query_id": query_id, "events": events, "ai": ai, "continues": continues}
 
 
 def _resolve_pdf(case, doc_id: str) -> str | None:
@@ -938,8 +986,10 @@ def _ingest_worker(job_id: str):
         tax = _taxonomy(case)
         backend = _backend(case)
         sources = case.manifest.get("sources", [])
+        force = bool(job.get("force"))
         job["total"] = len(sources)
-        ingested, missing = [], []
+        ingested, missing, skipped_unchanged = [], [], []
+        rechecked, stale_rules = 0, []
         for i, src in enumerate(sources):
             job["current"] = src["id"]
             job["done"] = i
@@ -954,6 +1004,16 @@ def _ingest_worker(job_id: str):
                                 "title": src.get("title", src["id"]),
                                 "file": src["file"]})
                 continue
+            # A2: an unchanged PDF (same bytes as the catalog entry was parsed from) is
+            # not re-parsed unless the caller forces it — a docling pass over a 50-page
+            # scan costs minutes and gigabytes and can only reproduce what is there.
+            prior = cat.get(src["id"]) or {}
+            if (not force and prior.get("pdf_sha256")
+                    and prior.get("pdf_sha256") == ingest.sha256_file(pdf_path)):
+                skipped_unchanged.append(src["id"])
+                rechecked += _cited_rule_count(case, src["id"])
+                stale_rules += _revalidate_citations(case, cat, [src["id"]], led)
+                continue
             entry = ingest.ingest_document(pdf_path, src["id"], src.get("title", src["id"]),
                                            tax, cat, backend=backend)
             led.append("authoring.ingest",
@@ -963,7 +1023,8 @@ def _ingest_worker(job_id: str):
                        actor="admin")
             # A re-ingest may have moved or replaced the evidence ratified rules cite —
             # re-check them now, not at answer time (TICKETS.md A3).
-            _revalidate_citations(case, cat, [src["id"]], led)
+            rechecked += _cited_rule_count(case, src["id"])
+            stale_rules += _revalidate_citations(case, cat, [src["id"]], led)
             # Ingest EXTRACTS and INDEXES; it does NOT draft rules. Drafting the whole MOU
             # up front produced 33 rules per contract to review and an approve-all that
             # could never match one grand total. Rules are now drafted PER SCENARIO, scoped
@@ -996,7 +1057,10 @@ def _ingest_worker(job_id: str):
                        {"doc_id": did, "reason": "no longer declared in case.yaml"},
                        actor="admin")
         job["done"] = job["total"]
-        job["result"] = {"ingested": ingested, "proposed_rules": [], "missing": missing}
+        job["result"] = {"ingested": ingested, "proposed_rules": [], "missing": missing,
+                         "skipped_unchanged": skipped_unchanged,
+                         "rules_rechecked": rechecked,
+                         "stale_rules": [s["rule_id"] for s in stale_rules]}
         job["status"] = "done"
     except Exception as e:  # surface the failure to the poller
         job["status"] = "error"
@@ -1004,10 +1068,11 @@ def _ingest_worker(job_id: str):
 
 
 @app.post("/admin/ingest")
-def admin_ingest():
+def admin_ingest(force: bool = False):
     """Kick off async ingestion; returns a job id to poll. See /admin/ingest/status.
-    Single-flight with uploads — see _register_job."""
-    job_id = _register_job(total=0, done=0, current=None)
+    Single-flight with uploads — see _register_job. `?force=true` re-parses PDFs whose
+    bytes have not changed since they were last catalogued (A2)."""
+    job_id = _register_job(total=0, done=0, current=None, force=force)
     if job_id is None:
         return JSONResponse({"error": "an ingest is already running — poll its status "
                              "or wait for it to finish"}, status_code=409)
@@ -1825,3 +1890,18 @@ def _write_ratified(case, rules: list[dict]) -> None:
         shutil.copy(path, f"{path}.{stamp}.bak")
     with open(path, "w") as f:
         json.dump({"rules": rules}, f, indent=2)
+
+
+# --- ids-stale-warm ---
+# A1 (server-issued ids), A2 (evidence-based stale check), A5 (startup warm-up).
+def _cited_rule_count(case, doc_id: str) -> int:
+    """How many live rules cite a document — what a re-read re-checks (A2)."""
+    return sum(1 for r in _raw_ratified(case)
+               if r.get("status") == "ratified"
+               and (r.get("citation") or {}).get("doc_id") == doc_id)
+
+
+# The warm-up thread (core/warm.py) runs from the app lifespan and needs the same
+# case/backend/catalog factories the request path uses, registered here so the warm
+# module never imports this one.
+warm.configure(case=_case, backend=_backend, catalog=_catalog)

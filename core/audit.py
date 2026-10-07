@@ -11,13 +11,22 @@ import os
 import time
 from typing import Any
 
+from .qid import QID_RE
 from .ruledsl import Rule
 
 
 def snapshot(snapshots_dir: str, query_id: str, params: dict,
              rules: list[Rule], result: dict) -> str:
+    # Write-once, and never outside the snapshots folder (A1): the id names the file,
+    # so it must be a server-minted id, the path must stay inside the folder, and an
+    # existing record is never rewritten (mode "x").
+    if not QID_RE.match(str(query_id)):
+        raise ValueError(f"malformed query id {query_id!r}")
     os.makedirs(snapshots_dir, exist_ok=True)
-    path = os.path.join(snapshots_dir, f"{query_id}.json")
+    root = os.path.realpath(snapshots_dir)
+    path = os.path.realpath(os.path.join(root, f"{query_id}.json"))
+    if os.path.commonpath([root, path]) != root:
+        raise ValueError("snapshot path escapes the snapshots folder")
     payload = {
         "query_id": query_id,
         "frozen_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -30,7 +39,7 @@ def snapshot(snapshots_dir: str, query_id: str, params: dict,
             for r in rules
         ],
     }
-    with open(path, "w") as f:
+    with open(path, "x") as f:
         json.dump(payload, f, indent=2)
     return path
 

@@ -531,21 +531,41 @@
     }
 
     /* ---------------- ingest ---------------- */
-    async function ingest() {
+    // ids-stale-warm (A2): a two-step inline confirm. A stray click on the first button
+    // on this page used to start a multi-minute, multi-GB re-parse of every contract and
+    // re-check every live rule with no way back. Nothing is POSTed until confirmed.
+    function ingest() {
+      const n = (typeof COVERAGE !== 'undefined' && COVERAGE.length) || 5;
+      const r = (typeof RATIFIED_RULES !== 'undefined' && RATIFIED_RULES.length) || 0;
+      $('uploadMsg').innerHTML =
+        `<span class="warn-text">Re-reading parses all ${n} PDFs again (several minutes, ` +
+        `multi-GB RAM) and re-checks ${r} live rule${r === 1 ? '' : 's'}.</span> ` +
+        `<button type="button" id="ingestConfirm" onclick="ingestConfirmed()">Re-read</button> ` +
+        `<button type="button" class="ghost" onclick="$('uploadMsg').textContent = ''">Cancel</button>`;
+      $('ingestConfirm').focus();
+    }
+    async function ingestConfirmed() {
       $('uploadMsg').textContent = 'Reading all documents…';
       const start = await fetch('/admin/ingest', {method: 'POST'}).then(r => r.json());
+      if (start.error) { $('uploadMsg').innerHTML = `<span class="bad">${esc(start.error)}</span>`; return; }
       const res = await pollJob(start.job_id);
       if (!res) return;
       // Say which declared documents have no file. Silently cataloguing them as empty
       // made the library list contracts Kenny could not answer from, with no reason given.
       const miss = res.missing || [];
-      let msg = `Read ${res.ingested.length} document(s). Ask about them in chat right away; ` +
-                `costing rules are drafted per scenario on the Verification tab.`;
+      const skipped = res.skipped_unchanged || [];
+      const stale = res.stale_rules || [];
+      let msg = `Read ${res.ingested.length} document(s)` +
+                (skipped.length ? ` (${skipped.length} unchanged, not re-parsed)` : '') +
+                `. ${res.rules_rechecked || 0} rule${res.rules_rechecked === 1 ? '' : 's'} re-checked, ` +
+                (stale.length ? `${stale.length} stale: ${stale.join(', ')}.` : '0 stale.') +
+                ` Ask about the documents in chat right away; costing rules are drafted per ` +
+                `scenario on the Verification tab.`;
       if (miss.length) {
         msg += ` ${miss.length} declared in this case have no PDF yet and were skipped — ` +
                `upload them to add them: ${miss.map(m => m.doc_id).join(', ')}.`;
       }
-      $('uploadMsg').innerHTML = miss.length
+      $('uploadMsg').innerHTML = (miss.length || stale.length)
         ? `<span class="warn-text">${esc(msg)}</span>` : esc(msg);
       loadDocs(); loadRules();
     }
