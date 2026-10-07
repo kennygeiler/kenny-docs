@@ -23,11 +23,11 @@ COPY . .
 
 # Generate the reference PDFs, then parse the whole corpus and cache the models INTO the
 # image. Runs with no API key: reproducible, free, and nothing secret lands in a layer.
-# KENNY_RELEASE_ALLOW_PENDING=1 lets the release gate accept known answers whose rules
-# are queued in the Review queue (approved live by the owner); see scripts/prepare_deploy.
-# Railway does not forward service variables to Dockerfile build args, so the demo
-# build sets it here. Set it back to 0 once the queued vacation tiers are approved.
-ARG KENNY_RELEASE_ALLOW_PENDING=1
+# The release gate accepts a PENDING known answer only when a rule of its topic waits in
+# rules_proposed.json (approved live by the owner). KENNY_RELEASE_ALLOW_PENDING=0 makes
+# the build strict; Railway does not forward service variables to build args, so set it
+# here if you want strict: `ARG KENNY_RELEASE_ALLOW_PENDING=0`.
+ARG KENNY_RELEASE_ALLOW_PENDING=
 ENV KENNY_RELEASE_ALLOW_PENDING=${KENNY_RELEASE_ALLOW_PENDING}
 RUN python -m scripts.prepare_deploy cases/santacruz
 

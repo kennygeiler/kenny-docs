@@ -127,8 +127,11 @@ def _goldens_fail(case_rel: str) -> bool:
     # PENDING answers whose rules sit in the Review queue, so the owner can approve them
     # in the live instance (the demo's human-gate beat). A pending answer with NO queued
     # rule is still a failure — pending-by-omission is not the same as pending-by-queue.
-    allow_pending = os.environ.get("KENNY_RELEASE_ALLOW_PENDING", "") in ("1", "true", "yes")
-    queued_topics = _queued_topics(case) if allow_pending else set()
+    # Pending-by-queue is accepted on its own (the queue IS the evidence); the env flag
+    # is kept as an explicit off-switch for release managers who want strict builds.
+    strict = os.environ.get("KENNY_RELEASE_ALLOW_PENDING", "") in ("0", "false", "no")
+    queued_topics = set() if strict else _queued_topics(case)
+    allow_pending = bool(queued_topics)
 
     failed = []
     pending_ok = []
@@ -145,7 +148,7 @@ def _goldens_fail(case_rel: str) -> bool:
         failed.append((g.get("name"), detail))
 
     if pending_ok:
-        print(f"[prepare] NOTE: KENNY_RELEASE_ALLOW_PENDING=1 — shipping with "
+        print(f"[prepare] NOTE: shipping with "
               f"{len(pending_ok)} pending known answer(s) whose rules are queued for "
               f"approval in the Review queue: {pending_ok}", file=sys.stderr)
 

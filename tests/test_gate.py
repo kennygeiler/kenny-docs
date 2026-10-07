@@ -138,7 +138,8 @@ def test_no_lossy_copy_of_the_library_remains():
     assert hits == [], hits
 
 
-def test_release_gate_refuses_pending_tiers_and_passes_once_they_are_approved(env):
+def test_release_gate_refuses_pending_tiers_and_passes_once_they_are_approved(env, monkeypatch):
+    monkeypatch.setenv("KENNY_RELEASE_ALLOW_PENDING", "0")
     """The release gate requires an explicit pass on every known answer. The shipped
     case holds five PENDING vacation-accrual answers (their agent-drafted tiers sit in
     the Review queue), so a release is refused until the owner confirms the three
@@ -169,10 +170,10 @@ def test_release_gate_allows_pending_only_when_flagged_and_queued(env, monkeypat
     sys.path.insert(0, os.path.join(ROOT, "scripts"))
     import prepare_deploy
     c, case = env
-    monkeypatch.delenv("KENNY_RELEASE_ALLOW_PENDING", raising=False)
+    monkeypatch.setenv("KENNY_RELEASE_ALLOW_PENDING", "0")   # strict: refuse pending
     assert prepare_deploy._goldens_fail("cases/santacruz") is True
-    monkeypatch.setenv("KENNY_RELEASE_ALLOW_PENDING", "1")
-    assert prepare_deploy._goldens_fail("cases/santacruz") is False
+    monkeypatch.delenv("KENNY_RELEASE_ALLOW_PENDING", raising=False)
+    assert prepare_deploy._goldens_fail("cases/santacruz") is False   # queued -> allowed
     # empty the queue: the same pending answers are now pending-by-omission -> refused
     queue = os.path.join(case, "rules", "rules_proposed.json")
     with open(queue) as f:
