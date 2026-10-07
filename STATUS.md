@@ -90,7 +90,8 @@ Each line names the DEMO_TICKETS id that fixes it; delete the line when it lands
     approvals have no `authoring.ratify` event in the ledger (F2); the script appends
     back-filled events labelled as such.
   - `firefighters_local3535_mou:longevity_10yr` is live with approver
-    `claude-agent:data-goldens`, not a person (J1a). To ratify it honestly: move it to
+    `analyst (hand-authored 2026-10-07, …)`, a label rather than a person (J1a; the
+    agent string it carried before KEN-19 is gone). To ratify it honestly: move it to
     `rules/rules_proposed.json`, approve it in the Review queue with your name (the gate
     runs), and let F2 record the approval.
   - The two skeptic reviews record `code_rev: d84d5f3-dirty` — produced on an

@@ -79,7 +79,8 @@ def test_readme_live_rule_facts_match_the_library():
     lib = json.load(open(os.path.join(ROOT, "cases", "santacruz", "rules", "rules_ratified.json")))
     rules = {r["id"]: r for r in lib["rules"]}
     assert len(rules) == 5
-    assert rules["firefighters_local3535_mou:longevity_10yr"]["approver"].startswith("claude-agent")
+    lon = rules["firefighters_local3535_mou:longevity_10yr"]["approver"]
+    assert lon.startswith("analyst (hand-authored 2026-10-07") and "claude" not in lon.lower()
     humans = [r for r in rules.values() if r["approver"] == "kenny"]
     assert len(humans) == 4
     readme = _read("README.md")

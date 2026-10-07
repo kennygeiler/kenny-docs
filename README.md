@@ -71,9 +71,10 @@ produced none of them. In the author's local ledger it was run five times on thi
 failed their known-answer check and nothing from any run was approved. The four original
 live rules were written by the reviewing analyst against the clause text and approved
 through the same gate on 2026-07-18. The fifth, `firefighters_local3535_mou:longevity_10yr`,
-was written on 2026-10-07 by a Claude Code agent against the catalog's p.12 text, passes
-its known answer ($656.82) and the gate, and **has not yet been ratified by a human** — its
-`approver` field says so. Two baked **skeptic reviews** (an agent that read each overtime
+was hand-authored on 2026-10-07 in a Claude Code session against the catalog's p.12 text
+(reviewed against the p.38 column), passes its known answer ($656.82) and the gate, and
+**has not yet been ratified by a human** through the Review queue — its `approver` field is the analyst
+label `analyst (hand-authored 2026-10-07, …)`, not a person's name. Two baked **skeptic reviews** (an agent that read each overtime
 rule's clause and the pages around it, listed what the rule ignores and ran its
 counter-examples through the engine) ship under `cases/santacruz/reviews/`; they were
 produced in a Claude Code session with zero API spend, and `scripts/skeptic.py` re-verifies
@@ -128,7 +129,7 @@ Open `/admin`. The tabs, in order:
 | **1 · Documents** | The contract library: each document parsed by docling for its text, its tables and the position of every clause, then indexed. X-ray and Compare show every extracted clause boxed on its page. | Five documents (four MOUs + the master salary schedule), 1,861 clauses, each with its text origin. *Showcase: p.22* opens Compare on the Local 3535 vacation table with the 6 cells the OCR misread in amber beside the page image. |
 | **2 · Verification** | The trust anchor: each card is a known answer with expected and actual, the rules that fired, and its analyst-derived source. **"Draft the rules for this scenario"** appears only on a scenario that is not passing. | Six green cards ($640.80; $656.82 with 12 years' longevity; 3 bereavement shifts for a Firefighter/Paramedic and for a Battalion Chief; 40 hours for a Division Chief; $716.16 for an Administrative Analyst). No Draft button, because nothing is pending. |
 | **3 · Review queue** | The human gate. Each drafted rule is shown beside its highlighted source clause. Approval needs the approver's name and is **refused** when a selected rule fires in no known answer, when a known answer that reproduced stops reproducing, or when one comes out wrong (trust rule 3). | Empty on the shipped case. |
-| **Rule library** | The five live rules (each naming its clause and approver), the gaps Kenny declined to model, **Try to break it** per rule, and the two **Skeptic reviews**. | `longevity_10yr`'s approver is a Claude Code agent, not a person (see above). |
+| **Rule library** | The five live rules (each naming its clause and approver), the gaps Kenny declined to model, **Try to break it** per rule, and the two **Skeptic reviews**. | `longevity_10yr`'s approver is an analyst label, not a person's name (see above). |
 | **Audit** | The hash-chained ledger: every question, approval and ingest as an event with decision-relevant payloads, `verify()` status, head hash, export, and a **tamper demo** that alters one event in a scratch copy and names the entry that fails. | The ledger file is not in git, so a fresh clone starts empty; the July 2026 authoring trail for the four original rules exists only in the author's local ledger. Without `KENNY_LEDGER_KEY` the chain is unkeyed SHA-256: it detects edits, not a full rewrite by someone with disk access. |
 
 ### Part 2 — Chat: ask and cost, with receipts
