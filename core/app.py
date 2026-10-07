@@ -19,11 +19,12 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import audit, auth, cellcheck, governance, index, ingest, llm, queryfacts, refusal, rulematch
-from . import evidence, warm
+from . import evidence, rowbands, warm
 from . import qid as qid_mod
 from .caseio import default_case_dir, load_case
 from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
+from . import pdfview
 from .pdfview import page_dims, render_page_with_bbox
 from .retriever import CatalogLLMRetriever
 from .ruledsl import SHIFT_BASES, Rule, RuleError, load_rules, validate_rules
@@ -350,6 +351,7 @@ def _source_entry(case, cat, h: dict) -> dict:
     origin = _page_origin(entry, h.get("page"))
     return {**_doc_meta(case, h["doc_id"]), "clause": h["clause"], "page": h["page"],
             "bbox": h["bbox"], "text": h["text"], "score": h["score"],
+            "row_bbox": rowbands.narrow(case.dir, h["doc_id"], h["page"], h["bbox"], h["text"]),  # C2
             "parse_source": parse_source, "kind": kind, "text_origin": origin,
             "tier": _extraction_tier(parse_source, kind, origin)}
 
@@ -1216,7 +1218,16 @@ def doc_file(doc_id: str):
 
 
 @app.get("/doc/{doc_id}/page/{page}")
-def doc_page(doc_id: str, page: int, bbox: str = ""):
+def doc_page(doc_id: str, page: int, bbox: str = "", crop: str = ""):
+    """The cited page as a PNG with the clause boxed (citations-polish, C2/I12).
+
+    bbox  'l,t,r,b' in PDF points, either corner order; must be 4 finite numbers.
+    crop  '1' cuts the image to the box plus CROP_MARGIN_PT of context above and
+          below (full page width, 3x scale) — the readable image the drawer shows
+          first; 'l,t,r,b' cuts an explicit region instead. Bad arity or a non-finite
+          number in either is a 400, never a confident page with no box on it.
+    A page outside 1..page_count is a 404, not a quietly different page.
+    """
     case = _case()
     pdf_path = _resolve_pdf(case, doc_id)
     if not pdf_path:
@@ -1229,12 +1240,16 @@ def doc_page(doc_id: str, page: int, bbox: str = ""):
         return JSONResponse({"error": "source document changed since ingestion — "
                              "the citation cannot be rendered against it"},
                             status_code=409)
-    try:
-        box = [float(x) for x in bbox.split(",")] if bbox else []
-    except ValueError:
-        return JSONResponse({"error": "bbox must be comma-separated numbers"},
-                            status_code=400)
-    png = render_page_with_bbox(pdf_path, page, box)
+    params, problem = _page_render_params(bbox, crop)
+    if problem:
+        return JSONResponse({"error": problem}, status_code=400)
+    dims = page_dims(pdf_path, page)
+    if dims is None:
+        return JSONResponse({"error": "render unavailable"}, status_code=503)
+    if page < 1 or page > dims[1]:
+        return JSONResponse({"error": f"no page {page}: the document has {dims[1]} pages"},
+                            status_code=404)
+    png = render_page_with_bbox(pdf_path, page, **params)
     if png is None:
         return JSONResponse({"error": "render unavailable"}, status_code=503)
     return Response(content=png, media_type="image/png")
@@ -2733,3 +2748,24 @@ def _cover_title(entry: dict | None) -> str:
     date line there (a pre-C4 bake) — a date is not something to show as a name."""
     extracted = str((entry or {}).get("title") or "").strip()
     return "" if not extracted or ingest._date_like(extracted) else extracted
+
+
+def _page_render_params(bbox: str, crop: str) -> tuple[dict, str | None]:
+    """Parse the /doc/{id}/page/{page} query into render_page_with_bbox kwargs, or
+    name what is wrong with it (-> 400)."""
+    params: dict = {"bbox": []}
+    if bbox:
+        box = pdfview.finite_box(bbox.split(","))
+        if box is None:
+            return params, "bbox must be four finite comma-separated numbers (l,t,r,b)"
+        params["bbox"] = box
+    c = (crop or "").strip().lower()
+    if c in ("1", "true", "yes", "auto"):
+        if params["bbox"]:
+            params["crop_margin_pt"] = pdfview.CROP_MARGIN_PT
+    elif c:
+        region = pdfview.finite_box(c.split(","))
+        if region is None:
+            return params, "crop must be '1' or four finite comma-separated numbers (l,t,r,b)"
+        params["crop"] = region
+    return params, None
