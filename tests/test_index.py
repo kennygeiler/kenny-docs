@@ -109,3 +109,21 @@ def test_table_rows_become_searchable_lines():
     body = " ".join(rows)
     assert "Sergeant" in body and "$58.00" in body and "Step C" in body
     assert "Appendix A" in body   # caption travels with the row
+
+
+def test_embedder_is_pinned_to_cpu():
+    """Demo breaker: on Apple Silicon the MPS Metal shader cache is not thread-safe on
+    first use, so a policy question arriving during the warm-up thread's load livelocked
+    the server. The model must load on the CPU regardless of what torch would pick."""
+    import pytest
+    from core import index
+    if not index.embeddings_available():
+        pytest.skip("sentence-transformers not installed")
+    assert index._DEVICE == "cpu"
+    try:
+        model = index.embedder()
+    except Exception as e:  # no cached model in this environment
+        pytest.skip(f"embedding model unavailable offline: {e}")
+    assert str(model.device) == "cpu"
+    # The lock-guarded singleton is what makes concurrent callers wait for one load.
+    assert index.embedder() is model
