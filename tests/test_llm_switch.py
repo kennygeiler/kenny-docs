@@ -79,3 +79,25 @@ def test_chat_badge_text_lists_the_off_mode():
                            "core", "templates", "app.js")).read()
     assert "LLM: off (deterministic)" in js
     assert "degraded" in js
+
+
+def test_client_timeout_is_a_plain_number(monkeypatch):
+    """Regression: an httpx.Timeout object raised TypeError on hosts whose SDK links
+    against httpx2, tripping the breaker on every call. A float is portable."""
+    import inspect
+    from core import llm
+    code = "\n".join(l for l in inspect.getsource(llm._client).splitlines()
+                     if not l.strip().startswith("#"))
+    assert "httpx.Timeout(" not in code
+    captured = {}
+
+    class FakeAnthropic:
+        def __init__(self, **kw):
+            captured.update(kw)
+
+    import anthropic
+    monkeypatch.setattr(anthropic, "Anthropic", FakeAnthropic)
+    llm._reset_client()
+    llm._client()
+    assert isinstance(captured["timeout"], float)
+    llm._reset_client()

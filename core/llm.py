@@ -387,10 +387,11 @@ def _client():
     global _CLIENT
     with _CLIENT_LOCK:
         if _CLIENT is None:
-            import httpx
             from anthropic import Anthropic
-            _CLIENT = Anthropic(timeout=httpx.Timeout(_timeout_s(), connect=5.0),
-                                max_retries=DEFAULT_MAX_RETRIES)
+            # A plain float: the SDK builds its own Timeout from it. Passing
+            # httpx.Timeout broke on hosts where the SDK is linked against httpx2
+            # (TypeError on every call -> breaker open -> silent fallbacks in prod).
+            _CLIENT = Anthropic(timeout=_timeout_s(), max_retries=DEFAULT_MAX_RETRIES)
         return _CLIENT
 
 
