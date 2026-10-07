@@ -329,13 +329,16 @@
           534.307,
           449.771
         ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
         "cell": {
           "page": 22,
           "row": 1,
           "col": 1,
           "quoted_text": "7.38",
           "stored_text": "7,38"
-        }
+        },
+        "quote_sha256": "a37e014b0a85a1e9",
+        "quote": "XV.  Vacation Leave (table: Vacation Accrual Schedule for all Union Members.Years of Service, Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period, Vacation Accrual Schedu"
       },
       "status": "ratified",
       "_scenario": "vacation accrual per pay period, 3-year member (Local 3535 XV table p.22, row 1-5)",
@@ -366,13 +369,16 @@
           534.307,
           449.771
         ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
         "cell": {
           "page": 22,
           "row": 2,
           "col": 1,
           "quoted_text": "10.15",
           "stored_text": "0) \u00a35"
-        }
+        },
+        "quote_sha256": "a37e014b0a85a1e9",
+        "quote": "XV.  Vacation Leave (table: Vacation Accrual Schedule for all Union Members.Years of Service, Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period, Vacation Accrual Schedu"
       },
       "status": "ratified",
       "_scenario": "vacation accrual per pay period, 7-year member (Local 3535 XV table p.22, OCR-corrected cell)",
@@ -403,13 +409,16 @@
           534.307,
           449.771
         ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
         "cell": {
           "page": 22,
           "row": 3,
           "col": 1,
           "quoted_text": "12",
           "stored_text": "12"
-        }
+        },
+        "quote_sha256": "a37e014b0a85a1e9",
+        "quote": "XV.  Vacation Leave (table: Vacation Accrual Schedule for all Union Members.Years of Service, Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period, Vacation Accrual Schedu"
       },
       "status": "ratified",
       "_scenario": "vacation accrual per pay period, 12-year member (Local 3535 XV table p.22, row 11-13)",
@@ -440,13 +449,16 @@
           534.307,
           449.771
         ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
         "cell": {
           "page": 22,
           "row": 4,
           "col": 1,
           "quoted_text": "13.85",
           "stored_text": "fs 13,85"
-        }
+        },
+        "quote_sha256": "a37e014b0a85a1e9",
+        "quote": "XV.  Vacation Leave (table: Vacation Accrual Schedule for all Union Members.Years of Service, Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period, Vacation Accrual Schedu"
       },
       "status": "ratified",
       "_scenario": "vacation accrual per pay period, 15-year member (Local 3535 XV table p.22, OCR-corrected cell)",
@@ -477,13 +489,16 @@
           534.307,
           449.771
         ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
         "cell": {
           "page": 22,
           "row": 5,
           "col": 1,
           "quoted_text": "14.78",
           "stored_text": "; 14,78"
-        }
+        },
+        "quote_sha256": "a37e014b0a85a1e9",
+        "quote": "XV.  Vacation Leave (table: Vacation Accrual Schedule for all Union Members.Years of Service, Vacation Accrual Schedule for all Union Members.| Hours Accrued per .| pay period, Vacation Accrual Schedu"
       },
       "status": "ratified",
       "_scenario": "vacation accrual per pay period, 20-year member (Local 3535 XV table p.22, OCR-corrected cell)",
