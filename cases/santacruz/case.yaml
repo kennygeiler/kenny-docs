@@ -141,6 +141,34 @@ golden_cases:
     params: {hours: 8, years_of_service: 12}
     expected_total: 656.82
 
+  # LONGEVITY BOUNDARY (E10). The same shift at 9 and at 10 completed years pins the
+  # threshold itself, so a rule whose edge drifts by one year (>= 11, >= 9) is caught by
+  # a known answer rather than surviving "Try to break it". The p.12 clause says "Upon
+  # completion of ten (10) years of service": nine completed years is no longevity, ten
+  # completed years is 2.5%. Years of service come from the question and are unverified.
+  #   9 years:  53.40 x 1.5 x 8h = 640.80 (no longevity)
+  #   10 years: 53.40 x 1.025 = 54.735; x 1.5 x 8h = 656.82
+  - name: 8-hour overtime shift, 9-year Firefighter/Paramedic top step (no longevity; one year short of the p.12 threshold)
+    source: "analyst-derived: Local 3535 MOU p.12 Longevity Pay applies 'Upon completion of ten (10) years of service', so nine completed years earn none; 1.5x from p.8 s.3; $53.40/hr from the Master Salary Schedule"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'Completion of ten (10) years' is read as ten completed whole years; nine completed years is below the threshold"
+    branch_query: "longevity pay ten years of service 2.5% general salary increase"
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 8, years_of_service: 9}
+    expected_total: 640.80
+
+  - name: 8-hour overtime shift, 10-year Firefighter/Paramedic top step (longevity 2.5% from exactly the p.12 threshold)
+    source: "analyst-derived: Local 3535 MOU p.12 Longevity Pay, 'Upon completion of ten (10) years of service ... a 2.5% general salary increase' (p.38 column corroborates); 1.5x from p.8 s.3; $53.40/hr from the Master Salary Schedule"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'Completion of ten (10) years' is read as ten completed whole years, so the 2.5% applies at exactly ten"
+      - "The intermediate rate 54.735 is not rounded to cents; only the extension is (case rounding policy)"
+    branch_query: "longevity pay ten years of service 2.5% general salary increase"
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 8, years_of_service: 10}
+    expected_total: 656.82
+
   # Local 3535 MOU Article XIV (p.21): "the employee shall be granted three (3) shifts
   # paid bereavement leave." A non-money entitlement, verified with the same rigour.
   - name: bereavement leave, Firefighters Local 3535 (Article XIV)
@@ -242,4 +270,116 @@ golden_cases:
     result_type: hours
     subjects: ["Firefighter/Paramedic (56 hr, top step)"]
     params: {hours: 0, years_of_service: 20}
+    expected_total: 14.78
+
+  # VACATION TIER BOUNDARIES (E10). The mid-tier answers above (3, 7, 12, 15, 20 years)
+  # prove each cell's value but not where the tiers meet: a tier rule whose edge drifts
+  # by one year (6-10 -> 7-10, or 6-10 -> 6-11) still reproduces them, so those mutants
+  # survived "Try to break it". The p.22 table's "Years of Service" column reads
+  # 1-5 / 6-10 / 11-13 / 14-16 / 17+, so each tier's first and last year is pinned here:
+  # 1, 5 -> 7.38; 6, 10 -> 10.15; 11, 13 -> 12; 14, 16 -> 13.85; 17 -> 14.78. Values are
+  # the same page-image re-reads cited above (three cells are misread in the text layer
+  # and await the same human confirm). Years come from the question and are unverified.
+  - name: vacation accrual per pay period, 1-year member (Local 3535 XV table p.22, first year of row 1-5)
+    source: "read from the p.22 page image via the cell re-read (7.38, the text layer prints '7,38'); the row's years column reads '1-5'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'1-5' is read as one through five completed whole years, inclusive at both ends"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 1}
+    expected_total: 7.38
+
+  - name: vacation accrual per pay period, 5-year member (Local 3535 XV table p.22, last year of row 1-5)
+    source: "read from the p.22 page image via the cell re-read (7.38, the text layer prints '7,38'); the row's years column reads '1-5'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'1-5' is read as one through five completed whole years, inclusive at both ends"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 5}
+    expected_total: 7.38
+
+  - name: vacation accrual per pay period, 6-year member (Local 3535 XV table p.22, first year of row 6-10, OCR-corrected cell)
+    source: "read from the p.22 page image by the second OCR engine (cell_checks.json re-read 10.15, score 0.91); the OCR text layer prints '0) £5' for this cell; the row's years column reads '6-10'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'6-10' is read as six through ten completed whole years, inclusive at both ends"
+      - "The cited cell is disputed in the text layer; the value awaits a human confirm (POST /admin/cell_confirm) before the rule can be re-approved"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 6}
+    expected_total: 10.15
+
+  - name: vacation accrual per pay period, 10-year member (Local 3535 XV table p.22, last year of row 6-10, OCR-corrected cell)
+    source: "read from the p.22 page image by the second OCR engine (cell_checks.json re-read 10.15, score 0.91); the OCR text layer prints '0) £5' for this cell; the row's years column reads '6-10'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'6-10' is read as six through ten completed whole years, inclusive at both ends"
+      - "The cited cell is disputed in the text layer; the value awaits a human confirm (POST /admin/cell_confirm) before the rule can be re-approved"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 10}
+    expected_total: 10.15
+
+  - name: vacation accrual per pay period, 11-year member (Local 3535 XV table p.22, first year of row 11-13)
+    source: "read from the p.22 page image via the cell re-read (12, the text layer agrees); the row's years column reads '11-13'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'11-13' is read as eleven through thirteen completed whole years, inclusive at both ends"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 11}
+    expected_total: 12
+
+  - name: vacation accrual per pay period, 13-year member (Local 3535 XV table p.22, last year of row 11-13)
+    source: "read from the p.22 page image via the cell re-read (12, the text layer agrees); the row's years column reads '11-13'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'11-13' is read as eleven through thirteen completed whole years, inclusive at both ends"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 13}
+    expected_total: 12
+
+  - name: vacation accrual per pay period, 14-year member (Local 3535 XV table p.22, first year of row 14-16, OCR-corrected cell)
+    source: "read from the p.22 page image by the second OCR engine (re-read 13.85); the OCR text layer prints 'fs 13,85'; the row's years column reads '14-16'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'14-16' is read as fourteen through sixteen completed whole years, inclusive at both ends"
+      - "The cited cell is disputed in the text layer; the value awaits a human confirm before the rule can be re-approved"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 14}
+    expected_total: 13.85
+
+  - name: vacation accrual per pay period, 16-year member (Local 3535 XV table p.22, last year of row 14-16, OCR-corrected cell)
+    source: "read from the p.22 page image by the second OCR engine (re-read 13.85); the OCR text layer prints 'fs 13,85'; the row's years column reads '14-16'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'14-16' is read as fourteen through sixteen completed whole years, inclusive at both ends"
+      - "The cited cell is disputed in the text layer; the value awaits a human confirm before the rule can be re-approved"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 16}
+    expected_total: 13.85
+
+  - name: vacation accrual per pay period, 17-year member (Local 3535 XV table p.22, first year of row 17+, OCR-corrected cell)
+    source: "read from the p.22 page image by the second OCR engine (re-read 14.78); the OCR text layer prints '; 14,78'; the row's years column reads '17+'; Local 3535 MOU Article XV"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "'17+' is read as seventeen or more completed whole years, with no upper bound"
+      - "The cited cell is disputed in the text layer; the value awaits a human confirm before the rule can be re-approved"
+    branch_query: "vacation accrual schedule hours accrued per pay period years of service"
+    result_type: hours
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 0, years_of_service: 17}
     expected_total: 14.78

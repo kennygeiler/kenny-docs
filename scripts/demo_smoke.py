@@ -212,9 +212,9 @@ def chk_verification(client, ctx):
     passing = sum(1 for g in goldens if g.get("status") == "pass")
     observed = (f"all_passing={v.get('all_passing')} {passing}/{len(goldens)} pass "
                 f"rules={v.get('rule_count')} unverified={v.get('unverified')}")
-    expected = "all_passing=True 6/6 pass rules=5 unverified=[]"
-    ok = (status == 200 and v.get("all_passing") is True and len(goldens) == 6
-          and passing == 6 and v.get("rule_count") == 5 and v.get("unverified") == [])
+    expected = "all_passing=True 22/22 pass rules=10 unverified=[]"
+    ok = (status == 200 and v.get("all_passing") is True and len(goldens) == 22
+          and passing == 22 and v.get("rule_count") == 10 and v.get("unverified") == [])
     return ok, observed, expected
 
 
@@ -279,7 +279,7 @@ CHECKS = [
     ("heat_pump_out_of_scope", "heat-pump rebate -> out_of_scope naming the 5 documents", chk_off_corpus),
     ("regular_shift_refused", "regular shift -> refused, only overtime approved", chk_regular_refused),
     ("mixed_units_partial", "firefighter + Fire Marshal -> $640.80 + not-covered row", chk_mixed_units),
-    ("verification_all_passing", "/admin/verification -> 6 known answers pass, 5 rules", chk_verification),
+    ("verification_all_passing", "/admin/verification -> 22 known answers pass, 10 rules", chk_verification),
     ("replay_match", "/chat/replay/{640.80} -> match on every check", chk_replay),
     ("p22_disputed_cells", "/doc/.../clauses?page=22 -> 6 disputed cells", chk_p22_cells),
     ("skeptic_two_reviews", "/admin/skeptic -> two fresh precomputed reviews", chk_skeptic),

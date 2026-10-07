@@ -28,6 +28,12 @@ GOLDEN_640 = ("8-hour overtime shift at base rate, hours beyond the 182-hour thr
               "Firefighter/Paramedic top step (1.5x per Local 3535 MOU)")
 GOLDEN_656 = ("8-hour overtime shift, 12-year Firefighter/Paramedic top step "
               "(longevity 2.5% into the 1.5x rate)")
+# E10 longevity boundary answers (9 years -> 640.80, 10 years -> 656.82); both fire the
+# overtime rule, so they join its proved_by list in case.yaml order.
+GOLDEN_9YR = ("8-hour overtime shift, 9-year Firefighter/Paramedic top step "
+              "(no longevity; one year short of the p.12 threshold)")
+GOLDEN_10YR = ("8-hour overtime shift, 10-year Firefighter/Paramedic top step "
+               "(longevity 2.5% from exactly the p.12 threshold)")
 FF_CIT = {"doc_id": FF, "clause": "Overtime Rate (p.8)", "page": 8,
           "bbox": [141.418, 505.662, 511.182, 441.459]}
 MGMT_CIT = {"doc_id": "management_mou", "clause": "Flex time (p.6)", "page": 6,
@@ -198,7 +204,7 @@ def test_correct_rule_into_empty_library_is_approved(env):
                      if k not in ("status", "approver", "approved_at")}])
     res = c.post("/admin/ratify", json={"approver": "tester"}).json()
     assert res["ratified"] == [FF_OT, FF_LONG] and res["library_size"] == 2
-    assert res["proved_by"][FF_OT] == [GOLDEN_640, GOLDEN_656]
+    assert res["proved_by"][FF_OT] == [GOLDEN_640, GOLDEN_656, GOLDEN_9YR, GOLDEN_10YR]
     ev = [e for e in _ledger(case) if e["type"] == "authoring.ratify"
           and e["payload"]["rule_id"] == FF_OT][-1]
     assert ev["payload"]["proved_by"] == res["proved_by"][FF_OT]
@@ -323,10 +329,14 @@ def test_mutation_report_over_the_live_library(env):
     res = c.get("/admin/mutation_report").json()
     # 7 mutants per currency rule, 3 per selector, 9 for the longevity modifier; J1b's
     # five vacation tiers add 9+9+9+9+7 (value, drop/invert condition, move each
-    # threshold, re-home). Their survivors are the moved-threshold mutants: the known
-    # answers sit mid-tier (3, 7, 12, 15, 20 years), so an edge moved by one year is
-    # not exercised (E10 boundary known answers would catch them).
-    assert (res["total"], res["caught"]) == (72, 43)
+    # threshold, re-home). E10's boundary known answers (longevity at 9 and 10 years;
+    # vacation at 1, 5, 6, 10, 11, 13, 14, 16, 17 years) catch every threshold moved
+    # OUTWARD into a passing answer's year and the longevity edge both ways (43 -> 58).
+    # What still survives: a lower tier edge moved DOWN by one year (6 -> 5, 11 -> 10,
+    # 14 -> 13, 17 -> 16, 1 -> 0.9) overlaps the tier below, and the lower tier wins
+    # first-match, so no answer changes; `drop condition` on 17+ for the same reason;
+    # and the `hours > 0` / `effective_base` mutants no known answer can reach.
+    assert (res["total"], res["caught"]) == (72, 58)
     vac = {f"{FF}:vacation_accrual_{t}" for t in ("1_5", "6_10", "11_13", "14_16", "17_plus")}
     assert {s["rule_id"] for s in res["survivors"]} == {FF_OT, FF_LONG,
                                                         "admin_group_mou:overtime_premium_rate"} | vac
