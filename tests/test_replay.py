@@ -202,3 +202,50 @@ def test_replay_script_all_exits_zero(client, case_dir):
                          env={**os.environ, "HF_HUB_OFFLINE": "1"})
     assert out.returncode == 0, out.stdout + out.stderr
     assert "match" in out.stdout
+
+
+ENTITLEMENT_PROMPT = "How much bereavement leave does a firefighter get?"
+
+
+def test_entitlement_answer_replays(client, case_dir):
+    """KEN-102: a non-money answer is snapshotted through the same record_answer path as
+    a costing, so GET /chat/replay recomputes it from the frozen inputs."""
+    res = client.post("/chat", json={"prompt": ENTITLEMENT_PROMPT}).json()
+    assert res["mode"] == "entitlement", res
+    assert res["result"]["total"] == 3.0
+    qid = res["query_id"]
+    snap_ev = [e for e in _events(case_dir) if e["type"] == "answer.snapshot"][-1]["payload"]
+    assert snap_ev["intent"] == "entitlement"
+    assert snap_ev["result_type"] == "shifts"
+    assert snap_ev["snapshot"] and snap_ev["snapshot_sha256"] and snap_ev["rules"]
+    assert _snapshot(case_dir, snap_ev["snapshot"])["schema"] == 2
+    before = len(_events(case_dir))
+    rep = client.get(f"/chat/replay/{qid}").json()
+    assert rep["status"] == "match", rep
+    assert rep["recomputed"]["total"] == 3.0
+    assert all(c["ok"] for c in rep["checks"])
+    assert {c["name"] for c in rep["checks"]} >= {"snapshot_sha256", "total",
+                                                    "result_sha256_vs_ledger", "ledger_chain"}
+    assert len(_events(case_dir)) == before          # read-only
+
+
+def test_drawer_has_replay_control():
+    """KEN-102: the audit drawer header carries a Replay button wired to /chat/replay,
+    the stylesheet styles its three outcomes, and app.js still parses."""
+    js_path = os.path.join(ROOT, "core", "templates", "app.js")
+    with open(js_path) as f:
+        js = f.read()
+    assert "function replayControl(" in js
+    assert "replayControl(queryId, li)" in js          # mounted from openAudit's header
+    assert "/chat/replay/" in js
+    assert "class=\"ghost replay-btn\">Replay<" in js
+    assert "not replayable:" in js
+    with open(os.path.join(ROOT, "core", "templates", "styles.css")) as f:
+        css = f.read()
+    for cls in (".replay-ok", ".replay-bad", ".replay-none"):
+        assert cls in css
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node not installed; syntax check skipped")
+    out = subprocess.run([node, "--check", js_path], capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
