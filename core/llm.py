@@ -481,11 +481,30 @@ def _normalize_intent(out: dict, subjects: list[dict], prompt: str = "") -> dict
         if h and h not in stated:
             unverified["hours"] = h
             out["hours"] = 0.0
+        # J1a: the same echo-back for years of service — a model-invented tenure would
+        # switch the longevity differential on and change the money.
+        try:
+            y = float(out.get("years_of_service") or 0.0)
+        except (TypeError, ValueError):
+            y = 0.0
+            out["years_of_service"] = 0.0
+        if y and y not in stated:
+            unverified["years_of_service"] = y
+            out["years_of_service"] = 0.0
         if unverified:
             out["unverified_numbers"] = unverified
             _note("parse_intent", "fallback",
                   rule="echo-back: model-extracted number absent from the question",
                   unverified=unverified)
+    # J1a: label where tenure came from. The roster is classifications, not people, so
+    # years of service can only come from the question and are never verified here.
+    try:
+        yrs = float(out.get("years_of_service") or 0.0)
+    except (TypeError, ValueError):
+        yrs = 0.0
+    if yrs:
+        out["question_facts"] = {"years_of_service": {
+            "value": yrs, "source": "from the question, unverified — not a roster field"}}
     return out
 
 
@@ -498,6 +517,12 @@ def _parse_intent_stub(prompt: str, names: list[str]) -> dict:
     m = re.search(r"(\d+(?:\.\d+)?)\s*-?\s*hour", p)
     if m:
         hours = float(m.group(1))
+    # J1a: completed years of service, only when the question states them ("12 years of
+    # service", "a 12-year firefighter"). Absent -> 0.0; a rule keyed on it then skips.
+    years = 0.0
+    ym = re.search(r"(\d+(?:\.\d+)?)\s*-?\s*(?:year|yr)s?\b", p)
+    if ym:
+        years = float(ym.group(1))
     weekday = ""
     for word, abbr in _WEEKDAYS.items():
         if word in p:
@@ -510,7 +535,7 @@ def _parse_intent_stub(prompt: str, names: list[str]) -> dict:
         date = dm.group(0)
     _note("parse_intent", "fallback", rule="regex + roster name matching")
     return {"subjects": matched, "hours": hours, "date": date,
-            "holiday_weekday": weekday, "source": "stub"}
+            "holiday_weekday": weekday, "years_of_service": years, "source": "stub"}
 
 
 # --------------------------------------------------------------------------- #

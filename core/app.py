@@ -18,7 +18,7 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import audit, auth, governance, index, ingest, llm
+from . import audit, auth, governance, index, ingest, llm, queryfacts
 from . import evidence, warm
 from . import qid as qid_mod
 from .caseio import default_case_dir, load_case
@@ -31,8 +31,12 @@ from .ruledsl import SHIFT_BASES, Rule, load_rules, validate_rules
 def _load_dotenv() -> None:
     """Load the repo's .env at startup so the server works with a plain `uvicorn`
     command — no --env-file flag required. Real environment variables always win.
-    (Only the app entrypoint does this; tests import the modules directly and stay
-    deterministic on the offline fallbacks.)"""
+    Skipped under pytest (and when KENNY_NO_DOTENV is set): this runs at import, during
+    test collection, which is exactly how a developer's real ANTHROPIC_API_KEY used to
+    leak into the suite (DEMO_TICKETS K2; tests/conftest.py is the other half)."""
+    import sys
+    if os.environ.get("KENNY_NO_DOTENV") or "pytest" in sys.modules:
+        return
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(root, ".env")
     if not os.path.exists(path):
@@ -789,6 +793,7 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                   "date": params.get("date", ""),
                   "date_iso": date_iso or "",
                   "holiday_weekday": params.get("holiday_weekday", "")}
+    eng_params.update(queryfacts.engine_extras(case, params))  # J1a: years_of_service etc.
     try:
         # A shift-cost question includes hourly and per-shift pay only — never a year of
         # benefits. Annual/monthly/per-period terms are the wrong unit for "what does this
@@ -1316,6 +1321,7 @@ def _check_golden(case, rule_dicts: list[dict], golden: dict) -> tuple[bool, dic
         # golden didn't set (e.g. date_iso) evaluates to a safe default instead of
         # exploding. Mirrors run time, where chat always supplies all of them.
         params = {"hours": 0.0, "date": "", "date_iso": "", "holiday_weekday": ""}
+        params.update(queryfacts.query_defaults(case))  # J1a: every declared question fact
         params.update(golden.get("params", {}))
         # A currency scenario is a shift cost — same basis filter as run time, so approving
         # a whole MOU (uniform allowance, medical, life insurance) does not blow the check

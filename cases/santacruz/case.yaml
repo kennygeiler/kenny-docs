@@ -3,8 +3,10 @@ department: district
 
 # REAL documents, published by the district at centralfiresc.org/2161/Salaries-Benefits.
 # Four MOUs (all arrived as scans — OCR'd to a text layer before ingest) plus the master
-# salary schedule. Governance dates below are declared from each document's own title;
-# confirming them against the signature pages is a human onboarding step (PRD §11.1).
+# salary schedule. Governance windows below are taken from each document's own Term
+# clause (page given under `term`), and each unit's membership from its Recognition
+# clause (page and ranks under `recognition`). tests/test_case_sources.py re-reads both
+# clauses from the shipped catalog and fails if these declarations drift from the text.
 sources:
   - id: firefighters_local3535_mou
     file: sources/firefighters_local3535_mou.pdf
@@ -13,8 +15,15 @@ sources:
     bargaining_unit: firefighters-local-3535
     department: fire
     mou_version: L3535-2025
-    effective_start: "2025-07-01"
-    effective_end: "2028-06-30"
+    # XXVII. Term (p.33): "effective December 20, 2025, through December 31, 2028"
+    effective_start: "2025-12-20"
+    effective_end: "2028-12-31"
+    term: {page: 33, clause: "XXVII. Term"}
+    # II. Recognition (p.3). OCR prints "Firefighter/Paramadics"; the 40-hour Battalion
+    # Chief / 40-hour Safety Employee positions are listed too and share these ranks.
+    recognition:
+      page: 3
+      ranks: [Battalion Chief, Fire Captain, Fire Captain Specialist, Firefighter/Paramedic, Firefighter]
   - id: admin_group_mou
     file: sources/admin_group_mou.pdf
     title: Admin Group MOU 2024–2026 (with three Side Letters)
@@ -22,8 +31,13 @@ sources:
     bargaining_unit: admin-group
     department: admin
     mou_version: ADMIN-2024
-    effective_start: "2024-07-01"
-    effective_end: "2026-06-30"
+    # XXVIII. Term (p.22): "effective January 1, 2024, through December 31, 2026"
+    effective_start: "2024-01-01"
+    effective_end: "2026-12-31"
+    term: {page: 22, clause: "XXVIII. Term"}
+    recognition:
+      page: 3
+      ranks: [Fire Inspector, Senior Fire Apparatus Technician, Fire Apparatus Technician, Administrative Assistant, Logistics Technician, Deputy Fire Marshal, Administrative Analyst]
   - id: management_mou
     file: sources/management_mou.pdf
     title: Management MOU 2024–2026 (with Side Letter)
@@ -31,8 +45,13 @@ sources:
     bargaining_unit: management
     department: management
     mou_version: MGMT-2024
-    effective_start: "2024-07-01"
-    effective_end: "2026-06-30"
+    # XXV. Term (p.16): "effective January 1, 2024, through December 31, 2026"
+    effective_start: "2024-01-01"
+    effective_end: "2026-12-31"
+    term: {page: 16, clause: "XXV. Term"}
+    recognition:
+      page: 3
+      ranks: [Fire Marshal, Finance Director, Human Resources Director]
   - id: chief_officers_mou
     file: sources/chief_officers_mou.pdf
     title: Chief Officers Association MOU 2026–2028
@@ -40,8 +59,15 @@ sources:
     bargaining_unit: chief-officers
     department: fire
     mou_version: COA-2026
-    effective_start: "2026-07-01"
-    effective_end: "2028-06-30"
+    # XXV. Term (p.25): "effective January 1, 2026, through December 31, 2028"
+    effective_start: "2026-01-01"
+    effective_end: "2028-12-31"
+    term: {page: 25, clause: "XXV. Term"}
+    # II. Recognition (p.4): "Division Chiefs." Battalion Chiefs are NOT in this unit —
+    # the Local 3535 recognition clause lists them.
+    recognition:
+      page: 4
+      ranks: [Division Chief]
   - id: master_salary_schedule
     file: sources/master_salary_schedule.pdf
     title: Master Salary Schedule (approved 2026-05-14)
@@ -67,6 +93,11 @@ extraction: prompt/extraction.yaml
 ledger: ledger.jsonl
 snapshots: snapshots
 
+# ROUNDING POLICY (a choice, stated so it can be challenged at onboarding): the engine
+# rounds each line's EXTENSION once, half-up to `places`; intermediate rates (e.g. the
+# longevity-adjusted hourly rate) are carried unrounded. Rounding the rate to cents first
+# would change the 12-year overtime answer below from 656.82 to 656.88. The district's
+# payroll practice is unconfirmed.
 rounding:
   places: 2
   mode: half_up
@@ -76,16 +107,39 @@ rounding:
 # REAL documents and cites where it came from; replacing these with actual payroll
 # amounts is the first onboarding step with the district.
 golden_cases:
-  # Local 3535 MOU p.8: "premium overtime compensation at the rate of one and one half
-  # (1.5) times the employee's regular rate of pay." Rate from the Master Salary
-  # Schedule: Firefighter/Paramedic 56-hr top step = $53.40/hr.
+  # Local 3535 MOU p.8 s.3: "premium overtime compensation at the rate of one and one half
+  # (1.5) times the employee's regular rate of pay ... in excess of 182 hours in a 24-day
+  # work period." Rate from the Master Salary Schedule: Firefighter/Paramedic 56-hr top
+  # step = $53.40/hr.
   #   53.40 x 1.5 x 8h = 640.80
-  - name: 8-hour overtime shift, Firefighter/Paramedic top step (1.5x per Local 3535 MOU)
-    source: "analyst-derived: 1.5x multiplier from Local 3535 MOU p.8; $53.40/hr from the Master Salary Schedule"
+  - name: 8-hour overtime shift at base rate, hours beyond the 182-hour threshold, Firefighter/Paramedic top step (1.5x per Local 3535 MOU)
+    source: "analyst-derived: 1.5x multiplier from Local 3535 MOU p.8 s.3; $53.40/hr from the Master Salary Schedule"
+    assumptions:
+      - "Hours are premium-overtime hours beyond the 182-hour threshold of the 24-day FLSA work period (MOU p.8 s.3)"
+      - "Regular rate is taken as the salary-schedule base rate; special-assignment pay and education incentive (p.8 s.2) are not on the roster and not included"
     branch_query: "overtime rate one and one half times regular rate of pay premium compensation"
     subjects: ["Firefighter/Paramedic (56 hr, top step)"]
     params: {hours: 8}
     expected_total: 640.80
+
+  # Same shift, 12 completed years of service. Local 3535 MOU p.12 Longevity Pay: "Upon
+  # completion of ten (10) years of service ... a 2.5% general salary increase";
+  # corroborated by the "Longevity >10 yrs 2.50%" column of the CY2026 incentive table
+  # (p.38). The p.8 s.2 regular-rate definition folds additional pay into the 1.5x base.
+  #   53.40 x 1.025 = 54.735 regular rate; x 1.5 x 8h = 656.82
+  # ROUNDING: the extension is rounded once (see `rounding` above); the rate is not.
+  # Rounding the rate to cents first gives 656.88 (Decimal half-up); the old float path
+  # would have given 656.76. Years of service come from the question and are unverified
+  # (the roster is classifications, not people).
+  - name: 8-hour overtime shift, 12-year Firefighter/Paramedic top step (longevity 2.5% into the 1.5x rate)
+    source: "analyst-derived: 2.5% longevity from Local 3535 MOU p.12 (p.38 column corroborates); 1.5x from p.8 s.3; $53.40/hr from the Master Salary Schedule"
+    assumptions:
+      - "Years of service are taken from the question and are unverified; the roster carries no service dates"
+      - "The intermediate rate 54.735 is not rounded to cents; only the extension is (case rounding policy)"
+    branch_query: "longevity pay ten years of service 2.5% general salary increase"
+    subjects: ["Firefighter/Paramedic (56 hr, top step)"]
+    params: {hours: 8, years_of_service: 12}
+    expected_total: 656.82
 
   # Local 3535 MOU Article XIV (p.21): "the employee shall be granted three (3) shifts
   # paid bereavement leave." A non-money entitlement, verified with the same rigour.
@@ -97,14 +151,25 @@ golden_cases:
     params: {hours: 0}
     expected_total: 3
 
+  # Battalion Chiefs are in the Local 3535 unit (Recognition, p.3), not the Chief
+  # Officers' unit — so they get the same three shifts, from the same clause.
+  - name: bereavement leave, Battalion Chief (Local 3535 Art. XIV)
+    source: "analyst-derived: Battalion Chief listed in Local 3535 Recognition p.3; 'three (3) shifts paid bereavement leave', Article XIV p.21"
+    branch_query: "bereavement leave death immediate family shifts"
+    result_type: days
+    subjects: ["Battalion Chief (56 hr top step)"]
+    params: {hours: 0}
+    expected_total: 3
+
   # Chief Officers MOU (p.14): "the employee shall be granted, 40 hours of paid
   # bereavement leave." A different unit's contract, a different quantity — proves
-  # governance routes each classification to ITS document.
+  # governance routes each classification to ITS document. The unit is Division Chiefs
+  # only (Recognition, p.4).
   - name: bereavement leave, Chief Officers Association (p.14)
-    source: "analyst-derived: '40 hours of paid bereavement leave', Chief Officers MOU p.14"
+    source: "analyst-derived: '40 hours of paid bereavement leave', Chief Officers MOU p.14; Division Chief is the unit's only classification (Recognition p.4)"
     branch_query: "bereavement leave death immediate family hours"
     result_type: hours
-    subjects: ["Battalion Chief (56 hr top step)"]
+    subjects: ["Division Chief (top step)"]
     params: {hours: 0}
     expected_total: 40
 
