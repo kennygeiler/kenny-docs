@@ -39,7 +39,7 @@ def test_chat_page_ships_the_tour(client):
     assert '/static/tour.js?v=' in html, "chat must load the tour engine"
     assert 'id="tourStart"' in html and "Take the tour" in html
     assert 'data-page="chat"' in html, "the engine keys its step list off this"
-    assert "styles.css?v=6" in html, "stale cached CSS would ship no coach-mark styles"
+    assert "styles.css?v=7" in html, "stale cached CSS would ship no coach-mark styles"
 
 
 def test_admin_page_ships_the_tour_resume_hook(client):

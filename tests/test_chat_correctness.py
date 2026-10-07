@@ -186,6 +186,58 @@ def test_subjectless_costing_asks_who(client):
                                                "cost?"}).json()
     assert res["mode"] == "clarify"
     assert "who is this for" in res["question"].lower()
+    # DEMO_TICKETS I6: 'all classifications' prices every row under one unit's rule
+    # today, so the clarify must not invite it.
+    assert "all classifications" not in res["question"]
+
+
+# --------------------------------------------------------------------------- #
+# I6 — a refusal reads as a plain sentence and points at a tab that exists
+# --------------------------------------------------------------------------- #
+import re as _re  # noqa: E402
+
+
+def _admin_tabs(client) -> list[str]:
+    html = client.get("/admin").text
+    m = _re.search(r"const TABS = \[([^\]]*)\]", html)
+    assert m, "admin.html must declare its tab list"
+    return _re.findall(r"'([a-z]+)'", m.group(1))
+
+
+def test_blocked_message_is_plain_and_points_at_a_real_tab(client):
+    res = client.post("/chat", json={
+        "prompt": "Cost an 8-hour overtime shift for a Fire Marshal (top step)"}).json()
+    assert res["mode"] == "blocked"
+    msg = res["message"]
+    assert "**" not in msg
+    assert "Ingest" not in msg and "Rule review" not in msg
+    assert "management_mou" not in msg, "the contract is named, not its id"
+    assert "Management MOU" in msg
+    assert "Fire Marshal (top step)" in msg
+    assert "approved by a person" in msg
+    assert res["reason"] == "no_rules"
+    assert res["chosen_docs"][0]["title"].startswith("Management MOU")
+    tab = res["next"]["href"].split("#", 1)[1]
+    assert res["next"]["href"].startswith("/admin#")
+    assert tab in _admin_tabs(client), f"{tab} is not an admin tab"
+    assert res["next"]["label"]
+
+
+def test_every_refusal_reason_points_at_a_real_tab(client):
+    from core import refusal
+    case = core_app._case()
+    subjects = [s for s in case.subjects() if s.get("name") == "Fire Marshal (top step)"]
+    tabs = _admin_tabs(client)
+    for reason, kw in (("no_rules", {}), ("stale_rules", {"stale": ["a", "b"]}),
+                       ("not_covered", {"detail": "no rule for a holiday shift"}),
+                       ("provenance", {"detail": "management_mou: sha mismatch"})):
+        out = refusal.blocked(case, "q1", ["management_mou"], subjects, reason, **kw)
+        assert out["mode"] == "blocked" and out["reason"] == reason
+        assert "**" not in out["message"] and "Management MOU" in out["message"]
+        assert out["next"]["href"].split("#", 1)[1] in tabs
+    stale = refusal.blocked(case, "q1", ["management_mou"], subjects, "stale_rules",
+                            stale=["a", "b"])
+    assert stale["message"].startswith("2 approved rules for Management MOU")
 
 
 def test_explicit_everyone_is_honoured(client):

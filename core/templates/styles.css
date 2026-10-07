@@ -251,7 +251,7 @@ code {
   padding: 9px 11px; border-radius: 7px; font-size: 13px; margin: 8px 0;
 }
 .notice.ok-notice { color: var(--ok); background: var(--okbg); border-color: #a6d5bd; }
-.evt { border-bottom: 1px solid var(--light); padding: 7px 0; font-size: 12px; margin: 0; }
+.evt { border-bottom: 1px solid var(--light); padding: 7px 0; font-size: 12px; margin: 0; overflow-wrap: anywhere; }
 .evt .t { color: var(--steel); font-weight: 700; }
 
 /* ---------------- drawer (modal) ---------------- */
@@ -396,18 +396,55 @@ figure { margin: 0; }
 .msg { padding: 12px 15px; border-radius: 12px; max-width: 92%; }
 .msg.user { align-self: flex-end; background: var(--navy); color: #fff; }
 .msg.bot { align-self: flex-start; background: #fff; border: 1px solid var(--line); }
-.route { font-size: 12.5px; color: var(--grey); margin-bottom: 8px; }
+.route { font-size: 12.5px; color: var(--grey); margin-bottom: 8px; overflow-wrap: anywhere; }
 .total { font-size: 24px; font-weight: 700; color: var(--navy); margin: 6px 0 10px; }
+/* Phone-proof answer card (DEMO_TICKETS I2): no cell may force the bubble wider than
+   the screen, and the only way into the audit drawer — the amount — is thumb-sized. */
+.lines-wrap { overflow-x: auto; max-width: 100%; }
 table.lines { border-collapse: collapse; width: 100%; margin-top: 6px; font-size: 14px; }
-table.lines th, table.lines td { border: 1px solid var(--line); padding: 7px 9px; text-align: left; }
+table.lines th, table.lines td {
+  border: 1px solid var(--line); padding: 7px 9px; text-align: left; overflow-wrap: anywhere;
+}
 table.lines th { background: var(--navy); color: #fff; font-weight: 600; }
 table.lines caption { text-align: left; font-size: 12.5px; color: var(--grey); padding-bottom: 4px; }
 .amount {
   cursor: pointer; color: var(--steel); font-weight: 700;
   text-decoration: underline; text-underline-offset: 2px; background: none; border: 0;
-  font-size: 14px; padding: 0; font-family: inherit;
+  font-size: 14px; font-family: inherit;
+  min-height: 44px; min-width: 44px; padding: 10px 4px;
+  display: inline-flex; align-items: center;
 }
 .amount:hover { color: var(--navy); }
+/* The headline figure is the same button, at headline size. */
+.total .amount.total-btn { font-size: inherit; color: var(--navy); padding: 6px 0; }
+.total .amount.total-btn:hover { color: var(--steel); }
+
+/* Request lifecycle (DEMO_TICKETS I1): the pending bubble holds the answer's place. */
+.msg.pending { display: flex; gap: 8px; align-items: center; color: var(--grey); }
+.msg.pending .spin { flex: none; }
+.msg.error .flagline { margin-top: 0; }
+
+/* Refusal (DEMO_TICKETS I6): one plain paragraph and one link. */
+.notice.refusal { font-size: 14px; }
+.refusal-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.refusal-text { margin: 4px 0 8px; line-height: 1.55; }
+.refusal-link { color: var(--warn); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Home-page examples (DEMO_TICKETS I16): three buttons, one per behaviour. */
+.examples { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
+button.example {
+  display: block; width: 100%; text-align: left; font-weight: 500; font-size: 14px;
+  padding: 9px 12px; min-height: 44px; white-space: normal; line-height: 1.4;
+}
+button.example .ex-kind {
+  display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--steel); margin-right: 8px;
+}
+
+/* Drawer: ids live under a closed disclosure (DEMO_TICKETS I4). */
+details.tech { margin-top: 12px; font-size: 12.5px; }
+details.tech summary { color: var(--grey); cursor: pointer; }
+details.tech .mono { font-size: 11.5px; overflow-wrap: anywhere; margin: 4px 0; }
 .policy-answer { font-size: 15px; line-height: 1.6; margin: 6px 0 4px; max-width: 72ch; }
 .source-chip {
   border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; margin: 6px 0;
@@ -435,9 +472,10 @@ table.lines caption { text-align: left; font-size: 12.5px; color: var(--grey); p
   border-top: 1px solid var(--line); padding: 12px; }
 #bar .inner { max-width: 1000px; margin: 0 auto; display: flex; gap: 10px; }
 #prompt {
-  flex: 1; padding: 11px 13px; border: 1px solid var(--line); border-radius: 8px;
-  font-size: 15px; font-family: inherit;
+  flex: 1; min-width: 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 8px;
+  font-size: 16px; font-family: inherit;   /* 16px: iOS zooms the page on smaller inputs */
 }
+#prompt[disabled] { background: var(--light); color: var(--grey); }
 
 /* ---------------- live upload stages (OCR_TICKETS.md OCR-6) ----------------
    The async upload job walks parsing → tagging → indexing → done; this strip shows
@@ -470,6 +508,8 @@ table.lines caption { text-align: left; font-size: 12.5px; color: var(--grey); p
   .wrap { padding: 12px; }
   .panel { padding: 14px; }
   #drawer { width: 100vw; right: -100vw; }
+  .msg { max-width: 100%; }
+  header { padding: 10px 12px; gap: 8px; }
 }
 .card.gap-actionable { border-left: 4px solid var(--steel); }
 

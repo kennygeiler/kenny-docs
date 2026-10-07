@@ -18,7 +18,7 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import audit, auth, governance, index, ingest, llm
+from . import audit, auth, governance, index, ingest, llm, refusal
 from .caseio import default_case_dir, load_case
 from .catalog import Catalog
 from .engine import NoRuleApplies, calculate
@@ -227,6 +227,8 @@ def _enrich_citations(cat, result_dict: dict) -> dict:
             c["parse_source"] = entry.get("parse_source", "")
             c["kind"] = kind
             c["tier"] = _extraction_tier(c["parse_source"], kind)
+            # Declared title, so the proof surfaces can name the contract (I4).
+            c["title"] = entry.get("declared_title") or entry.get("title") or doc_id
     return result_dict
 
 
@@ -543,7 +545,11 @@ def api_case():
             # Set on the shared deploy. A hosted link gets mistaken for a product; this
             # is a prototype on a synthetic corpus and every viewer must be told so
             # before they read a dollar figure off it.
-            "banner": os.environ.get("KENNY_BANNER", "")}
+            "banner": os.environ.get("KENNY_BANNER", ""),
+            # Declared document titles, so the chat page can name a contract wherever
+            # a response only carries its id (I4).
+            "sources": [_doc_meta(case, s.get("id")) for s in case.manifest.get("sources", [])
+                        if s.get("id")]}
 
 
 # --------------------------------------------------------------------------- #
@@ -621,9 +627,7 @@ async def _chat(body: dict, qid: str):
                        actor="chat", query_id=qid)
             examples = ", ".join(str(s.get("name")) for s in subjects_all[:3])
             return _clarify(qid, prompt,
-                            "Who is this for? Name a classification (e.g. "
-                            f"{examples}) — or say 'all classifications' to cost the "
-                            "whole roster.")
+                            f"Who is this for? Name a classification (e.g. {examples}).")
     units = sorted({s.get("bargaining_unit") for s in subjects if s.get("bargaining_unit")})
     date_iso = governance.parse_date(params.get("date"), default_year=DEFAULT_YEAR)
     led.append("data.read",
@@ -704,29 +708,15 @@ async def _chat(body: dict, qid: str):
                     else "no ratified rules", "doc": chosen_docs, "stale": stale},
                    actor="engine", query_id=qid)
         if stale:
-            return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
-                    "chosen_doc": chosen, "message":
-                        f"I can't cost this right now: the rules for **{chosen}** are "
-                        f"pending re-verification ({len(stale)} rule(s) were marked "
-                        "stale because their source document changed since they were "
-                        "ratified). Re-verify them in Admin → Rule review before "
-                        "costing resumes."}
-        return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
-                "chosen_doc": chosen, "message":
-                    f"I can't cost this yet: **{chosen}** has no human-ratified rules. "
-                    "Policy questions still work (I can quote the document). To enable "
-                    "costing, go to Admin → Ingest, review the drafted rules, and "
-                    "approve them — nothing computes until a human ratifies it."}
+            return refusal.blocked(case, qid, chosen_docs, subjects, "stale_rules", stale=stale)
+        return refusal.blocked(case, qid, chosen_docs, subjects, "no_rules")
     problems = _doc_integrity(case, cat, chosen_docs, rules)
     if problems:
         led.append("costing.blocked", {"reason": "provenance mismatch",
                                        "problems": problems},
                    actor="engine", query_id=qid)
-        return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
-                "chosen_doc": chosen, "message":
-                    "I can't cost this: the source documents no longer match what the "
-                    "rules were ratified against. Re-ingest and re-verify before "
-                    "answering. Details: " + "; ".join(problems)}
+        return refusal.blocked(case, qid, chosen_docs, subjects, "provenance",
+                               detail="; ".join(problems))
     eng_params = {"hours": params.get("hours", 0.0),
                   "date": params.get("date", ""),
                   "date_iso": date_iso or "",
@@ -740,11 +730,7 @@ async def _chat(body: dict, qid: str):
     except ValueError as e:
         led.append("costing.blocked", {"reason": str(e), "doc": chosen_docs},
                    actor="engine", query_id=qid)
-        return {"query_id": qid, "needs_confirmation": False, "mode": "blocked",
-                "chosen_doc": chosen, "message":
-                    f"The ratified rules for **{chosen}** don't cover this scenario "
-                    f"({e}). Approve the rules that do in Admin → Rule review, or ask a "
-                    "policy question — I can still quote the document."}
+        return refusal.blocked(case, qid, chosen_docs, subjects, "not_covered", detail=str(e))
 
     # 5. Ledger: decision logic + math + citations, straight from the engine trace.
     for li in result.line_items:
@@ -766,7 +752,8 @@ async def _chat(body: dict, qid: str):
 
     result_dict = _enrich_citations(_catalog(case), result.to_dict())
     return {"query_id": qid, "needs_confirmation": False, "mode": "costing",
-            "chosen_doc": chosen, "routing_path": routing_path, "bargaining_units": units,
+            "chosen_doc": chosen, "chosen_docs": [_doc_meta(case, d) for d in chosen_docs],
+            "routing_path": routing_path, "bargaining_units": units,
             "shift_date": date_iso, "params": params, "result": result_dict}
 
 

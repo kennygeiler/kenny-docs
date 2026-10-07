@@ -314,9 +314,7 @@ def answer_policy(query: str, passages: list[dict], lookup: bool = False) -> dic
                           rule="ground-check: model figure(s) not in retrieved clauses",
                           unverified_figures=stray)
                     top = passages[0]
-                    return {"answer": f"From {top.get('doc_id')} "
-                                      f"§{top.get('clause') or top.get('page')}: "
-                                      f"{top.get('text')}",
+                    return {"answer": f"{_quoted_from(top)}: {top.get('text')}",
                             "source": "guarded", "unverified_figures": stray}
                 return {"answer": ans, "source": "claude"}
         except Exception:
@@ -327,7 +325,18 @@ def answer_policy(query: str, passages: list[dict], lookup: bool = False) -> dic
         # No key: quote the row verbatim. A stub must never try to read a cell out of a
         # pipe-delimited row by position — that is arithmetic-by-guesswork.
         return {"answer": f"From {top.get('doc_id')}: {top.get('text')}", "source": "stub"}
-    return {"answer": f"Per §{top.get('clause')}: {top.get('text')}", "source": "stub"}
+    return {"answer": f"{_quoted_from(top)}: {top.get('text')}", "source": "stub"}
+
+
+def _quoted_from(passage: dict) -> str:
+    """Prefix for a verbatim quote. Most chunks carry no section label (1,857 of 1,869
+    in the shipped corpus), and 'Per §:' with nothing after the sign reads as a bug —
+    cite the page instead (DEMO_TICKETS.md I4)."""
+    clause = str(passage.get("clause") or "").strip()
+    if clause:
+        return f"Per §{clause}"
+    page = passage.get("page")
+    return f"Quoted from p.{page}" if page else "Quoted"
 
 
 def _client():

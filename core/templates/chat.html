@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kenny — ask a question about your contracts</title>
-  <link rel="stylesheet" href="/static/styles.css?v=6">
+  <link rel="stylesheet" href="/static/styles.css?v=7">
 </head>
 <body data-page="chat">
   <a class="skip-link" href="#prompt">Skip to the question box</a>
@@ -29,12 +29,20 @@
       <div class="msg bot">
         <p style="margin:0 0 8px">Ask about pay, leave, deadlines or what a contract says. Every
           answer shows the clause it came from — click it to read that clause on the page.</p>
-        <p class="muted" style="margin:0">For example:</p>
-        <ul class="muted" style="margin:4px 0 0; padding-left:18px">
-          <li>Cost an 8-hour overtime shift for a Firefighter/Paramedic (56 hr, top step)</li>
-          <li>How much bereavement leave does a firefighter get?</li>
-          <li>What does the Firefighters Local 3535 MOU say about overtime?</li>
-        </ul>
+        <p class="muted" style="margin:0">Try one — each shows a different behaviour:</p>
+        <!-- Each example is a question the keyless product answers correctly today
+             (tests/test_examples.py asks every data-q and checks the mode). -->
+        <div class="examples">
+          <button type="button" class="ghost example"
+                  data-q="Cost an 8-hour overtime shift for a Firefighter/Paramedic (56 hr, top step)">
+            <span class="ex-kind">A number</span>Cost an 8-hour overtime shift for a Firefighter/Paramedic (56 hr, top step)</button>
+          <button type="button" class="ghost example"
+                  data-q="How is premium overtime compensated under the Firefighters Local 3535 MOU?">
+            <span class="ex-kind">A quoted clause</span>How is premium overtime compensated under the Firefighters Local 3535 MOU?</button>
+          <button type="button" class="ghost example"
+                  data-q="Cost an 8-hour overtime shift for a Fire Marshal (top step)">
+            <span class="ex-kind">A refusal</span>Cost an 8-hour overtime shift for a Fire Marshal (top step)</button>
+        </div>
       </div>
     </main>
   </div>
@@ -57,7 +65,7 @@
     </form>
   </div>
 
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=6"></script>
   <script src="/static/tour.js?v=2"></script>
 </body>
 </html>
