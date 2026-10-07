@@ -95,6 +95,17 @@
           computing. This is the page to hand an auditor.</p>
         <div id="library"></div>
         <div id="gaps"></div>
+        <!-- ---- agentic: skeptic reviews (DEMO_TICKETS.md G1/G6). Precomputed offline,
+             served from cases/<case>/reviews/; the app makes no model call here. ---- -->
+        <section id="skeptic" aria-labelledby="skeptic-head">
+          <h3 class="dept-head" id="skeptic-head" style="margin-top:18px">Skeptic reviews
+            <span class="muted" id="skeptic-count"></span></h3>
+          <p class="muted">An agent that read each rule's clause and the pages around it, listed
+            what the rule ignores, and ran its counter-examples through the deterministic engine.
+            It never computes and never approves: every number below came from the engine, and
+            approval stays with the human.</p>
+          <div id="skeptic-list"></div>
+        </section>
       </section>
 
       <!-- ---------------- AUDIT ---------------- -->
@@ -300,6 +311,7 @@
       renderReview();
       renderLibrary();
       renderGaps(res.needs_data);
+      loadSkeptic();   // agentic (G1): the stored skeptic reviews, no model call
     }
 
     // The DECLARED title (from case.yaml) wins in the rule library and review queue: it is
@@ -529,6 +541,139 @@
               `<p class="muted">§${esc(n.clause)} — ${esc(n.reason || '')}</p>`).join('')}
           </details>` : '');
     }
+
+    /* ---------------- agentic: skeptic reviews (G1/G6) ---------------- */
+    // Rendered from GET /admin/skeptic (an index) and GET /admin/skeptic/<rule_id> (the
+    // stored artifact). No inline handlers: one delegated listener reads data-rule.
+    let SKEPTIC = {};
+    async function loadSkeptic() {
+      try { SKEPTIC = (await fetch('/admin/skeptic').then(r => r.json())).reviews || {}; }
+      catch (e) { SKEPTIC = {}; }
+      const ids = Object.keys(SKEPTIC);
+      $('skeptic-count').textContent = ids.length ? `${ids.length} rule(s) reviewed` : 'none yet';
+      const list = $('skeptic-list');
+      list.textContent = '';
+      if (!ids.length) {
+        list.appendChild(el(`<p class="empty">No skeptic review stored yet. Bake one offline:
+          <code>env -u ANTHROPIC_API_KEY .venv/bin/python scripts/skeptic.py start --rule &lt;rule_id&gt;
+          --producer claude-code-session</code></p>`));
+        return;
+      }
+      ids.forEach(id => {
+        const s = SKEPTIC[id];
+        const rule = RATIFIED_RULES.find(r => r.id === id) || PROPOSED.find(r => r.id === id) || {};
+        const card = el(`<article class="card rule ${s.fresh ? '' : 'warn-card'}">
+          <div class="rule-head">
+            <strong></strong>
+            <span class="badge-type"></span>
+            <span class="muted mono id"></span>
+            <button type="button" class="ghost small skeptic-open"></button>
+          </div>
+          <p class="muted skeptic-prov"></p>
+        </article>`);
+        card.querySelector('strong').textContent = rule.topic || id;
+        card.querySelector('.badge-type').textContent = s.verdict || '?';
+        card.querySelector('.id').textContent = id;
+        const btn = card.querySelector('button');
+        btn.dataset.rule = id;
+        btn.textContent = s.fresh === false
+          ? `Skeptic: stale (${(s.stale_reasons || []).join('; ')})`
+          : `Skeptic: ${s.warnings} warning${s.warnings === 1 ? '' : 's'} (${s.high} high)`;
+        card.querySelector('.skeptic-prov').textContent =
+          `Precomputed offline · ${s.producer || 'unknown producer'} · ${s.produced_at || ''}`;
+        list.appendChild(card);
+      });
+    }
+
+    async function openSkeptic(ruleId) {
+      LAST_FOCUS = document.activeElement;
+      let art;
+      try { art = await fetch('/admin/skeptic/' + encodeURIComponent(ruleId)).then(r => r.json()); }
+      catch (e) { art = {error: String(e)}; }
+      const body = $('drawerBody');
+      body.textContent = '';
+      $('drawerTitle').textContent = 'Skeptic review — ' + ruleId;
+      const d = $('drawer');
+      d.hidden = false; d.classList.add('open');
+      d.querySelector('button').focus();
+      if (!art || art.error) {
+        body.appendChild(el(`<p class="flagline">${esc((art && art.error) || 'no review')}</p>`));
+        return;
+      }
+      const p = art.provenance || {};
+      const strip = el(`<p class="muted"></p>`);
+      strip.textContent = `Precomputed offline · ${p.producer || '?'} · ${p.model || 'model unreported'}`
+        + ` · ${p.produced_at || ''} · ${p.tool_calls ?? (art.tool_calls || []).length} tool calls`
+        + ` · ${art.fresh ? 'inputs match' : 'STALE: ' + (art.stale_reasons || []).join('; ')}`
+        + ` · billing: ${p.billing || '?'} · API key in env: ${p.api_key_in_env ? 'yes' : 'no'}`;
+      body.appendChild(strip);
+      if (!art.fresh) body.appendChild(el(`<p class="flagline">This review was produced against
+        inputs that have since changed; it is shown greyed, not hidden.</p>`));
+      const sum = el(`<p class="lede"></p>`);
+      sum.textContent = `${art.verdict}: ${art.summary || ''}`;
+      body.appendChild(sum);
+      (art.warnings || []).forEach(w => {
+        const card = el(`<article class="card ${w.severity === 'high' ? 'invalid' : 'warn-card'}"
+            style="${art.fresh ? '' : 'opacity:.6'}">
+          <div class="rule-head"><span class="badge-type sev"></span><strong class="kind"></strong></div>
+          <p class="claim"></p>
+        </article>`);
+        card.querySelector('.sev').textContent = w.severity;
+        card.querySelector('.kind').textContent = (w.kind || '').replace(/_/g, ' ');
+        card.querySelector('.claim').textContent = w.claim || '';
+        (w.evidence || []).forEach(ev => {
+          const bq = el(`<blockquote class="clause"></blockquote>`);
+          bq.textContent = `“${ev.quote}” — ${docTitle(ev.doc_id)}, p.${ev.page}`;
+          card.appendChild(bq);
+          const img = new Image();
+          img.src = `/doc/${encodeURIComponent(ev.doc_id)}/page/${encodeURIComponent(ev.page)}`
+            + `?bbox=${(ev.bbox || []).join(',')}`;
+          img.alt = `Page ${ev.page} of ${ev.doc_id} with the quoted clause outlined`;
+          img.loading = 'lazy';
+          img.onerror = () => img.remove();
+          card.appendChild(img);
+        });
+        const ce = w.counter_example;
+        if (ce) {
+          const row = el(`<p class="expr"></p>`);
+          const sc = ce.scenario || {};
+          const base = ce.baseline_total != null ? `engine, rule as written: ${ce.baseline_total} · ` : '';
+          row.textContent = `${(sc.subjects || []).join(', ')} · ${JSON.stringify(sc.params || {})} · `
+            + base + `engine, ${ce.rule_set === 'variant' ? 'clause reading' : 'rule as written'}: `
+            + `${ce.engine_total} · ${ce.why || ''}`;
+          card.appendChild(row);
+        }
+        if ((w.needs_data || []).length) {
+          const nd = el(`<p class="muted"></p>`);
+          nd.textContent = 'Needs data: ' + w.needs_data.join(', ');
+          card.appendChild(nd);
+        }
+        if (w.suggested_action) {
+          const sa = el(`<p class="muted"></p>`);
+          sa.textContent = 'Suggested: ' + w.suggested_action;
+          card.appendChild(sa);
+        }
+        body.appendChild(card);
+      });
+      if ((art.rejected || []).length) {
+        const rj = el(`<details class="card"><summary>Dropped by the validator (${art.rejected.length})</summary></details>`);
+        art.rejected.forEach(r => { const q = el('<p class="muted"></p>'); q.textContent = r.reason || ''; rj.appendChild(q); });
+        body.appendChild(rj);
+      }
+      const did = el(`<details class="card"><summary>What the agent did (${(art.tool_calls || []).length} tool calls)</summary></details>`);
+      (art.tool_calls || []).forEach(c => {
+        const q = el('<p class="muted mono"></p>');
+        q.textContent = `#${c.n} ${c.tool} — ${c.summary || ''}`;
+        did.appendChild(q);
+      });
+      body.appendChild(did);
+      body.appendChild(el(`<p class="lede">The agent read and challenged; every number came from the
+        engine; approval is yours.</p>`));
+    }
+    document.addEventListener('click', e => {
+      const b = e.target.closest('button.skeptic-open');
+      if (b && b.dataset.rule) openSkeptic(b.dataset.rule);
+    });
 
     /* ---------------- ingest ---------------- */
     async function ingest() {

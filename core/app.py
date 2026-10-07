@@ -1835,3 +1835,80 @@ def _write_ratified(case, rules: list[dict]) -> None:
         shutil.copy(path, f"{path}.{stamp}.bak")
     with open(path, "w") as f:
         json.dump({"rules": rules}, f, indent=2)
+
+
+# --- agentic ---------------------------------------------------------------- #
+# Skeptic reviews (DEMO_TICKETS.md G1/G6) and the never-500 backstop (A4/G2).
+# The app serves STORED reviews produced offline; it makes no model call here.
+from . import skeptic as _skeptic  # noqa: E402
+
+
+@app.exception_handler(Exception)
+async def _any_exception(request: Request, exc: Exception):
+    """No turn ends without a terminal event and the page always receives JSON (A4 step
+    6 / G2 step 4). The event carries type and message only, never a traceback."""
+    try:
+        _case().ledger().append("chat.error",
+                                {"type": type(exc).__name__, "message": str(exc)[:500],
+                                 "path": request.url.path}, actor="system")
+    except Exception:
+        pass
+    return JSONResponse({"mode": "blocked",
+                         "message": "Something failed while answering; nothing was "
+                                    "computed. The failure is recorded in the audit "
+                                    "trail."}, status_code=500)
+
+
+def _note_imported(case, art: dict) -> None:
+    """Append skeptic.imported once per artifact hash the first time THIS instance serves
+    a review whose run is not in its own ledger (a baked artifact shipped in git)."""
+    led = case.ledger()
+    sha = art.get("artifact_sha256")
+    run_id = (art.get("provenance") or {}).get("run_id")
+    for ev in led.read():
+        if ev.get("type") == "skeptic.imported" and ev["payload"].get("artifact_sha256") == sha:
+            return
+        if ev.get("type") == "skeptic.finish" and ev["payload"].get("run_id") == run_id:
+            return
+    led.append("skeptic.imported",
+               {"rule_id": art.get("rule_id"), "artifact_sha256": sha,
+                "producer": (art.get("provenance") or {}).get("producer"),
+                "produced_at": (art.get("provenance") or {}).get("produced_at"),
+                "fresh": art.get("fresh")}, actor="skeptic")
+
+
+@app.get("/admin/skeptic")
+def admin_skeptic_index():
+    case = _case()
+    out = {}
+    for rid in _skeptic.list_reviews(case):
+        art = _skeptic.load_review(case, rid) or {}
+        ws = art.get("warnings", [])
+        out[rid] = {"verdict": art.get("verdict"), "warnings": len(ws),
+                    "high": sum(1 for w in ws if w.get("severity") == "high"),
+                    "fresh": art.get("fresh"), "stale_reasons": art.get("stale_reasons", []),
+                    "mode": (art.get("provenance") or {}).get("mode"),
+                    "producer": (art.get("provenance") or {}).get("producer"),
+                    "produced_at": (art.get("provenance") or {}).get("produced_at")}
+    return {"reviews": out}
+
+
+@app.get("/admin/skeptic/trail")
+def admin_skeptic_trail(run_id: str):
+    led = _case().ledger()
+    return {"run_id": run_id,
+            "events": [e for e in led.read() if e.get("type", "").startswith("skeptic.")
+                       and e.get("payload", {}).get("run_id") == run_id]}
+
+
+@app.get("/admin/skeptic/{rule_id:path}")
+def admin_skeptic_review(rule_id: str):
+    case = _case()
+    art = _skeptic.load_review(case, rule_id)
+    if art is None:
+        return JSONResponse(
+            {"error": f"no skeptic review for {rule_id}",
+             "bake": f"env -u ANTHROPIC_API_KEY .venv/bin/python scripts/skeptic.py start "
+                     f"--rule {rule_id} --producer claude-code-session"}, status_code=404)
+    _note_imported(case, art)
+    return art

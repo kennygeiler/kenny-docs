@@ -1,0 +1,1268 @@
+{
+  "schema": "skeptic.v1",
+  "rule_id": "admin_group_mou:overtime_premium_rate",
+  "rule_sha256": "8751dc77ac73e5d7a7e338fc4ed7945d76ef918ed58764b50a814bb4ad35fd21",
+  "verdict": "challenge",
+  "summary": "The rule pays one and one-half times the base rate on every hour of the question (8 hours -> 716.16). The clause pays that premium only for hours worked in excess of the regularly scheduled hours in a single day, or of 40 hours in a week for part-time employees; the roster has no scheduled-hours fact, so the rule treats every hour asked about as overtime. The MOU never defines regular rate of pay, and the 2.5% longevity increase on p.5 is not in the rate the rule multiplies. Every number here came from the engine.",
+  "warnings": [
+    {
+      "id": "w1",
+      "severity": "high",
+      "kind": "ignored_condition",
+      "claim": "The rule fires whenever hours > 0 and pays 1.5x on all of them. The cited clause pays the premium only for hours worked in excess of the regularly scheduled hours worked in a single day, or in excess of 40 hours in a week for employees working less than 40 hours. A 4-hour entry pays 358.08 as written, although the clause would pay nothing unless those hours exceeded the day's schedule; the engine rejected a variant conditioned on the scheduled hours as an unknown fact.",
+      "evidence": [
+        {
+          "doc_id": "admin_group_mou",
+          "page": 6,
+          "ref": "admin_group_mou#p6.11",
+          "bbox": [
+            104.4,
+            137.74248,
+            509.597263368,
+            113.83776
+          ],
+          "quote": "Employees shall be compensated at the rate of one and one-half times their regular rate of pay for all hours worked in excess of:"
+        },
+        {
+          "doc_id": "admin_group_mou",
+          "page": 6,
+          "ref": "admin_group_mou#p6.12",
+          "bbox": [
+            91.0801,
+            99.13814000000002,
+            435.28544928,
+            90.43766000000005
+          ],
+          "quote": "Any time over the regularly scheduled hours worked in a single day."
+        },
+        {
+          "doc_id": "admin_group_mou",
+          "page": 7,
+          "ref": "admin_group_mou#p7.0",
+          "bbox": [
+            93.2398,
+            703.9382400000001,
+            483.83998848000005,
+            680.83776
+          ],
+          "quote": "For employees working less than 40 hours, any hours worked in excess of 40 hours in a week."
+        }
+      ],
+      "counter_example": {
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 4.0
+          }
+        },
+        "rule_set": "live",
+        "variant": null,
+        "call_n": 6,
+        "engine_total": 358.08,
+        "baseline_call_n": 5,
+        "baseline_total": 716.16,
+        "why": "8 hours pays 716.16 and 4 hours pays 358.08 as written; both assume every hour asked about is already past the regularly scheduled hours. The clause gives no premium for the scheduled hours themselves, and the data holds no scheduled-hours or hours-this-week fact to apply the threshold."
+      },
+      "needs_data": [
+        "scheduled_hours_in_day",
+        "hours_worked_in_week"
+      ],
+      "suggested_action": "State in the answer that the hours are taken to be beyond the regular schedule; add a scheduled-hours fact before the rule can apply the trigger itself."
+    },
+    {
+      "id": "w2",
+      "severity": "medium",
+      "kind": "undefined_term",
+      "claim": "The clause multiplies the employee's regular rate of pay. The rule multiplies the salary-schedule base rate. This MOU does not define regular rate of pay: a search for the definition returned only the overtime clause itself, the Definitions heading on p.11 and the grievance definition on p.18. The education incentive on p.5 ($300.00 a month for a Bachelor's Degree) is additional pay the rule does not consider.",
+      "evidence": [
+        {
+          "doc_id": "admin_group_mou",
+          "page": 6,
+          "ref": "admin_group_mou#p6.11",
+          "bbox": [
+            104.4,
+            137.74248,
+            509.597263368,
+            113.83776
+          ],
+          "quote": "one and one-half times their regular rate of pay"
+        },
+        {
+          "doc_id": "admin_group_mou",
+          "page": 5,
+          "ref": "admin_group_mou#p5.9",
+          "bbox": [
+            122.04,
+            449.05824,
+            468.39909772799996,
+            440.35776
+          ],
+          "quote": "Bachelor's Degree: shall receive $ 300.00 a month as incentive pay."
+        }
+      ],
+      "counter_example": null,
+      "needs_data": [
+        "subject_education_incentive_monthly"
+      ],
+      "suggested_action": "Have the analyst record which items the District includes in the regular rate for this unit; until then the answer should say the base rate was used."
+    },
+    {
+      "id": "w3",
+      "severity": "medium",
+      "kind": "adjacent_clause",
+      "claim": "Page 5 grants a 2.5% pay increase upon completion of ten (10) years of service, and another 2.5% at twenty (20) years. The rule multiplies the top-step base rate with no service fact. With the ten-year increase in the rate an 8-hour overtime shift pays 734.06 instead of 716.16.",
+      "evidence": [
+        {
+          "doc_id": "admin_group_mou",
+          "page": 5,
+          "ref": "admin_group_mou#p5.16",
+          "bbox": [
+            103.32,
+            167.89824,
+            524.159952192,
+            144.16452000000004
+          ],
+          "quote": "Upon completion of ten (10) years of service to the District an employee shall receive a 2.5% pay increase."
+        },
+        {
+          "doc_id": "admin_group_mou",
+          "page": 5,
+          "ref": "admin_group_mou#p5.17",
+          "bbox": [
+            103.32,
+            129.37824,
+            531.360222336,
+            105.64452000000006
+          ],
+          "quote": "Upon completion of twenty (20) years of service to the District employees shall receive a 2.5% pay increase calculated from their date of hire."
+        }
+      ],
+      "counter_example": {
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "rule_set": "variant",
+        "variant": {
+          "compute": "effective_base * 1.025 * 1.5 * hours"
+        },
+        "call_n": 10,
+        "engine_total": 734.06,
+        "baseline_call_n": 5,
+        "baseline_total": 716.16,
+        "why": "8 hours at the top-step base rate pays 716.16 as written; with the 2.5% ten-year longevity increase folded into the rate the same shift pays 734.06. The roster has no years-of-service fact."
+      },
+      "needs_data": [
+        "subject_years_of_service"
+      ],
+      "suggested_action": "Add a years-of-service fact to the roster and a longevity differential rule; the answer should state that longevity is not included."
+    },
+    {
+      "id": "w4",
+      "severity": "low",
+      "kind": "rounding",
+      "claim": "Overtime compensation is accumulated in one-half (1/2) hour increments; the rule pays any fraction. An 8.25-hour entry pays 738.54 as written and 716.16 when the hours are rounded to the half hour.",
+      "evidence": [
+        {
+          "doc_id": "admin_group_mou",
+          "page": 7,
+          "ref": "admin_group_mou#p7.1",
+          "bbox": [
+            90.0,
+            666.94248,
+            474.315952392,
+            658.60452
+          ],
+          "quote": "Overtime compensation shall be accumulated in one-half (1/2) hour increments."
+        }
+      ],
+      "counter_example": {
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.25
+          }
+        },
+        "rule_set": "variant",
+        "variant": {
+          "compute": "effective_base * 1.5 * (round(hours * 2) / 2)"
+        },
+        "call_n": 9,
+        "engine_total": 716.16,
+        "baseline_call_n": 8,
+        "baseline_total": 738.54,
+        "why": "8.25 hours pays 738.54 as written; rounded to the nearest half hour the engine returns 716.16. The clause never pays a quarter hour."
+      },
+      "needs_data": [],
+      "suggested_action": "Round hours to the half hour before multiplying, or refuse a fractional entry that is not a half-hour multiple."
+    },
+    {
+      "id": "w5",
+      "severity": "low",
+      "kind": "alternative_outcome",
+      "claim": "The rule always returns a dollar amount. With supervisor approval an administrative employee may receive earned overtime as compensatory time off, up to an 80-hour bank; only hours beyond the 80-hour maximum are paid out at the overtime rate.",
+      "evidence": [
+        {
+          "doc_id": "admin_group_mou",
+          "page": 7,
+          "ref": "admin_group_mou#p7.4",
+          "bbox": [
+            88.2,
+            544.90248,
+            518.7591413279999,
+            478.96452
+          ],
+          "quote": "Administrative employees are eligible to receive earned overtime in the form of compensatory time off with the approval of their supervisor."
+        }
+      ],
+      "counter_example": null,
+      "needs_data": [],
+      "suggested_action": "Say in the answer that the figure assumes the overtime is paid, not banked as CTO."
+    }
+  ],
+  "rejected": [],
+  "tool_calls": [
+    {
+      "n": 1,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "admin_group_mou",
+        "page": 6
+      },
+      "result_sha256": "356f986cc768691334acb2960d3108fe4d8e70ea3c9436f51704ef61628abe51",
+      "summary": "read admin_group_mou p.6: 13 clause(s)"
+    },
+    {
+      "n": 2,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "admin_group_mou",
+        "page": 7
+      },
+      "result_sha256": "2f8991aaa5cb9867cbbded8f4d4feb4f4643e542f7eb895d4742d7ad993982bf",
+      "summary": "read admin_group_mou p.7: 14 clause(s)"
+    },
+    {
+      "n": 3,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "admin_group_mou",
+        "page": 5
+      },
+      "result_sha256": "a9bc7a78466ab19625d0342b748a853d1b3542ce78ae76e491a283c2b64f5864",
+      "summary": "read admin_group_mou p.5: 18 clause(s)"
+    },
+    {
+      "n": 4,
+      "tool": "search_clauses",
+      "input": {
+        "query": "regular rate of pay definition includes",
+        "doc_id": "admin_group_mou"
+      },
+      "result_sha256": "df9b9c266fbe75299a0416133b323a6b5f90ce78cdb2781e94777638fbbd7108",
+      "summary": "search admin_group_mou for 'regular rate of pay definition includes': 6 hit(s)"
+    },
+    {
+      "n": 5,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "0de931c4a792e936b56dce66f05d6bf3a6e6db45e205665d07949973037ae441",
+      "summary": "engine live ['Administrative Analyst (top step)'] {'hours': 8.0} -> 716.16"
+    },
+    {
+      "n": 6,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 4.0
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "b0ca55c798833c6e663965d07704b92f0c903f48d0f331d14c986a726947c429",
+      "summary": "engine live ['Administrative Analyst (top step)'] {'hours': 4.0} -> 358.08"
+    },
+    {
+      "n": 7,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 4.0
+          }
+        },
+        "variant": {
+          "when": "hours > scheduled_hours_in_day"
+        }
+      },
+      "result_sha256": "94d1109ebd582d9d2f5d36209f7352fbb50039da9f131a550ae8a70f9b585cce",
+      "summary": "run_engine: error \u2014 unknown fact(s) ['scheduled_hours_in_day'] in 'hours > scheduled_hours_in_day' \u2014 not in the case's data schema"
+    },
+    {
+      "n": 8,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.25
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "56d2474f2e568037d84c3fb71206486d98b2ab4f21ff9b617f75032caa4f143a",
+      "summary": "engine live ['Administrative Analyst (top step)'] {'hours': 8.25} -> 738.54"
+    },
+    {
+      "n": 9,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.25
+          }
+        },
+        "variant": {
+          "compute": "effective_base * 1.5 * (round(hours * 2) / 2)"
+        }
+      },
+      "result_sha256": "dd22a86bbbf732ad90f2aee7979c81c95bf683fcefdc20ef3adb2a7cad4cfd71",
+      "summary": "engine variant ['Administrative Analyst (top step)'] {'hours': 8.25} -> 716.16"
+    },
+    {
+      "n": 10,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": {
+          "compute": "effective_base * 1.025 * 1.5 * hours"
+        }
+      },
+      "result_sha256": "2d84e935184788d04c29e4b1c5ce0fc7179f2edc8fdd8b98b45bc3f88bbcc0ce",
+      "summary": "engine variant ['Administrative Analyst (top step)'] {'hours': 8.0} -> 734.06"
+    }
+  ],
+  "steps": [
+    {
+      "n": 1,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "admin_group_mou",
+        "page": 6
+      },
+      "result_sha256": "356f986cc768691334acb2960d3108fe4d8e70ea3c9436f51704ef61628abe51",
+      "result": {
+        "doc_id": "admin_group_mou",
+        "page": 6,
+        "page_count": 30,
+        "clauses": [
+          {
+            "ref": "admin_group_mou#p6.0",
+            "bbox": [
+              107.28,
+              664.06248,
+              295.92139593600007,
+              655.72452
+            ],
+            "label": "section_header",
+            "text": "E.  Working out of Class Compensation",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.1",
+            "bbox": [
+              106.2,
+              641.38248,
+              531.361641312,
+              586.8777600000001
+            ],
+            "label": "text",
+            "text": "Working out of class pay will  be implemented when an employee is designated to perform  or becomes  responsible for performing  responsibilities of a higher classification. All working out of class pay will  be  at step one of the  higher classification  (with  a minimum  of a 5%  increase).",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.2",
+            "bbox": [
+              106.92,
+              557.0582400000001,
+              192.80999692800003,
+              548.3577600000001
+            ],
+            "label": "section_header",
+            "text": "F. Tool Allowance",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.3",
+            "bbox": [
+              105.84,
+              526.18248,
+              519.8402324880001,
+              471.67776
+            ],
+            "label": "text",
+            "text": "Effective the  pay period  including January 1,  2024,  employees in  the  classifications of Senior Fire Apparatus Technician or Fire Apparatus Technician shall  receive a too! allowance in  the  amount of $100 per month.  Tool allowance pay is not reportable as special compensation to  CalPERS for pension  calculation  purposes.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.4",
+            "bbox": [
+              70.9199,
+              434.29824,
+              204.23735424,
+              425.59776
+            ],
+            "label": "section_header",
+            "text": "VIL. HOURS OF WORK",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.5",
+            "bbox": [
+              71.6398,
+              410.98248,
+              406.63819069199997,
+              402.64452
+            ],
+            "label": "text",
+            "text": "Employees shail  be assigned work hours by the  Fire Chief as follows:",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.6",
+            "bbox": [
+              70.5602,
+              388.66248,
+              532.4400575999999,
+              334.24452
+            ],
+            "label": "text",
+            "text": "Administrative Staff will  be  held  to the standard set forth  by the  District policy.  Employees who work a forty (40) hour work week may be permitted to work an alternative schedule (e.g., a 9/80 schedule) subject to the approval of the  Fire Chief.  Employees working  less than 40 hours shall be  assigned work schedules  by their supervisors  and approved  by the  Fire Chief.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.7",
+            "bbox": [
+              70.5602,
+              296.755757808768,
+              161.4044666304,
+              287.71776
+            ],
+            "label": "section_header",
+            "text": "VIII. OVERTIME",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.8",
+            "bbox": [
+              104.4,
+              265.90247999999997,
+              282.23925336,
+              257.56452
+            ],
+            "label": "section_header",
+            "text": "A.  FLSA Work Week or Work Period",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.9",
+            "bbox": [
+              104.04,
+              243.22248000000002,
+              523.4403686400001,
+              188.80452000000002
+            ],
+            "label": "text",
+            "text": "For those employees who  are not engaged  in  'fire  protection  services', the work week begins on at  12:00 a.m.  on  Saturday and ends at  11:59 p.m.  on  Friday, except that the work for employees on an  alternative work schedule (e.g.,  a 9/80 schedule) shall  be as designated for that  schedule.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.10",
+            "bbox": [
+              104.76,
+              160.42247999999995,
+              162.721149696,
+              152.08452
+            ],
+            "label": "section_header",
+            "text": "B.  Overtime",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p6.11",
+            "bbox": [
+              104.4,
+              137.74248,
+              509.597263368,
+              113.83776
+            ],
+            "label": "text",
+            "text": "Employees shall be compensated at the rate of one and  one-half times their regular rate of pay for all  hours worked  in  excess of:",
+            "cited": true
+          },
+          {
+            "ref": "admin_group_mou#p6.12",
+            "bbox": [
+              91.0801,
+              99.13814000000002,
+              435.28544928,
+              90.43766000000005
+            ],
+            "label": "list_item",
+            "text": "Any time over the  regularly scheduled  hours worked  in  a single day.",
+            "cited": false
+          }
+        ]
+      }
+    },
+    {
+      "n": 2,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "admin_group_mou",
+        "page": 7
+      },
+      "result_sha256": "2f8991aaa5cb9867cbbded8f4d4feb4f4643e542f7eb895d4742d7ad993982bf",
+      "result": {
+        "doc_id": "admin_group_mou",
+        "page": 7,
+        "page_count": 30,
+        "clauses": [
+          {
+            "ref": "admin_group_mou#p7.0",
+            "bbox": [
+              93.2398,
+              703.9382400000001,
+              483.83998848000005,
+              680.83776
+            ],
+            "label": "list_item",
+            "text": "For employees working  less than 40  hours,  any hours worked  in  excess of 40 hours  in  a week.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.1",
+            "bbox": [
+              90.0,
+              666.94248,
+              474.315952392,
+              658.60452
+            ],
+            "label": "text",
+            "text": "Overtime compensation shall  be accumulated  in  one-half (1/2) hour increments.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.2",
+            "bbox": [
+              89.2801,
+              644.26248,
+              503.37994564799993,
+              589.7577600000001
+            ],
+            "label": "text",
+            "text": "In  the  event an  Employee is assigned as overhead/support function for an emergency incident response.  Employee will  receive their normal  compensation for their normally assigned work hours. Any hours beyond their normally assigned work hours will  be compensated for at one and  one-haif of their regular rate of pay.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.3",
+            "bbox": [
+              106.2,
+              567.58248,
+              239.04018882,
+              559.24452
+            ],
+            "label": "section_header",
+            "text": "Cc.  Compensatory Time Off",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.4",
+            "bbox": [
+              88.2,
+              544.90248,
+              518.7591413279999,
+              478.96452
+            ],
+            "label": "text",
+            "text": "Administrative employees are eligible to  receive earned overtime in the form  of compensatory time off with  the approval of their supervisor. The maximum allowable hours that  may be contained  in  an  employee's compensatory time off (CTO) bank is  80 hours. Any overtime hours worked that would  increase the employee's CTO bank beyond the 80-hour maximum will  be paid  out at the employee's overtime rate of pay.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.5",
+            "bbox": [
+              105.84,
+              447.25824,
+              250.13469024000003,
+              438.55776
+            ],
+            "label": "section_header",
+            "text": "ON-CALL &  CALLBACK PAY",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.6",
+            "bbox": [
+              87.8398,
+              399.10248,
+              526.6797973199999,
+              375.64452
+            ],
+            "label": "text",
+            "text": "At times,  the  Fire Chief or his  designee may assign employees included  in this MOU to oncall  status  during  hours  outside  of the employee's normally scheduled work hours.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.7",
+            "bbox": [
+              87.8398,
+              361.21824000000004,
+              509.759041248,
+              321.91776
+            ],
+            "label": "text",
+            "text": "Compensation for on-call status shall  be paid at a rate of $15.00  per hour. Partial  hours shall  be  rounded  up to the  nearest '/2-hour increment.  Hours compensated for on-call status shall  be considered hours worked for the purposes of overtime calculation.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.8",
+            "bbox": [
+              87.4801,
+              307.30248,
+              518.7601670399999,
+              268.72452
+            ],
+            "label": "text",
+            "text": "Employees shall not be  restricted  in  conducting  personal  business/affairs while on-call as long  as they can  be  available for a  reasonable  response window and  may also be available by cell  phone or radio communications.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.9",
+            "bbox": [
+              87.4801,
+              253.66247999999996,
+              511.4043522,
+              199.60451999999998
+            ],
+            "label": "text",
+            "text": "Employees shall  not be  required to  be  in  District uniform  while on-call,  but a  reasonable expectation of professionalism is  expected and  upon activation,  proper uniform  or dress code standards and  safety equipment standards will  be followed per District SOP's and Policies as time  constraints allow.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.10",
+            "bbox": [
+              87.4801,
+              184.54247999999995,
+              438.4779542640001,
+              176.20452
+            ],
+            "label": "text",
+            "text": "On-call compensation is not reportable for CalPERS pension calculation.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.11",
+            "bbox": [
+              104.4,
+              148.54247999999995,
+              272.88047116800004,
+              140.20452
+            ],
+            "label": "section_header",
+            "text": "B.  Callback by Phone or Computer",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.12",
+            "bbox": [
+              86.7602,
+              125.86248,
+              499.150182096,
+              101.95776000000001
+            ],
+            "label": "text",
+            "text": "If the  employee is  able to  respond  by phone or computer and  is  not  required to  report to  the worksite,  then:",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p7.13",
+            "bbox": [
+              104.4,
+              87.53380000000004,
+              462.63825360000004,
+              78.47080000000005
+            ],
+            "label": "list_item",
+            "text": "All  callback hours  shall  be  paid  at the employee's overtime rate of pay.",
+            "cited": false
+          }
+        ]
+      }
+    },
+    {
+      "n": 3,
+      "tool": "read_page",
+      "input": {
+        "doc_id": "admin_group_mou",
+        "page": 5
+      },
+      "result_sha256": "a9bc7a78466ab19625d0342b748a853d1b3542ce78ae76e491a283c2b64f5864",
+      "result": {
+        "doc_id": "admin_group_mou",
+        "page": 5,
+        "page_count": 30,
+        "clauses": [
+          {
+            "ref": "admin_group_mou#p5.0",
+            "bbox": [
+              72.0,
+              702.58248,
+              527.039709732,
+              679.12452
+            ],
+            "label": "text",
+            "text": "During the term of this  agreement, wages for all  represented classifications will  receive a costof-living  adjustment (COLA) as follows:",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.1",
+            "bbox": [
+              123.48,
+              657.13824,
+              347.76063359999995,
+              648.43776
+            ],
+            "label": "list_item",
+            "text": "e Pay period  including January 1,  2024 -5%",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.2",
+            "bbox": [
+              123.12,
+              641.82672,
+              345.59975080799995,
+              633.85128
+            ],
+            "label": "list_item",
+            "text": "\u00ab Pay period  including January 1,  2025 - 5%",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.3",
+            "bbox": [
+              123.12,
+              626.53824,
+              347.759649792,
+              617.83776
+            ],
+            "label": "list_item",
+            "text": "e Pay period  including January 1,  2026 -  5%",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.4",
+            "bbox": [
+              106.2,
+              596.02248,
+              215.27843472,
+              587.6845199999999
+            ],
+            "label": "section_header",
+            "text": "B.  Education  Incentive",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.5",
+            "bbox": [
+              71.6398,
+              572.53824,
+              404.51028710400004,
+              563.83776
+            ],
+            "label": "text",
+            "text": "Employees may receive education incentive pay as described  below.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.6",
+            "bbox": [
+              70.9199,
+              549.94248,
+              507.083946912,
+              511.00452
+            ],
+            "label": "text",
+            "text": "To receive the education incentive pay, the employee must possess an Associate Degree, Bachelor's  Degree or  Master's  Degree issued by an  accredited college or university which meets the approval of the Employer.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.7",
+            "bbox": [
+              70.5602,
+              496.30248,
+              499.68021888000004,
+              472.84452
+            ],
+            "label": "text",
+            "text": "Effective the  pay period  including January 1,  2024, the education incentive pay will  be  as follows:",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.8",
+            "bbox": [
+              122.04,
+              464.98248,
+              473.078042568,
+              456.64452
+            ],
+            "label": "list_item",
+            "text": "Associate's Degree:  shall  receive $  200.00 a month as  incentive  pay.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.9",
+            "bbox": [
+              122.04,
+              449.05824,
+              468.39909772799996,
+              440.35776
+            ],
+            "label": "list_item",
+            "text": "\u00a2 Bachelor's  Degree: shall  receive $  300.00 a  month  as incentive pay.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.10",
+            "bbox": [
+              122.04,
+              433.134,
+              458.3182536,
+              424.071
+            ],
+            "label": "list_item",
+            "text": "e Master's  Degree:  shall  receive $  400.00 a  month  as  incentive pay.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.11",
+            "bbox": [
+              70.2,
+              400.45824,
+              356.7577518719999,
+              391.75775999999996
+            ],
+            "label": "text",
+            "text": "The above incentives cannot be combined or compounded.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.12",
+            "bbox": [
+              104.76,
+              369.13824,
+              192.08955139199995,
+              360.43775999999997
+            ],
+            "label": "section_header",
+            "text": "C.  Step  Increases",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.13",
+            "bbox": [
+              104.04,
+              346.18248,
+              520.920864,
+              291.76452
+            ],
+            "label": "text",
+            "text": "All  step  increases in  salary are  merit steps and  shall  be executed annually according to  the  salary schedule with  approval of the  Fire Chief. All newly hired employees shall start at  step  1  of the  merit salary schedule associated with their position, or at the discretion of the  Fire Chief.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.14",
+            "bbox": [
+              103.32,
+              254.02247999999997,
+              525.6002708999999,
+              215.08452
+            ],
+            "label": "text",
+            "text": "Once approved, changes to employee compensation or salary will  be effective the first full  pay period  following the  effective date. Exceptions to  this  provision require the written  approval of the  Fire Chief.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.15",
+            "bbox": [
+              102.24,
+              190.66247999999996,
+              162.562509,
+              182.32452
+            ],
+            "label": "section_header",
+            "text": "D.  Longevity",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.16",
+            "bbox": [
+              103.32,
+              167.89824,
+              524.159952192,
+              144.16452000000004
+            ],
+            "label": "text",
+            "text": "Upon  completion of ten (10) years of service to the  District an  employee shall receive a 2.5% pay increase.  Longevity is  calculated from  date of hire.",
+            "cited": false
+          },
+          {
+            "ref": "admin_group_mou#p5.17",
+            "bbox": [
+              103.32,
+              129.37824,
+              531.360222336,
+              105.64452000000006
+            ],
+            "label": "text",
+            "text": "Upon completion of twenty (20) years of service to the  District employees shall  receive a 2.5% pay increase calculated from their date of hire.",
+            "cited": false
+          }
+        ]
+      }
+    },
+    {
+      "n": 4,
+      "tool": "search_clauses",
+      "input": {
+        "query": "regular rate of pay definition includes",
+        "doc_id": "admin_group_mou"
+      },
+      "result_sha256": "df9b9c266fbe75299a0416133b323a6b5f90ce78cdb2781e94777638fbbd7108",
+      "result": {
+        "hits": [
+          {
+            "ref": "admin_group_mou#p6.11",
+            "page": 6,
+            "bbox": [
+              104.4,
+              137.74248,
+              509.597263368,
+              113.83776
+            ],
+            "text": "Employees shall be compensated at the rate of one and  one-half times their regular rate of pay for all  hours worked  in  excess of:",
+            "score": 12.6743
+          },
+          {
+            "ref": "admin_group_mou#p11.1",
+            "page": 11,
+            "bbox": [
+              73.8,
+              674.0582400000001,
+              126.00155808,
+              665.3577600000001
+            ],
+            "text": "Definitions:",
+            "score": 9.2561
+          },
+          {
+            "ref": "admin_group_mou#p18.1",
+            "page": 18,
+            "bbox": [
+              73.0801,
+              673.7824800000001,
+              228.960815256,
+              665.44452
+            ],
+            "text": "Grievance  Definition and  Scope:",
+            "score": 8.4677
+          },
+          {
+            "ref": "admin_group_mou#p14.1",
+            "page": 14,
+            "bbox": [
+              72.3602,
+              681.34248,
+              517.3580425680001,
+              642.76452
+            ],
+            "text": "Employees may cash out accrued vacation leave,  not to exceed half (1/2) of the employees 'maximum number of hours per year,'. The request will  be submitted to the Administrative Analyst of Human  Resources. The hours shall  be paid  at the employees'  regular rate of pay.",
+            "score": 7.6286
+          },
+          {
+            "ref": "admin_group_mou#p7.13",
+            "page": 7,
+            "bbox": [
+              104.4,
+              87.53380000000004,
+              462.63825360000004,
+              78.47080000000005
+            ],
+            "text": "All  callback hours  shall  be  paid  at the employee's overtime rate of pay.",
+            "score": 7.5714
+          },
+          {
+            "ref": "admin_group_mou#p8.3",
+            "page": 8,
+            "bbox": [
+              108.36,
+              552.37824,
+              464.79909772799994,
+              543.67776
+            ],
+            "text": "All  callback hours  shall be  paid  at the  employee's overtime  rate  of pay.",
+            "score": 7.5714
+          }
+        ]
+      }
+    },
+    {
+      "n": 5,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "0de931c4a792e936b56dce66f05d6bf3a6e6db45e205665d07949973037ae441",
+      "result": {
+        "total": 716.16,
+        "rule_set": "live",
+        "lines": [
+          {
+            "subject": "Administrative Analyst (top step)",
+            "rule_id": "admin_group_mou:overtime_premium_rate",
+            "total": 716.16,
+            "math": "effective_base * 1.5 * hours = 716.16"
+          }
+        ]
+      }
+    },
+    {
+      "n": 6,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 4.0
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "b0ca55c798833c6e663965d07704b92f0c903f48d0f331d14c986a726947c429",
+      "result": {
+        "total": 358.08,
+        "rule_set": "live",
+        "lines": [
+          {
+            "subject": "Administrative Analyst (top step)",
+            "rule_id": "admin_group_mou:overtime_premium_rate",
+            "total": 358.08,
+            "math": "effective_base * 1.5 * hours = 358.08"
+          }
+        ]
+      }
+    },
+    {
+      "n": 7,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 4.0
+          }
+        },
+        "variant": {
+          "when": "hours > scheduled_hours_in_day"
+        }
+      },
+      "result_sha256": "94d1109ebd582d9d2f5d36209f7352fbb50039da9f131a550ae8a70f9b585cce",
+      "result": {
+        "error": "unknown fact(s) ['scheduled_hours_in_day'] in 'hours > scheduled_hours_in_day' \u2014 not in the case's data schema"
+      }
+    },
+    {
+      "n": 8,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "live",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.25
+          }
+        },
+        "variant": null
+      },
+      "result_sha256": "56d2474f2e568037d84c3fb71206486d98b2ab4f21ff9b617f75032caa4f143a",
+      "result": {
+        "total": 738.54,
+        "rule_set": "live",
+        "lines": [
+          {
+            "subject": "Administrative Analyst (top step)",
+            "rule_id": "admin_group_mou:overtime_premium_rate",
+            "total": 738.54,
+            "math": "effective_base * 1.5 * hours = 738.54"
+          }
+        ]
+      }
+    },
+    {
+      "n": 9,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.25
+          }
+        },
+        "variant": {
+          "compute": "effective_base * 1.5 * (round(hours * 2) / 2)"
+        }
+      },
+      "result_sha256": "dd22a86bbbf732ad90f2aee7979c81c95bf683fcefdc20ef3adb2a7cad4cfd71",
+      "result": {
+        "total": 716.16,
+        "rule_set": "variant",
+        "lines": [
+          {
+            "subject": "Administrative Analyst (top step)",
+            "rule_id": "admin_group_mou:overtime_premium_rate",
+            "total": 716.16,
+            "math": "effective_base * 1.5 * (round(hours * 2) / 2) = 716.16"
+          }
+        ]
+      }
+    },
+    {
+      "n": 10,
+      "tool": "run_engine",
+      "input": {
+        "rule_set": "variant",
+        "scenario": {
+          "subjects": [
+            "Administrative Analyst (top step)"
+          ],
+          "params": {
+            "hours": 8.0
+          }
+        },
+        "variant": {
+          "compute": "effective_base * 1.025 * 1.5 * hours"
+        }
+      },
+      "result_sha256": "2d84e935184788d04c29e4b1c5ce0fc7179f2edc8fdd8b98b45bc3f88bbcc0ce",
+      "result": {
+        "total": 734.06,
+        "rule_set": "variant",
+        "lines": [
+          {
+            "subject": "Administrative Analyst (top step)",
+            "rule_id": "admin_group_mou:overtime_premium_rate",
+            "total": 734.06,
+            "math": "effective_base * 1.025 * 1.5 * hours = 734.06"
+          }
+        ]
+      }
+    }
+  ],
+  "stopped": "submitted",
+  "provenance": {
+    "mode": "precomputed",
+    "producer": "Claude Code session 2026-10-07",
+    "harness": "2.1.119 (Claude Code)",
+    "model": "claude-fable-5-1 via Claude Code (subscription)",
+    "operator": "kenny",
+    "produced_at": "2026-10-07T16:06:27Z",
+    "api_key_in_env": false,
+    "billing": "subscription",
+    "prompt_sha256": "373cfc22bfc28eab0d0fb765dd8b0092818b3db148cb28f14e632b559f278756",
+    "code_rev": "d84d5f3-dirty",
+    "run_id": "3e2424c75a74",
+    "tool_calls": 10,
+    "limits": {
+      "tool_calls": 12,
+      "search_clauses": 4,
+      "read_page": 6,
+      "run_engine": 6,
+      "warnings": 8
+    }
+  },
+  "inputs": {
+    "rule_sha256": "8751dc77ac73e5d7a7e338fc4ed7945d76ef918ed58764b50a814bb4ad35fd21",
+    "doc_sha256": {
+      "admin_group_mou": "f35b0cf0d46013d73ba34a6e79087d38b51b42555ccbdcb91faf242eb3e0cc3e",
+      "master_salary_schedule": "8123d794d45221c5a97dea1c0043faede605e7a8cc773361189b8b7b814e4f42"
+    },
+    "catalog_doc_sha256": {
+      "admin_group_mou": "3cb35047f29c5e5efd501664e7989cac67de9703694b5862410f18e22ac25707",
+      "master_salary_schedule": "5a24779c044baa3b9973949add04fa959b59dd9fe982ce58403ab3eb90a5faa2"
+    },
+    "roster_sha256": "935f901ec307b08e0f31aaaf10476a40ca895f55a24583abfc835a5f12d94b31"
+  }
+}
