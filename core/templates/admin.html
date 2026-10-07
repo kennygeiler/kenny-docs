@@ -78,6 +78,7 @@
         <div id="reviewMsg" role="status" aria-live="polite"></div>
         <div id="review"></div>
         <div id="reviewBtns" class="toolbar" hidden>
+          <input type="text" id="approverName" placeholder="Your name (recorded as the approver)" aria-label="Approver name" autocomplete="name">
           <button type="button" onclick="ratify()">Approve selected</button>
           <button type="button" class="ghost" onclick="setAll(true)">Select all</button>
           <button type="button" class="ghost" onclick="setAll(false)">Clear selection</button>
@@ -99,18 +100,60 @@
 
       <!-- ---------------- AUDIT ---------------- -->
       <section role="tabpanel" id="panel-audit" aria-labelledby="tab-audit" class="panel" tabindex="0" hidden>
+        <!-- ledger chunk (DEMO_TICKETS.md F3, F6). Styles scoped here: styles.css belongs
+             to another chunk. The tour waits on #verifyChain .badge-ratified / #ledger .evt. -->
+        <style>
+          #panel-audit .evt { overflow-wrap: anywhere; min-width: 0; }
+          #panel-audit .evt code { display: block; white-space: pre-wrap; overflow-wrap: anywhere;
+            font-size: 11.5px; color: var(--grey); margin-top: 2px; }
+          #panel-audit .evt time { color: var(--grey); cursor: help; border-bottom: 1px dotted #bbb; }
+          #panel-audit .evt.open code { color: inherit; }
+          #panel-audit .qrow { cursor: pointer; }
+          #panel-audit .qrow:hover, #panel-audit .qrow:focus { background: var(--light); outline: none; }
+          #panel-audit .strip { font-size: 13px; color: var(--grey); margin: 0 0 10px;
+            display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+          #panel-audit .strip code { font-size: 12px; overflow-wrap: anywhere; }
+          #panel-audit .fchip { display: inline-block; font-size: 12px; background: var(--light);
+            color: var(--navy); border-radius: 12px; padding: 2px 10px; margin-left: 8px; font-weight: 500; }
+          #panel-audit .fchip button { background: none; border: 0; color: var(--steel);
+            cursor: pointer; font-size: 12px; padding: 0 0 0 6px; text-decoration: underline; }
+          #panel-audit input[type=search] { font: inherit; font-size: 13px; padding: 5px 8px;
+            border: 1px solid var(--line); border-radius: 6px; min-width: 220px; max-width: 100%; }
+          #panel-audit select { font: inherit; font-size: 13px; padding: 5px 6px;
+            border: 1px solid var(--line); border-radius: 6px; }
+          #tamperResult .card { margin: 8px 0 4px; }
+          #tamperResult .card p { margin: 4px 0; font-size: 13px; overflow-wrap: anywhere; }
+          #tamperResult .card code { font-size: 12px; overflow-wrap: anywhere; }
+          #tamperResult .hash-bad { color: var(--flag); font-weight: 700; }
+          #tamperResult .hash-ok { color: var(--ok); font-weight: 700; }
+        </style>
         <h2>Audit trail <span id="verifyChain"></span></h2>
+        <p class="strip" id="ledgerStrip" aria-live="polite"></p>
         <p class="lede">Every action — each question asked, each document chosen, each calculation
           step, each approval — in a tamper-evident record. Altering any entry breaks the chain and
-          is detected.</p>
+          is detected. Prove it below: the test runs on a scratch copy, never on the record itself.</p>
         <div class="toolbar">
           <button type="button" class="ghost" onclick="loadLedger()">Refresh</button>
           <a href="/admin/ledger/export" target="_blank" rel="noopener">
             <button type="button" class="ghost">Export the record</button></a>
+          <label for="tamperMode" class="muted">Attack:</label>
+          <select id="tamperMode" aria-label="Tamper mode">
+            <option value="edit">Change one dollar figure</option>
+            <option value="rechain">Change it and re-compute every hash after it</option>
+            <option value="delete">Delete one event</option>
+            <option value="truncate">Cut the last 5 events</option>
+          </select>
+          <button type="button" id="tamperBtn" onclick="tamperDemo()">Break the chain (on a copy)</button>
         </div>
-        <h3>Recent questions</h3>
+        <div id="tamperResult" role="status" aria-live="polite"></div>
+        <h3>Recent questions <span class="muted">click one to see every step behind it</span></h3>
         <div id="history"></div>
-        <h3>Event log</h3>
+        <h3>Event log <span id="ledgerFilter"></span></h3>
+        <div class="toolbar">
+          <input type="search" id="ledgerSearch" placeholder="Filter by event type or text"
+            aria-label="Filter events" oninput="renderLedger()">
+          <span class="muted" id="ledgerShown"></span>
+        </div>
         <div id="ledger" class="mono"></div>
       </section>
     </main>
@@ -363,7 +406,7 @@
       if (!ids.length) { msg('reviewMsg', 'bad', 'Select at least one rule to approve.'); return; }
       const res = await fetch('/admin/ratify', {method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({approver: 'hr-analyst', rule_ids: ids})}).then(r => r.json());
+        body: JSON.stringify({approver: approverName(), rule_ids: ids})}).then(r => r.json());
 
       if (res.rejected) {
         msg('reviewMsg', 'bad', `<strong>Nothing was approved.</strong> These rules cannot run
@@ -408,6 +451,7 @@
         const v = await fetch('/admin/verification').then(r => r.json());
         unverified = new Set((v.unverified || []).map(u => u.id));
       } catch (e) {}
+      await loadApprovals();   // ledger chunk (F2): approval line on each card
       const byDoc = {};
       live.forEach(r => ((byDoc[(r.citation || {}).doc_id || '?'] ||= []).push(r)));
       $('library').innerHTML = Object.entries(byDoc).map(([doc, rules]) => `
@@ -427,6 +471,7 @@
                   View source</button>
               </div>
               ${ruleBody(r)}
+              ${approvalLine(r)}
               <p class="muted mono id">${esc(r.id)}</p>
             </article>`;
           }).join('')}
@@ -945,22 +990,165 @@
       });
     });
 
-    /* ---------------- audit ---------------- */
+    /* ---------------- audit (ledger chunk: F2 read side, F3, F6) ---------------- */
+    let LEDGER = {events: [], count: 0, head: null, keyed: false};
+    let LEDGER_QID = null;          // when set, the log shows one question's events
+    const OPEN_EVTS = new Set();    // seqs whose full payload is expanded
+    const USD = new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'});
+    const money = v => USD.format(v);
+    // The hashed `ts` field is the time of record; `iso` carries no zone and would be
+    // read as local by new Date(). Local time on screen, UTC ISO on hover.
+    const when = ts => {
+      if (ts == null) return '';
+      const d = new Date(ts * 1000);
+      const utc = d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      return `<time datetime="${utc}" title="${utc}">${esc(d.toLocaleString())}</time>`;
+    };
+    const fmtTotal = x => {
+      if (x.total == null) return `<span class="muted">${esc(x.outcome || 'no answer')}</span>`;
+      if (!x.result_type || x.result_type === 'currency') return money(x.total);
+      return `${esc(x.total)} ${esc(x.result_type)}`;
+    };
+    const short = h => (h || '').slice(0, 12);
+
     async function loadLedger() {
       const res = await fetch('/admin/ledger').then(r => r.json());
+      LEDGER = res;
       $('verifyChain').innerHTML = res.verified
         ? `<span class="badge-ratified">Record intact</span>`
         : `<span class="bad">Record altered: ${esc(res.verify_message)}</span>`;
-      $('ledger').innerHTML = res.events.slice(-60).reverse().map(e => `
-        <p class="evt"><span class="t">${esc(e.type)}</span>
-          <span class="muted">#${e.seq} · ${esc(e.actor)}${e.query_id ? ' · ' + esc(e.query_id) : ''}</span><br>
-          <span class="muted">${esc(JSON.stringify(e.payload)).slice(0, 180)}</span></p>`).join('');
+      const head = res.head;
+      $('ledgerStrip').innerHTML = `
+        <span><strong>${res.count}</strong> events</span>
+        ${head ? `<span>head <strong>#${head.seq}</strong> <code title="${esc(head.hash)}">${esc(short(head.hash))}…</code></span>` : ''}
+        <span>${res.keyed ? 'Signed (HMAC-SHA256)' : 'Integrity-only (unsigned)'}</span>`;
+      renderLedger();
       const h = await fetch('/admin/history').then(r => r.json());
       $('history').innerHTML = h.history.length ? h.history.slice(0, 12).map(x => `
-        <p class="evt"><strong>${x.total != null ? esc(x.total) : '—'}</strong>
-          <span class="muted">${esc(x.iso || '')}</span><br>${esc(x.prompt || '')}</p>`).join('')
+        <p class="evt qrow" tabindex="0" role="button" data-qid="${esc(x.query_id)}"
+           aria-label="Show the ${x.events} events behind this question">
+          <strong>${fmtTotal(x)}</strong>
+          <span class="muted">${when(x.ts)} · ${x.events} events · ${esc(x.query_id)}</span><br>${esc(x.prompt || '')}</p>`).join('')
         : `<p class="empty">No questions asked yet.</p>`;
     }
+
+    function renderLedger() {
+      const q = ($('ledgerSearch').value || '').trim().toLowerCase();
+      let evs = LEDGER.events || [];
+      if (LEDGER_QID) evs = evs.filter(e => e.query_id === LEDGER_QID);   // oldest first
+      else evs = evs.slice(-60).reverse();
+      if (q) evs = evs.filter(e => (e.type + ' ' + JSON.stringify(e.payload)).toLowerCase().includes(q));
+      $('ledgerFilter').innerHTML = LEDGER_QID
+        ? `<span class="fchip">Question ${esc(LEDGER_QID)} · ${evs.length} events
+             <button type="button" onclick="filterQuestion(null)">clear</button></span>` : '';
+      $('ledgerShown').textContent = LEDGER_QID ? '' : `last ${evs.length} of ${LEDGER.count || 0}`;
+      $('ledger').innerHTML = evs.length ? evs.map(e => {
+        const open = OPEN_EVTS.has(e.seq);
+        const body = open ? JSON.stringify(e.payload, null, 2) : JSON.stringify(e.payload).slice(0, 180);
+        return `<p class="evt${open ? ' open' : ''}" data-seq="${e.seq}" tabindex="0" role="button"
+                   aria-expanded="${open}" title="Click to ${open ? 'collapse' : 'expand'} the payload">
+          <span class="t">${esc(e.type)}</span>
+          <span class="muted">#${e.seq} · ${esc(e.actor)}${e.query_id ? ' · ' + esc(e.query_id) : ''} · ${when(e.ts)}</span>
+          <code>${esc(body)}</code></p>`;
+      }).join('') : `<p class="empty">No events match.</p>`;
+    }
+
+    function filterQuestion(qid) {
+      LEDGER_QID = qid;
+      renderLedger();
+      if (qid) $('ledger').scrollIntoView({block: 'nearest'});
+    }
+    // One delegated handler, no string-built onclicks on data rows.
+    $('history').addEventListener('click', e => {
+      const row = e.target.closest('.qrow'); if (row) filterQuestion(row.dataset.qid);
+    });
+    $('history').addEventListener('keydown', e => {
+      const row = e.target.closest('.qrow');
+      if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); filterQuestion(row.dataset.qid); }
+    });
+    const toggleEvt = row => {
+      const seq = Number(row.dataset.seq);
+      OPEN_EVTS.has(seq) ? OPEN_EVTS.delete(seq) : OPEN_EVTS.add(seq);
+      renderLedger();
+    };
+    $('ledger').addEventListener('click', e => {
+      if (window.getSelection && String(window.getSelection())) return;   // let people copy
+      const row = e.target.closest('.evt'); if (row) toggleEvt(row);
+    });
+    $('ledger').addEventListener('keydown', e => {
+      const row = e.target.closest('.evt');
+      if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleEvt(row); }
+    });
+
+    async function tamperDemo() {
+      const mode = $('tamperMode').value;
+      const btn = $('tamperBtn'); btn.disabled = true;
+      $('tamperResult').innerHTML = `<p class="muted">Copying the record and running the attack…</p>`;
+      try {
+        const res = await fetch('/admin/ledger/tamper-demo?mode=' + encodeURIComponent(mode)).then(r => r.json());
+        if (res.error) { $('tamperResult').innerHTML = `<p class="flagline">${esc(res.error)}</p>`; return; }
+        const c = res.copy, t = res.target || {};
+        const verifyLine = c.ok
+          ? `<span class="hash-ok">passed</span> — ${esc(c.count)} events verify; an unsigned chain only proves internal consistency.`
+          : `<span class="hash-bad">FAILED at #${esc(c.failed_seq)}</span> (${esc(c.reason)}${c.event_type ? ', ' + esc(c.event_type) : ''})`
+            + (c.stored_hash ? `<br>stored <code>${esc(short(c.stored_hash))}…</code> recomputed <code>${esc(short(c.recomputed_hash || '—'))}…</code>` : '');
+        const anchorLine = c.anchor
+          ? `<p>Recorded head #${esc(c.anchor.recorded_head.seq)} <code>${esc(short(c.anchor.recorded_head.hash))}…</code>: `
+            + (c.anchor.ok ? `<span class="hash-ok">intact</span>` : `<span class="hash-bad">${esc(c.anchor.message)}</span>`) + `</p>` : '';
+        const change = t.field
+          ? `Changed <strong>#${esc(t.seq)}</strong> ${esc(t.type)} <code>${esc(t.field)}</code> ${esc(JSON.stringify(t.before))} → ${esc(JSON.stringify(t.after))}`
+          : mode === 'delete' ? `Deleted <strong>#${esc(t.seq)}</strong> ${esc(t.type)}`
+          : `Dropped the last ${esc(t.dropped)} events (${esc(t.before)} → ${esc(t.after)})`;
+        $('tamperResult').innerHTML = `
+          <article class="card ${c.ok && !(c.anchor && !c.anchor.ok) ? 'warn-card' : 'invalid'}">
+            <p>Copied <strong>${esc(res.real.count)}</strong> events to a scratch file. ${change}.</p>
+            <p>Verify on the copy: ${verifyLine}</p>
+            ${anchorLine}
+            <p>Real ledger: <strong>${res.real.untouched ? 'untouched' : 'CHANGED'}</strong>,
+               ${res.real.verified ? 'still intact' : 'NOT intact'} (${esc(res.real.count)} events). The copy was deleted.</p>
+            <p class="muted">${esc(res.explanation)}</p>
+          </article>`;
+      } catch (e) {
+        $('tamperResult').innerHTML = `<p class="flagline">The demonstration could not run: ${esc(e.message)}</p>`;
+      } finally { btn.disabled = false; }
+    }
+
+    /* approvals (F2 read side): who approved which rule text, against which clause and known answer */
+    let APPROVALS = {};
+    async function loadApprovals() {
+      try {
+        const res = await fetch('/admin/approvals').then(r => r.json());
+        APPROVALS = Object.fromEntries((res.approvals || []).map(a => [a.rule_id, a]));
+      } catch (e) { APPROVALS = {}; }
+    }
+    function approvalLine(r) {
+      const a = APPROVALS[r.id];
+      if (!a || !a.approval) return `<p class="muted">No approval record in this ledger yet.</p>`;
+      const ap = a.approval, cit = ap.citation || {};
+      const d = ap.approved_at && !isNaN(Date.parse(ap.approved_at))
+        ? new Date(ap.approved_at).toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'})
+        : esc(ap.approved_at || 'date unknown');
+      const ka = (ap.known_answers || [])[0];
+      const rt = r.result_type || 'currency';
+      const kaText = ka
+        ? `reproduced <strong>${rt === 'currency' ? money(ka.expected) : esc(ka.expected) + ' ' + esc(rt)}</strong> (${esc(ka.status)})`
+        : `<span class="warn-text">no known answer exercises it</span>`;
+      return `<p class="muted approval">Approved by <strong>${esc(ap.approver)}</strong> · ${d} ·
+        against ${esc(docTitle(cit.doc_id || ''))}${cit.page ? ' p.' + esc(cit.page) : ''} “${esc(cit.clause || '?')}” ·
+        ${kaText} · ledger #${esc(ap.seq)}
+        ${ap.backfilled ? `<span class="chip" title="${esc(ap.basis || '')}">back-filled${ap.original_event ? ` (original #${esc(ap.original_event.seq)})` : ''}</span>` : ''}
+        ${a.matches_live ? '' : `<span class="bad">rule text edited since this approval</span>`}</p>`;
+    }
+    function approverName() {
+      const input = $('approverName');
+      let name = input ? input.value.trim() : '';
+      try {
+        if (name) localStorage.setItem('kenny.approver', name);
+        else if (input) { name = localStorage.getItem('kenny.approver') || ''; input.value = name; }
+      } catch (e) {}
+      return name;
+    }
+    try { const saved = localStorage.getItem('kenny.approver'); if (saved && $('approverName')) $('approverName').value = saved; } catch (e) {}
 
     /* ---------------- boot ---------------- */
     fetch('/api/case').then(r => r.json()).then(c => {
