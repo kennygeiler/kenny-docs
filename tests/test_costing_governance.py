@@ -116,7 +116,10 @@ def test_every_line_item_is_priced_by_its_own_units_document(client, case_dir):
 def test_single_unit_without_rules_is_blocked_with_unchanged_message(client):
     res = _ask(client, f"Cost an 8-hour overtime shift for a {FM}")
     assert res["mode"] == "blocked"
-    assert "**management_mou** has no human-ratified rules" in res["message"]
+    # chat-ui (I6) owns the refusal copy: the contract by title, no markdown asterisks,
+    # and a `next` link to an admin tab — the substance (no number, the reason) is the same.
+    assert "Management MOU" in res["message"] and "approved by a person" in res["message"]
+    assert "**" not in res["message"] and res["next"]["href"].startswith("/admin#")
     assert "result" not in res
     assert res["uncovered"][0]["subject"] == FM
 

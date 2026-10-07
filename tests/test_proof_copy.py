@@ -48,7 +48,11 @@ def test_keyless_policy_answer_cites_a_page_not_a_bare_section_sign(client):
     }).json()
     assert res["mode"] == "policy"
     assert not res["answer"].startswith("Per §:"), res["answer"]
-    assert res["answer"].startswith("Quoted from p.8:"), res["answer"]
+    # The keyless quote is prefixed either by llm._quoted_from ("Quoted from p.8:") or,
+    # since wave1/entitlement-retrieval, by the contract title ("From <title>, p.8:");
+    # both cite the page before the first quoted word.
+    head = res["answer"].split(":", 1)[0]
+    assert head.endswith("p.8") and head.startswith(("Quoted from", "From ")), res["answer"]
 
 
 def test_quoted_from_prefers_a_clause_label_when_there_is_one():

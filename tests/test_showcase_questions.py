@@ -160,7 +160,11 @@ def test_unscoped_question_offers_contracts_not_departments(client):
 def _printed_examples() -> list[str]:
     html = open(os.path.join(TEMPLATES, "chat.html")).read()
     tour = open(os.path.join(TEMPLATES, "tour.js")).read()
-    out = re.findall(r"<li>([^<]+)</li>", html.split("For example:")[1].split("</ul>")[0])
+    # chat-ui (I16) prints the examples as data-q buttons; the older <li> list is kept
+    # as a fallback so either markup is read.
+    out = re.findall(r'data-q="([^"]+)"', html)
+    if "For example:" in html:
+        out += re.findall(r"<li>([^<]+)</li>", html.split("For example:")[1].split("</ul>")[0])
     out += re.findall(r"QUESTION_\w+\s*=\s*'([^']+)'", tour)
     seen: list[str] = []
     for q in out:
@@ -175,6 +179,11 @@ EXPECTED_PAGE = {"costing": 8, "entitlement": 21, "policy": 8}
 @pytest.mark.parametrize("prompt", _printed_examples())
 def test_every_printed_example_answers_with_its_clause(client, prompt):
     res = _ask(client, prompt)
+    if res["mode"] == "blocked" and res.get("next"):
+        # chat-ui's third example is a designed refusal (I6/I16): no clause to cite,
+        # but it must name the contract and point at an admin tab, which `next` proves.
+        assert "Management MOU" in res["message"], res
+        return
     assert res["mode"] in EXPECTED_PAGE, (prompt, res)
     if res["mode"] == "policy":
         page = res["sources"][0]["page"]
