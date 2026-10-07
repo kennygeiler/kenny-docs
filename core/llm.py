@@ -99,7 +99,7 @@ def llm_mode() -> str:
 # --------------------------------------------------------------------------- #
 # classify_intent — is this a costing question or a policy question?
 # --------------------------------------------------------------------------- #
-_COST_CUES = ("cost", "calculate", "how much", "total ", "pay for", "what will it",
+_COST_CUES = ("cost", "calculate", "how much", "total ", "what will it",
               "price", "budget", "dollar")
 # Strong cues force a 'policy' classification regardless of cost words in the prompt.
 _POLICY_STRONG = ("eligible", "what does", "say about", "allowed", "explain", "define",
@@ -167,20 +167,22 @@ def classify_intent(prompt: str) -> str:
     _note("classify_intent", "fallback", rule="keyword router")
     p = prompt.lower()
     # Order matters, and it is not the order the cue lists suggest:
-    #   1. entitlement — "how many days" is never a rate and never a cost.
-    #   2. lookup      — mentions rates and dollars, so it must be tested before the cost
-    #                    cues claim it.
-    #   3. an explicit ASK TO COMPUTE outranks the policy phrasing wrapped around it.
+    #   1. an explicit ASK TO COMPUTE outranks every phrasing wrapped around it.
     #      "What does an 8-hour holiday shift cost?" opens with "what does", a _POLICY_
     #      STRONG cue, and was routed to policy — so with no API key the clearest costing
     #      question in the corpus never reached the engine. The verb governs, not the
-    #      preamble.
-    if _ENTITLEMENT_RE.search(p):
-        return "entitlement"
-    if _LOOKUP_RE.search(p) and not _COMPUTE_RE.search(p):
-        return "lookup"
+    #      preamble. It also outranks the entitlement pattern: "How much would it COST
+    #      ... to work 8 HOURS of overtime?" matched "how much … hours" and was refused
+    #      as out of scope, when it is the headline costing question reworded.
+    #   2. entitlement — "how many days" is never a rate and never a cost.
+    #   3. lookup      — mentions rates and dollars, so it must be tested before the cost
+    #                    cues claim it.
     if _COMPUTE_RE.search(p):
         return "costing"
+    if _ENTITLEMENT_RE.search(p):
+        return "entitlement"
+    if _LOOKUP_RE.search(p):
+        return "lookup"
     if any(c in p for c in _POLICY_STRONG):
         return "policy"
     if any(c in p for c in _COST_CUES):
