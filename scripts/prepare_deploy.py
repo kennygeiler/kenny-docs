@@ -102,7 +102,7 @@ def _goldens_fail(case_rel: str) -> bool:
     a human's approval is not sufficient to make a rule live (PRD §9), a green build is not
     sufficient to make an image shippable.
     """
-    from core.app import _case, _check_golden, _ratified_dicts
+    from core.app import _case, _check_golden, _live_dicts
 
     case = _case()
     goldens = case.manifest.get("golden_cases") or []
@@ -125,7 +125,7 @@ def _goldens_fail(case_rel: str) -> bool:
     # for every visitor is the failure this gate exists to stop. Require an explicit pass.
     failed = []
     for g in goldens:
-        _ok, detail = _check_golden(case, _ratified_dicts(case), g)
+        _ok, detail = _check_golden(case, _live_dicts(case), g)
         status = detail.get("status", "fail")
         print(f"[prepare] golden {status.upper()}: {g.get('name')} "
               f"(expected {detail.get('expected')}, got {detail.get('actual')})")

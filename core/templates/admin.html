@@ -60,11 +60,12 @@
       <!-- ---------------- VERIFICATION ---------------- -->
       <section role="tabpanel" id="panel-verify" aria-labelledby="tab-verify" class="panel" tabindex="0" hidden>
         <h2>Verification — start here</h2>
-        <p class="lede">Each card is a <strong>known answer</strong> (a real paystub, or a figure an
-          analyst worked out by hand). To make Kenny able to cost it, press <strong>Draft the rules for
-          this scenario</strong>: Kenny pulls only the clauses that answer this paystub, drafts the
-          handful of rules they need, and checks the total. Approve alone is never enough — a rule set
-          that cannot reproduce these known answers cannot go live.</p>
+        <p class="lede">Each card is a <strong>known answer</strong>. The four shipped here are
+          analyst-derived: worked out by hand from the contract, not taken from payroll. A rule can go
+          live only if it fires in a known answer and the library then reproduces it. To cover a
+          scenario nothing answers yet, press <strong>Draft the rules for this scenario</strong>: Kenny
+          pulls only the clauses that answer it, drafts the handful of rules they need, and checks the
+          total.</p>
         <div id="verify"></div>
       </section>
 
@@ -346,14 +347,59 @@
           <label for="chk-${esc(r.id)}"><strong>${esc(r.topic || r.id)}</strong></label>
           <span class="badge-type">${esc(r.result_type || 'currency')}</span>
           <span class="muted">§${esc(cit.clause || '?')}</span>
-          ${bad ? `<span class="bad">Cannot be approved</span>` : `<span class="ok">Checks passed</span>`}
+          ${bad ? `<span class="bad">Cannot be approved</span>`
+                : `<span class="ok" title="Parses and uses only real fields. The known-answer check runs when you approve.">Well-formed</span>`}
           <button type="button" class="ghost small"
             onclick="viewSource('${esc(cit.doc_id || r._doc_id || '')}','${esc(cit.clause || '')}','${esc(r.id)}')">
             View source</button>
+          ${bad ? '' : `<button type="button" class="ghost small" data-id="${esc(r.id)}"
+            onclick="tryBreak(this)">Try to break it</button>`}
         </div>
         ${ruleBody(r)}
         ${bad ? `<p class="flagline">${errs.map(esc).join('<br>')}</p>` : ''}
+        <div class="break-result" hidden></div>
       </article>`;
+    }
+
+    /* ---------------- try to break it (gate chunk, DEMO_TICKETS.md E3) ----------------
+       Mutate ONE rule in memory (multiplier off by a step, guard dropped or inverted,
+       threshold nudged, clause re-homed to another contract) and run every known answer
+       against each mutant. No model call; nothing is written; the attempt is ledgered.
+       A survivor is a part of the rule no known answer tests — which is the honest
+       answer to "how tightly does one known answer pin this rule down?". */
+    const fmtAmount = (v, t) => v == null ? '—'
+      : (t === 'currency' ? '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+         : `${Number(v)} ${t}`);
+
+    async function tryBreak(btn) {
+      const id = btn.dataset.id;
+      const panel = btn.closest('article').querySelector('.break-result');
+      btn.disabled = true; btn.textContent = 'Trying…';
+      let res;
+      try {
+        res = await fetch('/admin/try_break', {method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({rule_id: id})}).then(r => r.json());
+      } catch (e) { res = {error: String(e)}; }
+      btn.disabled = false; btn.textContent = 'Try to break it';
+      panel.hidden = false;
+      if (!res || res.error) { panel.innerHTML = `<p class="flagline">${esc(res && res.error || 'request failed')}</p>`; return; }
+      const t = res.result_type || 'currency';
+      const head = res.verdict === 'not actually tested'
+        ? `<span class="warn-badge">Not actually tested</span> <span class="muted">No known answer catches any
+             deliberate error in this rule${(res.fires_in || []).length ? '' : ' — it fires in no passing known answer'}.</span>`
+        : `<strong>${res.caught} of ${res.total} deliberate errors caught</strong>
+           <span class="muted">· ${esc(res.verdict)} · no model call, nothing written, attempt recorded in the ledger</span>`;
+      panel.innerHTML = `<p>${head}</p><div class="xtable-wrap">
+        <table class="lines"><thead><tr><th>Deliberate error</th><th>Result</th><th>Known answer</th><th>Expected</th><th>Computed</th></tr></thead>
+        <tbody>${res.mutants.map(m => m.caught
+          ? `<tr><td>${esc(m.label)}</td><td class="ok">Caught</td><td>${esc(m.caught_by.scenario)}</td>
+               <td>${esc(fmtAmount(m.caught_by.expected, t))}</td>
+               <td>${m.caught_by.actual == null ? `<span class="muted">refused (${esc(m.caught_by.status)})</span>` : esc(fmtAmount(m.caught_by.actual, t))}</td></tr>`
+          : `<tr><td>${esc(m.label)}</td><td class="warn-text">Survived</td>
+               <td colspan="3" class="warn-text">No known answer tests this part of the rule</td></tr>`).join('')}
+        </tbody></table></div>`;
+      loadLedger();
     }
 
     const setAll = v => document.querySelectorAll('.ruleChk').forEach(c => { if (!c.disabled) c.checked = v; });
@@ -379,9 +425,18 @@
           ${g.error ? '<br>' + esc(g.error) : ''}
           <br>The rules are well-formed but do not reproduce the verified answer. Compare the
           flagged rule against its clause.`);
+      } else if (res.uncovered || res.orphaned) {
+        const ids = [...(res.uncovered || []), ...(res.orphaned || [])];
+        msg('reviewMsg', 'bad', `<strong>Nothing was approved — no known answer exercises:</strong>
+          ${ids.map(i => `<code>${esc(i)}</code>`).join(', ')}.
+          ${(res.orphaned || []).length ? `(${res.orphaned.length} of these are live rules this approval would leave proven by nothing.) ` : ''}
+          Untick them or add a known answer that uses them. A rule nothing proves cannot go live.`);
       } else if (res.ratified && res.ratified.length) {
+        const pb = res.proved_by || {};
         msg('reviewMsg', 'ok', `<strong>Approved ${res.ratified.length} rule(s).</strong>
-          They reproduced every known answer and are now live — see the <strong>Rule library</strong>.`);
+          Each fired in a known answer that reproduces:<br>${res.ratified.map(i =>
+            `<code>${esc(i)}</code> → ${esc((pb[i] || []).join('; ') || '?')}`).join('<br>')}
+          <br>They are live — see the <strong>Rule library</strong>.`);
       } else {
         msg('reviewMsg', 'bad', esc(res.warning || 'Nothing was approved.'));
       }
@@ -403,10 +458,11 @@
           <strong>Review queue</strong> and they will appear here.</p>`;
         return;
       }
-      let unverified = new Set();
+      let unverified = new Set(), provedBy = {};
       try {
         const v = await fetch('/admin/verification').then(r => r.json());
         unverified = new Set((v.unverified || []).map(u => u.id));
+        provedBy = v.proved_by || {};
       } catch (e) {}
       const byDoc = {};
       live.forEach(r => ((byDoc[(r.citation || {}).doc_id || '?'] ||= []).push(r)));
@@ -415,19 +471,24 @@
           <h3 class="dept-head">${esc(docTitle(doc))} <span class="muted">${rules.length} live</span></h3>
           ${rules.map(r => {
             const cit = r.citation || {};
+            const proved = provedBy[r.id] || [];
             return `<article class="card rule ratified">
               <div class="rule-head">
                 <strong>${esc(r.topic || r.id)}</strong>
                 <span class="badge-type">${esc(r.result_type || 'currency')}</span>
                 <span class="muted">§${esc(cit.clause || '?')}</span>
                 <span class="badge-ratified">Live</span>
-                ${unverified.has(r.id) ? `<span class="warn-badge">Not covered by a check</span>` : ''}
+                ${unverified.has(r.id) ? `<span class="warn-badge">No known answer exercises this rule</span>` : ''}
                 <button type="button" class="ghost small"
                   onclick="viewSource('${esc(cit.doc_id || '')}','${esc(cit.clause || '')}','${esc(r.id)}')">
                   View source</button>
+                <button type="button" class="ghost small" data-id="${esc(r.id)}"
+                  onclick="tryBreak(this)">Try to break it</button>
               </div>
               ${ruleBody(r)}
+              ${proved.length ? `<p class="muted">Proved by: ${proved.map(esc).join('; ')} — checked at that answer's inputs only.</p>` : ''}
               <p class="muted mono id">${esc(r.id)}</p>
+              <div class="break-result" hidden></div>
             </article>`;
           }).join('')}
         </section>`).join('');
@@ -452,7 +513,8 @@
           <p class="muted">Known answer <strong>${esc(g.expected)}</strong> · Kenny computes
             <strong>${esc(g.actual ?? '—')}</strong>${
               g.status !== 'pending' && g.error ? ' · ' + esc(g.error) : ''}</p>
-          ${g.source ? `<p class="muted">Ground truth: ${esc(g.source)}</p>` : ''}
+          ${g.source ? `<p class="muted">Source: ${esc(g.source)}</p>` : ''}
+          ${(g.fired || []).length ? `<p class="muted">Exercises: ${g.fired.map(esc).join('; ')}</p>` : ''}
           ${g.note ? `<p class="muted">${esc(g.note)}</p>` : ''}
           ${g.per_subject ? `<p class="muted">${Object.entries(g.per_subject)
             .map(([k, x]) => `${esc(k)}: ${esc(x)}`).join(' · ')}</p>` : ''}
@@ -464,15 +526,37 @@
             : `<p class="warn-text">Ingest the documents above first (Documents tab), then draft.</p>`) : ''}
         </article>`).join('');
       const un = v.unverified || [];
-      $('verify').innerHTML = (rows || `<p class="empty">No known answers defined. Add at least one
-          per bargaining unit — a rule no check exercises is unverified.</p>`)
-        + (un.length ? `<div class="card warn-card">
-            <h4>Live rules no check exercises (${un.length} of ${v.rule_count})</h4>
+      // Three footers, each literally what was computed (E7): nothing live means nothing
+      // proven; a live rule that fired in no passing known answer is named; otherwise every
+      // live rule fired in a reproducing known answer — at that answer's inputs only.
+      const footer = !v.rule_count
+        ? `<p class="notice">No rules are live. Nothing is proven yet.</p>`
+        : un.length ? `<div class="card warn-card">
+            <h4>Live rules that fire in no passing known answer (${un.length} of ${v.rule_count})</h4>
             <p class="muted">Approved and running, but no known answer proves they are right.
-              Add a check that uses them.</p>
+              Add a known answer that uses them.</p>
             ${un.map(u => `<p class="muted">${esc(u.topic || u.id)} · ${esc(u.result_type)} · §${esc(u.clause)}</p>`).join('')}
           </div>`
-          : `<p class="notice ok-notice">Every live rule is exercised by at least one known answer.</p>`);
+        : `<p class="notice ok-notice">All ${v.rule_count} live rules fired in at least one known answer
+            that reproduces. Each is checked at that answer's inputs only.</p>`;
+      $('verify').innerHTML = (rows || `<p class="empty">No known answers defined. Add at least one
+          per bargaining unit — a rule no known answer exercises is unproven.</p>`)
+        + footer + `<p class="muted" id="mutationReport"></p>`;
+      loadMutationReport();
+    }
+
+    // Foot of Verification: the mutation check over every live rule (gate chunk, E3).
+    async function loadMutationReport() {
+      const el = $('mutationReport');
+      if (!el) return;
+      try {
+        const m = await fetch('/admin/mutation_report').then(r => r.json());
+        if (!m.total) { el.textContent = ''; return; }
+        const surv = (m.survivors || []).map(s => `${esc(s.rule_id.split(':').pop())}: ${esc(s.label)}`);
+        el.innerHTML = `Try to break it: <strong>${m.caught} of ${m.total}</strong> deliberate errors across the
+          live rules are caught by the known answers` + (surv.length ? `; survivors: ${surv.join(' · ')}.` : '.')
+          + ` Press <em>Try to break it</em> on any rule in the Rule library to see its table.`;
+      } catch (e) { el.textContent = ''; }
     }
 
     // Draft ONLY the rules this scenario needs — retrieve its pay-branch clauses, draft
