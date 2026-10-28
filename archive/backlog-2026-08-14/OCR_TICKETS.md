@@ -11,7 +11,7 @@ viewer can see and trust. Build in numbered order; each ticket is self-contained
 > OCR-7 (confidence capture, `f4727bc`, page-level). **Re-audited 2026-10-07 against the
 > shipped Santa Cruz data: the items below are inert, partial or harmful on that data;
 > everything not listed was not re-audited.** Open work is in
-> [/DEMO_TICKETS.md](../../DEMO_TICKETS.md). Code comments that say `TICKETS.md OCR-n`
+> [DEMO_TICKETS.md](../backlog-2026-10-07/DEMO_TICKETS.md) (itself archived 2026-10-28; live backlog in Linear, see STATUS.md). Code comments that say `TICKETS.md OCR-n`
 > refer to the headings in this file. The ticket bodies are unchanged.
 >
 > | Id | Claimed (2026-08-14) | Actual on shipped data (2026-10-07) | Evidence | Fixed by |

@@ -1,5 +1,8 @@
 # DEMO_TICKETS — kenny-docs demo backlog (2026-10-07)
 
+> **Archived 2026-10-28.** Moved from the repo root; the live backlog is Linear and the
+> current state is [`STATUS.md`](../../STATUS.md). See [`README.md`](README.md) here.
+
 > **State after wave 1 (written 2026-10-07 evening, before wave 2 merged).** The nine
 > wave-1 chunks in the plan table below were merged into `demo-2026-10-07` at `9129f7d`
 > (492 passed, 5 skipped). The ticket bodies under "Epics" were written that morning,
@@ -17,7 +20,7 @@
 > (I1/I2/I3/I4/I6/I16/I8); hermetic tests (K2). Wave 2 (`search-tree`, `vacation-accrual`,
 > `tour-and-gate-demo`, `citations-polish`, `handoff`) builds on that commit; the handoff
 > chunk added the build hash, `scripts/demo_smoke.py`, STATUS.md and the archive. The
-> current state of the repo is always [`STATUS.md`](STATUS.md).
+> current state of the repo is always [`STATUS.md`](../../STATUS.md).
 
 Source: nine-section code audit + adversarial verification run today (details in the audit journal; findings referenced by id). Every ticket was checked against the code by its writer; `verified` says how (reproduced / code-read / reported-only). Scope decisions by the owner: **no auth work** (two people looking at it), **no second domain** — public-domain fire-district documents only. Epic H (energy-rebate second case) was written and then dropped; its engine items that still matter (cap/exception stage, multi-citation, facts-from-the-question) live under E5 and J.
 
@@ -2911,7 +2914,7 @@ E12 README.md:120-121. Current: 'The engine is **config-not-code** — `core/` i
 E13 README.md:126, Source cell, append [until fixed]: ' Engine and Verification tab; chat does not return this yet.'
 E14 README.md:128-130. Current: 'Other bargaining units (Admin Group, Management, Chief Officers) are declared in the corpus with their own known-answer scenarios; their rules are drafted through the Admin flow above and read as *pending* until then.' New: 'All four shipped scenarios pass: Local 3535 overtime ($640.80) and bereavement (3 shifts), Chief Officers bereavement (40 hours) and Admin Group overtime ($716.16). Management has no known answer and no rule, so a Management costing question is refused with a reason.'
 E15 README.md:136 and :141: 'case-agnostic engine' -> 'engine (case-agnostic) and the two web surfaces (Santa Cruz prompts and tour)'.
-E16 README.md:147-148. Current: 'Read ARCHITECTURE §2 (the law), §11 (pitfalls), and §12 (playbook) before running against real contracts.' New: 'Read ARCHITECTURE §2 (the AI boundary), §6 (verification and the approval gate), §7 (error handling) and §10 (onboarding checklist) before running against real contracts. Current status and open work: [`STATUS.md`](STATUS.md).'
+E16 README.md:147-148. Current: 'Read ARCHITECTURE §2 (the law), §11 (pitfalls), and §12 (playbook) before running against real contracts.' New: 'Read ARCHITECTURE §2 (the AI boundary), §6 (verification and the approval gate), §7 (error handling) and §10 (onboarding checklist) before running against real contracts. Current status and open work: [`STATUS.md`](../../STATUS.md).'
 E17 README.md:15-17, append: 'The four MOU PDFs in this repo are the district's scans with an OCR text layer added (OCRmyPDF 17.8.0 with Tesseract 5.5.2, 17 July 2026), not the district's original bytes.'
 
 **Accept.** New tests/test_docs_claims.py (K10 extends it): (a) every 'ARCHITECTURE §N' and 'PRD §N' reference in README.md resolves to a numbered heading in that file; (b) README.md contains none of: 'No rules exist yet', 'not the ~33', '§11 (pitfalls)', 'read as *pending*', 'config-not-code'; (c) every example prompt quoted in README Part 2 appears in tests/test_demo_path.py's table. Reading check: on a fresh clone, /admin shows what each 'What to expect' cell says (four green cards, no Draft button, empty review queue). Every [until fixed] note carries a DEMO_TICKETS id, and none remains for a fix that landed (K9's strict xfails enforce the pairing).
