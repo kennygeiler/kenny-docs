@@ -441,8 +441,9 @@
         d.provisions.forEach(p => (byArt[p.article || 'No article'] ||= []).push(p));
         return `<section class="dept" aria-label="Provisions of ${esc(d.title)}">
           <h3 class="dept-head">${esc(d.title)}</h3>
-          <p class="cov-summary">${d.live} of ${d.total} provisions answer with a number
-            · ${d.awaiting} awaiting approval · ${d.not_modelled} not modelled${d.errors
+          <p class="cov-summary">${d.total} provisions. Of the ${d.numeric} with a number:
+            ${d.live} live · ${d.awaiting} awaiting approval · ${d.numeric - d.live - d.awaiting - d.errors} not modelled.
+            The other ${d.quoted} are answered by quoting the clause.${d.errors
             ? ` · <span class="bad">${d.errors} with a data error</span>` : ''}</p>
           ${errs.length ? `<p class="flagline cov-errors">Data errors in provisions.yaml: ${errs.map(p =>
             `<code>${esc(p.id)}</code> ${esc(p.error)}`).join('; ')}</p>` : ''}

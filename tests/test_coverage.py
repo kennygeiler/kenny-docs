@@ -51,6 +51,9 @@ def test_api_counts_every_provision(client):
     assert doc["short_title"] == "Local 3535 MOU"
     assert (doc["total"], doc["live"], doc["awaiting"], doc["not_modelled"], doc["errors"]) \
         == (5, 2, 1, 1, 1)
+    # Every fixture provision yields a value; narrative ones (value_kind none) count as
+    # "quoted" so the meter's denominator is provisions that can have a number.
+    assert (doc["numeric"], doc["quoted"]) == (5, 0)
     by_id = {p["id"]: p for p in doc["provisions"]}
     assert by_id["l3535.overtime_premium"]["state"] == "live"
     assert by_id["l3535.vacation_accrual"]["state"] == "awaiting"
@@ -120,7 +123,7 @@ def test_chat_meter_line(client):
     assert 'id="coverageLine"' in html
     js = client.get("/static/app.js").text
     assert "fetch('/api/coverage')" in js
-    assert "provisions answer with a number" in js and "awaiting approval" in js
+    assert "provisions with a number are live" in js and "awaiting approval" in js
     assert "a.href = '/admin#coverage'" in js and "see what's covered" in js
     assert "line.textContent" in js, "built with DOM calls, never innerHTML"
 

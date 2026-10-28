@@ -300,3 +300,24 @@ def test_a_bare_rank_is_not_summed_across_its_roster_rows(live_all):
     assert len(items) == 1, items
     assert items[0]["total"] == pytest.approx(11.08)
     assert res["result"]["total"] == pytest.approx(11.08)
+
+
+@pytest.fixture
+def shipped(tmp_path, monkeypatch):
+    """A private copy of the case exactly as shipped: the M1 rules are queued, not live."""
+    case = tmp_path / "santacruz"
+    shutil.copytree(SRC, case)
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    from fastapi.testclient import TestClient
+    return TestClient(core_app.app)
+
+
+def test_a_refused_holiday_question_names_one_provision_the_holiday_pay_one(shipped):
+    """The refusal names the provision whose drafted rule has the asked topic, once — not
+    every provision whose title mentions the word (e.g. '... not holiday pay ...')."""
+    q = "Cost 24 hours of holiday pay for a Firefighter/Paramedic (56 hr, top step)"
+    res = shipped.post("/chat", json={"prompt": q}).json()
+    named = res.get("provisions") or []
+    assert [p["id"] for p in named] == ["l3535.holiday_pay"], named
+    assert named[0]["state"] == "awaiting"

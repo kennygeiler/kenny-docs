@@ -103,6 +103,22 @@ def _rule_states(case) -> dict[str, str]:
     return states
 
 
+def _rule_topics(case) -> dict[str, str]:
+    """rule id -> topic, from the proposed queue and the ratified library."""
+    topics: dict[str, str] = {}
+    qpath = case.path("proposed_rules", "rules/rules_proposed.json")
+    if qpath and os.path.exists(qpath):
+        import json
+        with open(qpath) as f:
+            for r in (json.load(f) or {}).get("rules", []):
+                if r.get("id"):
+                    topics[r["id"]] = str(r.get("topic") or "")
+    for r in _raw_ratified(case):
+        if r.get("id"):
+            topics[r["id"]] = str(r.get("topic") or "")
+    return topics
+
+
 def _pages(p: dict) -> list[int]:
     raw = p.get("pages") or []
     if not isinstance(raw, list):
@@ -127,7 +143,10 @@ def coverage(case=None) -> dict:
     for d in docs:
         doc_id = d["doc_id"]
         src = case.source_by_id(doc_id) or {}
-        counts = {"total": 0, "live": 0, "awaiting": 0, "not_modelled": 0, "errors": 0}
+        counts = {"total": 0, "live": 0, "awaiting": 0, "not_modelled": 0, "errors": 0,
+                  # numeric: provisions that yield a value (value_kind != none); the rest
+                  # are narrative or procedure, answered by quoting the clause.
+                  "numeric": 0, "quoted": 0}
         provs = []
         for p in d.get("provisions") or []:
             if not isinstance(p, dict):
@@ -149,6 +168,7 @@ def coverage(case=None) -> dict:
             else:
                 state = "awaiting"
             counts["total"] += 1
+            counts["quoted" if (p.get("value_kind") or "none") == "none" else "numeric"] += 1
             counts["errors" if state == "error" else state] += 1
             item = {"id": p.get("id", ""), "title": p.get("title", ""),
                     "article": p.get("article", "") or "", "pages": _pages(p),
@@ -180,39 +200,52 @@ def _cue_hit(cue: str, text: str) -> bool:
 
 def refusal_note(case, doc_ids: list[str], asked: list[str],
                  lexicon: dict[str, list[str]]) -> tuple[str, list[dict]]:
-    """One sentence per matching provision that is not live, and the provisions named.
+    """At most ONE sentence naming the provision a refused costing question is about.
 
-    A provision matches a pay type when the pay type's name or one of its lexicon cues
-    appears as whole words in the provision's title or id. Live provisions are skipped:
-    a refusal with a live rule is about the scenario, not a missing rule."""
+    Best match: a provision that is not live and has a rule whose `topic` is the asked pay
+    type (the same key chat routes on). Fallback: a not-live provision whose title STARTS
+    with the pay type or one of its cues ("Holiday pay ..."), so a title that merely
+    mentions the word ("... not holiday pay ...") is not named. Awaiting beats not
+    modelled. Live provisions are skipped: a refusal with a live rule is about the
+    scenario, not a missing rule."""
     try:
         cov = coverage(case)
+        topics = _rule_topics(case)
     except Exception:
         return "", []
     if not cov["available"] or not asked:
         return "", []
-    sentences, named = [], []
+    cues = [c for pt in asked for c in [pt, *lexicon.get(pt, [])]]
+    ranked = []
     for d in cov["documents"]:
         if doc_ids and d["doc_id"] not in doc_ids:
             continue
         for p in d["provisions"]:
             if p["state"] == "live":
                 continue
-            hay = re.sub(r"[\-_.:]+", " ", (p["title"] + " " + p["id"]).lower())
-            if not any(_cue_hit(c, hay) for pt in asked
-                       for c in [pt, *lexicon.get(pt, [])]):
+            by_topic = any(topics.get(r["id"]) in asked for r in p["rules"])
+            head = re.sub(r"[\-_.:]+", " ", p["title"].lower()).strip()
+            by_title = any(_cue_hit(c, head) and re.match(
+                r"\s*" + r"\s+".join(map(re.escape, re.sub(r"[\-_]+", " ", c.lower()).split())), head)
+                for c in cues)
+            if not (by_topic or by_title):
                 continue
-            where = d["short_title"] + (f" p.{p['pages'][0]}" if p["pages"] else "")
-            label = f"{p['title']} ({where})"
-            if p["state"] == "awaiting":
-                sentences.append(f"{label} is drafted and awaiting approval.")
-            elif p["state"] == "not_modelled":
-                why = f": {p['reason']}" if p["reason"] else ""
-                sentences.append(f"{label} is not modelled{why}.")
-            else:
-                sentences.append(f"{label} has a data error in the provision list.")
-            named.append({"id": p["id"], "title": p["title"], "state": p["state"],
-                          "doc_id": d["doc_id"], "pages": p["pages"], "reason": p["reason"]})
-            if len(named) >= 3:
-                break
-    return " ".join(sentences), named
+            score = (0 if by_topic else 1, 0 if by_title else 1,
+                     0 if p["state"] == "awaiting" else 1)
+            ranked.append((score, d, p))
+    if not ranked:
+        return "", []
+    ranked.sort(key=lambda x: x[0])
+    _, d, p = ranked[0]
+    where = d["short_title"] + (f" p.{p['pages'][0]}" if p["pages"] else "")
+    label = f"{p['title']} ({where})"
+    if p["state"] == "awaiting":
+        sentence = f"{label} is drafted and awaiting approval."
+    elif p["state"] == "not_modelled":
+        why = (p["reason"] or "").strip().rstrip(".")
+        sentence = f"{label} is not modelled" + (f": {why}." if why else ".")
+    else:
+        sentence = f"{label} has a data error in the provision list."
+    named = [{"id": p["id"], "title": p["title"], "state": p["state"],
+              "doc_id": d["doc_id"], "pages": p["pages"], "reason": p["reason"]}]
+    return sentence, named
