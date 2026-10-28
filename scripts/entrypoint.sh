@@ -48,4 +48,9 @@ export CASE="${VOLUME_CASE}"
 # in-process dict, and the ledger's cross-process file lock has never been exercised
 # under real load. A second worker would silently poll a job it cannot see. Concurrency
 # comes from the threadpool; scaling past that needs a shared queue + DB (PRD §8).
-exec uvicorn core.app:app --host 0.0.0.0 --port "${PORT:-8080}" --workers 1
+#
+# --proxy-headers / --forwarded-allow-ips='*': the platform edge (Railway, Fly) is the
+# only thing that can reach this port, and every request arrives from it. Without these,
+# request.client is the proxy and per-client rate limits become one shared bucket.
+exec uvicorn core.app:app --host 0.0.0.0 --port "${PORT:-8080}" --workers 1 \
+  --proxy-headers --forwarded-allow-ips='*'

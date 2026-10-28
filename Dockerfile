@@ -34,13 +34,17 @@ RUN python -m scripts.prepare_deploy cases/santacruz
 # --------------------------------------------------------------------------- #
 FROM python:3.11-slim
 
-# Auth is OFF by default — the app serves openly, like a local run. To lock a deploy,
-# set KENNY_REQUIRE_AUTH=1 plus the three KENNY_* secrets (see core/auth.py); the app
-# then refuses to boot half-configured. The chat rate limit is active either way.
+# Auth is REQUIRED by default in the image: the container refuses to boot unless
+# KENNY_ADMIN_PASSWORD and KENNY_LEDGER_KEY are set (core/auth.py). With only the admin
+# password, chat stays public and /admin is locked; add KENNY_VIEWER_PASSWORD to lock
+# chat too. A local `uvicorn core.app:app` does not read this file and still runs open.
+# To serve a fully open container on purpose, override with KENNY_REQUIRE_AUTH=0.
+# The chat / drafting / ingest rate limits are active in every mode.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     HF_HOME=/opt/models \
-    CASE_NAME=santacruz
+    CASE_NAME=santacruz \
+    KENNY_REQUIRE_AUTH=1
 
 # handoff (K1): .dockerignore excludes .git/, so the image cannot ask git which commit it
 # is. Pass it in: `docker build --build-arg KENNY_BUILD=$(git rev-parse --short HEAD) .`

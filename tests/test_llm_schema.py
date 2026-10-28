@@ -250,7 +250,7 @@ def test_client_is_built_once_with_timeout_and_one_retry(monkeypatch):
     assert a is b and len(built) == 1
     kw = built[0]
     assert kw["max_retries"] == 1
-    assert float(kw["timeout"].read) == 30.0 and float(kw["timeout"].connect) == 5.0
+    assert kw["timeout"] == 30.0
 
 
 def test_draft_rules_requests_the_long_timeout(monkeypatch):

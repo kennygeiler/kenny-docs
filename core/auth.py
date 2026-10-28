@@ -9,15 +9,20 @@ internet it needs four things it does not otherwise have:
      questions" and "can decide what the contract means" are different jobs held by
      different people (PRD §2). The viewer credential opens chat and documents; only
      the admin credential opens /admin/*.
-  3. A rate limit on /chat, because every prompt spends the operator's Anthropic
-     budget, plus a throttle on FAILED logins (TICKETS.md C3) so the passwords can't
+  3. A rate limit on /chat and on the routes that reach the model or docling
+     (/admin/draft_scenario, /admin/ingest, /admin/upload), because every prompt spends
+     the operator's Anthropic budget, plus a throttle on FAILED logins (TICKETS.md C3) so the passwords can't
      be guessed online at full speed.
   4. An Origin check on state-changing requests (TICKETS.md C2): browsers attach
      cached Basic credentials to cross-site form POSTs, so without this a hostile page
      could replace a contract PDF via /admin/upload using the admin's own browser.
 
-Set KENNY_REQUIRE_AUTH=1 (the Dockerfile does) and a deploy missing its passwords or
-its ledger HMAC key fails at startup rather than silently serving the admin panel to
+Modes: with only KENNY_ADMIN_PASSWORD set, chat/docs stay public and every /admin path
+needs the admin credential (admin-only, for a public demo); with both passwords set,
+everything needs a credential and /admin needs the admin one (two-password).
+
+Set KENNY_REQUIRE_AUTH=1 (the Dockerfile does) and a deploy missing its admin password
+or its ledger HMAC key fails at startup rather than silently serving the admin panel to
 the world.
 """
 from __future__ import annotations
@@ -58,16 +63,28 @@ def _credentials(request) -> tuple[str, str] | None:
 def _client_ip(request) -> str:
     """The real client, not the proxy (TICKETS.md C4).
 
-    On Fly every connection arrives from the proxy, so request.client.host is the
-    proxy's address and 'per-IP' limits collapse into one shared bucket — one runaway
-    visitor 429s everyone. Fly-Client-IP is trusted ONLY when we are actually on Fly
-    (FLY_APP_NAME is set by the platform); locally a spoofable header must not let a
-    client choose its own bucket.
+    Behind a platform proxy every connection arrives from the proxy, so
+    request.client.host is the proxy's address and 'per-IP' limits collapse into one
+    shared bucket — one runaway visitor 429s everyone.
+
+      * Fly: Fly-Client-IP, trusted ONLY when FLY_APP_NAME is set (by the platform).
+      * Railway / any proxy: the FIRST hop of X-Forwarded-For — the address the edge
+        proxy saw. Locally nothing sets the header, so this only changes behaviour
+        behind a proxy. A client can pre-seed X-Forwarded-For to pick its own bucket;
+        that costs it nothing it didn't already have (fresh IPs are cheap) and the
+        alternative is everyone sharing the proxy's bucket. scripts/entrypoint.sh
+        also runs uvicorn with --proxy-headers so request.client is the forwarded
+        address when the header is absent from this layer's view.
     """
     if os.environ.get("FLY_APP_NAME"):
         fly = request.headers.get("fly-client-ip", "").strip()
         if fly:
             return fly
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
     return request.client.host if request.client else "unknown"
 
 
@@ -160,30 +177,68 @@ class FailureThrottle:
             self._misses.pop(key, None)
 
 
+# POSTs that reach the model (Anthropic spend) or docling (minutes of CPU per PDF).
+# /chat has its own (higher) budget; the authoring routes share a tighter one. In every
+# mode — open, admin-only, two-password — these are rate limited per client: removing
+# a password must never remove the spend cap.
+_CHAT_PATHS = {"/chat"}
+_COSTLY_ADMIN_PATHS = {"/admin/draft_scenario", "/admin/ingest", "/admin/upload"}
+_TOO_MANY = ("Too many questions in the last minute. Wait a moment and ask again.")
+_TOO_MANY_ADMIN = ("Too many drafting / ingest requests in the last minute. Wait a "
+                   "moment and try again.")
+
+
+def _is_admin_path(path: str) -> bool:
+    return path == "/admin" or path.startswith("/admin/")
+
+
+class _Limits:
+    def __init__(self, chat_limit: int, admin_limit: int):
+        self.chat = RateLimiter(chat_limit)
+        self.admin = RateLimiter(admin_limit)
+
+    def check(self, request, ip: str) -> JSONResponse | None:
+        if request.method != "POST":
+            return None
+        path = request.url.path
+        if path in _CHAT_PATHS and not self.chat.allow(ip):
+            return JSONResponse({"error": _TOO_MANY}, status_code=429)
+        if path in _COSTLY_ADMIN_PATHS and not self.admin.allow(ip):
+            return JSONResponse({"error": _TOO_MANY_ADMIN}, status_code=429)
+        return None
+
+
 class RateLimitOnlyMiddleware(BaseHTTPMiddleware):
     """Open mode: no passwords anywhere, every page serves without credentials — but
-    POST /chat still spends the operator's Anthropic budget, so the per-client rate
-    limit stays on. Removing auth must never mean removing the spend cap."""
+    /chat and the drafting/ingest routes still spend the operator's Anthropic budget and
+    CPU, so the per-client rate limits stay on."""
 
-    def __init__(self, app, chat_limit: int):
+    def __init__(self, app, chat_limit: int, admin_limit: int = 10):
         super().__init__(app)
-        self.limiter = RateLimiter(chat_limit)
+        self.limits = _Limits(chat_limit, admin_limit)
 
     async def dispatch(self, request, call_next):
-        if request.url.path == "/chat" and request.method == "POST":
-            if not self.limiter.allow(_client_ip(request)):
-                return JSONResponse(
-                    {"error": "Too many questions in the last minute. Wait a moment "
-                              "and ask again."}, status_code=429)
+        limited = self.limits.check(request, _client_ip(request))
+        if limited is not None:
+            return limited
         return await call_next(request)
 
 
 class AccessMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, viewer_pw: str, admin_pw: str, chat_limit: int,
-                 ledger_factory=None):
+    """Two modes:
+
+      * two-password (viewer_pw set): every path but /healthz needs a credential; the
+        viewer password opens chat and documents, only the admin password opens /admin.
+      * admin-only (viewer_pw empty): chat, documents and pages are PUBLIC; every
+        /admin path — the page and all /admin/* APIs, GET and POST — needs the admin
+        password. For a public demo whose ratify gate must stay locked.
+    """
+
+    def __init__(self, app, viewer_pw: str | None, admin_pw: str, chat_limit: int,
+                 ledger_factory=None, admin_limit: int = 10):
         super().__init__(app)
-        self.viewer_pw, self.admin_pw = viewer_pw, admin_pw
-        self.limiter = RateLimiter(chat_limit)
+        self.viewer_pw, self.admin_pw = (viewer_pw or None), admin_pw
+        self.limits = _Limits(chat_limit, admin_limit)
         self.failures = FailureThrottle()
         self._ledger_factory = ledger_factory
 
@@ -203,36 +258,37 @@ class AccessMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         ip = _client_ip(request)
+        admin_path = _is_admin_path(path)
+        needs_auth = admin_path or self.viewer_pw is not None
 
-        remaining = self.failures.locked_for(ip)
-        if remaining > 0:
-            return JSONResponse(
-                {"error": "Too many failed sign-in attempts. Wait and try again."},
-                status_code=429, headers={"Retry-After": str(int(remaining) + 1)})
+        if needs_auth:
+            remaining = self.failures.locked_for(ip)
+            if remaining > 0:
+                return JSONResponse(
+                    {"error": "Too many failed sign-in attempts. Wait and try again."},
+                    status_code=429, headers={"Retry-After": str(int(remaining) + 1)})
 
-        creds = _credentials(request)
-        if not creds:
-            return _UNAUTHORIZED
-        _user, pw = creds
+            creds = _credentials(request)
+            if not creds:
+                return _UNAUTHORIZED
+            _user, pw = creds
 
-        is_admin = _equal(pw, self.admin_pw)
-        is_viewer = _equal(pw, self.viewer_pw)
-        if not (is_admin or is_viewer):
-            count = self.failures.record_failure(ip)
-            # Ledger the first miss past the free allowance and every 10th after —
-            # the trail must show a guessing campaign without letting the campaign
-            # itself flood the ledger.
-            if count == self.failures.free + 1 or count % 10 == 0:
-                self._ledger("auth.failed", {"ip": ip, "path": path, "count": count})
-            return _UNAUTHORIZED
-        self.failures.reset(ip)
+            is_admin = _equal(pw, self.admin_pw)
+            is_viewer = self.viewer_pw is not None and _equal(pw, self.viewer_pw)
+            if not (is_admin or is_viewer):
+                count = self.failures.record_failure(ip)
+                # Ledger the first miss past the free allowance and every 10th after —
+                # the trail must show a guessing campaign without letting the campaign
+                # itself flood the ledger.
+                if count == self.failures.free + 1 or count % 10 == 0:
+                    self._ledger("auth.failed", {"ip": ip, "path": path, "count": count})
+                return _UNAUTHORIZED
+            self.failures.reset(ip)
 
-        # ROLE SPLIT (TICKETS.md C1): /admin/* — the ratify gate, uploads, ingest, the
-        # full ledger — requires the ADMIN credential. The viewer password opens chat
-        # and the documents it cites, exactly what DEPLOY.md promises when it says
-        # "share the viewer password".
-        if path == "/admin" or path.startswith("/admin/"):
-            if not is_admin:
+            # ROLE SPLIT (TICKETS.md C1): /admin/* — the ratify gate, uploads, ingest,
+            # the full ledger — requires the ADMIN credential. The viewer password opens
+            # chat and the documents it cites.
+            if admin_path and not is_admin:
                 self._ledger("auth.denied",
                              {"ip": ip, "path": path, "role": "viewer"})
                 return JSONResponse(
@@ -248,33 +304,50 @@ class AccessMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"error": "cross-origin request refused"},
                                 status_code=403)
 
-        if path == "/chat" and request.method == "POST":
-            if not self.limiter.allow(ip):
-                return JSONResponse(
-                    {"error": "Too many questions in the last minute. Wait a moment and "
-                              "ask again."},
-                    status_code=429,
-                )
+        limited = self.limits.check(request, ip)
+        if limited is not None:
+            return limited
         return await call_next(request)
 
 
+def _truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
+
+
 def install(app, ledger_factory=None) -> None:
-    """Attach access control if configured. Raises if a deploy asks for auth and can't have it."""
+    """Attach access control if configured. Raises if a deploy asks for auth and can't have it.
+
+    KENNY_ADMIN_PASSWORD only        -> admin-only: chat public, /admin locked.
+    KENNY_ADMIN_PASSWORD + VIEWER    -> two-password: everything locked, role split.
+    neither                          -> open (local dev); refused under KENNY_REQUIRE_AUTH.
+    KENNY_VIEWER_PASSWORD alone      -> refused: it would lock chat yet leave /admin open.
+    """
     viewer_pw = os.environ.get("KENNY_VIEWER_PASSWORD", "")
     admin_pw = os.environ.get("KENNY_ADMIN_PASSWORD", "")
-    required = os.environ.get("KENNY_REQUIRE_AUTH", "").lower() in ("1", "true", "yes")
+    required = _truthy("KENNY_REQUIRE_AUTH")
     limit = int(os.environ.get("KENNY_CHAT_RATE_LIMIT", "20"))
+    admin_limit = int(os.environ.get("KENNY_ADMIN_RATE_LIMIT", "10"))
 
-    if not (viewer_pw and admin_pw):
+    if viewer_pw and not admin_pw:
+        raise RuntimeError(
+            "KENNY_VIEWER_PASSWORD is set without KENNY_ADMIN_PASSWORD. Refusing to "
+            "start: that would put chat behind a password while leaving /admin — the "
+            "ratify gate and uploads — open. Set KENNY_ADMIN_PASSWORD (admin-only mode "
+            "needs just that one)."
+        )
+
+    if not admin_pw:
         if required:
             raise RuntimeError(
-                "KENNY_REQUIRE_AUTH is set but KENNY_VIEWER_PASSWORD and/or "
-                "KENNY_ADMIN_PASSWORD are missing. Refusing to start: this would serve "
-                "the admin panel, the rule-ratify gate and the API key's spend to "
-                "anyone with the URL."
+                "KENNY_REQUIRE_AUTH is set but KENNY_ADMIN_PASSWORD is missing. Refusing "
+                "to start: this would serve the admin panel, the rule-ratify gate and "
+                "the API key's spend to anyone with the URL. Set KENNY_ADMIN_PASSWORD "
+                "(and KENNY_VIEWER_PASSWORD too if chat should be private), or unset "
+                "KENNY_REQUIRE_AUTH for a local run."
             )
-        # OPEN mode (the default): no sign-in anywhere. The chat spend cap stays.
-        app.add_middleware(RateLimitOnlyMiddleware, chat_limit=limit)
+        # OPEN mode (the default for a local run): no sign-in anywhere. Spend caps stay.
+        app.add_middleware(RateLimitOnlyMiddleware, chat_limit=limit,
+                           admin_limit=admin_limit)
         return
 
     if required and not os.environ.get("KENNY_LEDGER_KEY", "").strip():
@@ -286,11 +359,12 @@ def install(app, ledger_factory=None) -> None:
             "(never on the data volume)."
         )
 
-    if _equal(viewer_pw, admin_pw):
+    if viewer_pw and _equal(viewer_pw, admin_pw):
         raise RuntimeError(
             "KENNY_VIEWER_PASSWORD and KENNY_ADMIN_PASSWORD are identical, which "
             "collapses the reviewer/asker separation the review gate depends on (PRD §2)."
         )
 
-    app.add_middleware(AccessMiddleware, viewer_pw=viewer_pw, admin_pw=admin_pw,
-                       chat_limit=limit, ledger_factory=ledger_factory)
+    app.add_middleware(AccessMiddleware, viewer_pw=viewer_pw or None, admin_pw=admin_pw,
+                       chat_limit=limit, admin_limit=admin_limit,
+                       ledger_factory=ledger_factory)

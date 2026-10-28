@@ -60,12 +60,80 @@ def _canonical(payload: Any) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
 
 
+# Hash algorithms, recorded per event in "alg". v1 ("sha256" / "hmac-sha256") covers
+# prev|seq|ts|actor|type|payload and NOT query_id — so an edited query_id (which binds an
+# event to the question it answered) went undetected (DEMO_TICKETS.md F9). v2 adds
+# query_id AND the alg string itself to the material, so relabelling an event's alg
+# changes its hash. New events are always v2; v1 events written before this change keep
+# verifying under v1, so an existing ledger (hundreds of v1 events) stays valid and simply
+# continues in v2. A v1 event AFTER a v2 event is refused: that is a downgrade.
+ALG_PLAIN_V1, ALG_HMAC_V1 = "sha256", "hmac-sha256"
+ALG_PLAIN, ALG_HMAC = "sha256-v2", "hmac-sha256-v2"
+_V2 = {ALG_PLAIN, ALG_HMAC}
+_KEYED = {ALG_HMAC_V1, ALG_HMAC}
+_KNOWN = {ALG_PLAIN_V1, ALG_HMAC_V1, ALG_PLAIN, ALG_HMAC}
+
+
 def _hash(prev_hash: str, seq: int, ts: float, actor: str, type_: str, payload: Any,
           key: bytes | None = None) -> str:
+    """v1 material (kept for verifying old events and for tamper_demo's attacker)."""
     material = f"{prev_hash}|{seq}|{ts}|{actor}|{type_}|{_canonical(payload)}"
+    return _digest(material, key)
+
+
+def _digest(material: str, key: bytes | None) -> str:
     if key is not None:
         return _hmac.new(key, material.encode("utf-8"), hashlib.sha256).hexdigest()
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def event_hash(alg: str, prev_hash: str, seq: int, ts: float, actor: str, type_: str,
+               payload: Any, query_id: Any, key: bytes | None = None) -> str:
+    """Hash an event under its recorded alg. Keyed algs use `key`; plain algs ignore it."""
+    k = key if alg in _KEYED else None
+    if alg in _V2:
+        material = (f"{alg}|{prev_hash}|{seq}|{ts}|{actor}|{_canonical(query_id)}|"
+                    f"{type_}|{_canonical(payload)}")
+        return _digest(material, k)
+    return _hash(prev_hash, seq, ts, actor, type_, payload, k)
+
+
+# Head cache: path -> (st_dev, st_ino, st_size, st_mtime_ns, seq, hash). append() used to re-read and
+# parse the WHOLE ledger on every event; now it trusts the cached head while the file is
+# the same inode at exactly the size and mtime we left it, and otherwise tail-reads the last line.
+_HEAD_CACHE: dict[str, tuple] = {}
+
+
+def _tail_head(f) -> tuple[int, str] | None:
+    """(seq, hash) of the last PARSEABLE event, reading backwards from the end.
+
+    A torn/malformed final line (crash mid-write, stray bytes) is skipped rather than
+    raised: one bad line must not make every later append fail. verify() still reports
+    it as unreadable_line — nothing is hidden, the ledger just keeps recording."""
+    f.seek(0, os.SEEK_END)
+    size = f.tell()
+    if size == 0:
+        return None
+    block = 1 << 16
+    while True:
+        start = max(0, size - block)
+        f.seek(start)
+        data = f.read(size - start)
+        lines = data.split(b"\n")
+        if start > 0:
+            lines = lines[1:]          # first piece may be a partial line
+        for raw in reversed(lines):
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                ev = json.loads(raw)
+                return int(ev["seq"]), str(ev["hash"])
+            except (ValueError, KeyError, TypeError):
+                continue
+        if start == 0:
+            return None
+        block *= 4
 
 
 class Ledger:
@@ -74,12 +142,6 @@ class Ledger:
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
 
     # ---- write ----
-    def _last(self) -> dict | None:
-        last = None
-        for ev in self.read():
-            last = ev
-        return last
-
     def append(self, type_: str, payload: dict, actor: str = "system",
                query_id: str | None = None) -> dict:
         """Append one event, linked to the previous one's hash.
@@ -89,14 +151,27 @@ class Ledger:
         tests/test_engine_dsl.py::test_ledger_survives_concurrent_writes.
         """
         key = _key()
+        alg = ALG_HMAC if key is not None else ALG_PLAIN
+        cache_key = os.path.abspath(self.path)
         with _APPEND_LOCK:                       # serialise threads in this process
-            with open(self.path, "a+") as f:
+            with open(self.path, "ab+") as f:
                 if fcntl is not None:
                     fcntl.flock(f.fileno(), fcntl.LOCK_EX)   # and other processes
                 try:
-                    last = self._last()
-                    seq = (last["seq"] + 1) if last else 0
-                    prev_hash = last["hash"] if last else GENESIS
+                    st = os.fstat(f.fileno())
+                    cached = _HEAD_CACHE.get(cache_key)
+                    if cached and cached[:4] == (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns):
+                        last = cached[4:]
+                    else:                        # first use, or another writer/edit
+                        last = _tail_head(f)
+                    seq = (last[0] + 1) if last else 0
+                    prev_hash = last[1] if last else GENESIS
+                    # A torn last line without its newline would swallow this event.
+                    if st.st_size:
+                        f.seek(-1, os.SEEK_END)
+                        lead = b"" if f.read(1) == b"\n" else b"\n"
+                    else:
+                        lead = b""
                     ts = time.time()
                     event = {
                         "seq": seq,
@@ -107,12 +182,20 @@ class Ledger:
                         "type": type_,
                         "payload": payload,
                         "prev_hash": prev_hash,
-                        "alg": "hmac-sha256" if key is not None else "sha256",
-                        "hash": _hash(prev_hash, seq, ts, actor, type_, payload, key),
+                        "alg": alg,
+                        "hash": event_hash(alg, prev_hash, seq, ts, actor, type_,
+                                           payload, query_id, key),
                     }
-                    f.write(_canonical(event) + "\n")
+                    f.seek(0, os.SEEK_END)
+                    f.write(lead + (_canonical(event) + "\n").encode("utf-8"))
                     f.flush()
                     os.fsync(f.fileno())         # the record must survive a crash
+                    st = os.fstat(f.fileno())
+                    _HEAD_CACHE[cache_key] = (st.st_dev, st.st_ino, st.st_size,
+                                              st.st_mtime_ns, seq, event["hash"])
+                except BaseException:
+                    _HEAD_CACHE.pop(cache_key, None)
+                    raise
                 finally:
                     if fcntl is not None:
                         fcntl.flock(f.fileno(), fcntl.LOCK_UN)
@@ -143,7 +226,8 @@ class Ledger:
 
         Returns {ok, message, count, failed_seq, failed_line, reason, event_type,
         stored_hash, recomputed_hash, keyed, head}. `reason` is one of seq_gap |
-        prev_hash_mismatch | hash_mismatch | unkeyed_event | unreadable_line | None.
+        prev_hash_mismatch | hash_mismatch | unkeyed_event | unknown_alg | alg_downgrade |
+        unreadable_line | None.
         A torn or malformed line is REPORTED (reason unreadable_line), never raised:
         one bad byte must not turn every health check into a 500 (DEMO_TICKETS.md F3).
 
@@ -173,6 +257,7 @@ class Ledger:
             return out
         prev_hash = GENESIS
         expected_seq = 0
+        seen_v2 = False
         with open(self.path) as f:
             for line_no, raw in enumerate(f, start=1):
                 raw = raw.strip()
@@ -192,12 +277,22 @@ class Ledger:
                 if prev != prev_hash:
                     return fail("prev_hash_mismatch",
                                 f"broken chain at seq {seq}: prev_hash mismatch", ev, line_no)
-                if key is not None and ev.get("alg") != "hmac-sha256":
+                alg = ev.get("alg") or ALG_PLAIN_V1
+                if alg not in _KNOWN:
+                    return fail("unknown_alg", f"unknown hash alg {alg!r} at seq {seq}",
+                                ev, line_no)
+                if key is not None and alg not in _KEYED:
                     return fail("unkeyed_event",
                                 f"unkeyed event at seq {seq}: KENNY_LEDGER_KEY is set but "
                                 f"this event predates it (or was rewritten without the key). "
                                 f"Archive the old ledger or unset the key.", ev, line_no)
-                recomputed = _hash(prev_hash, seq, ts, actor, type_, payload, key)
+                if seen_v2 and alg not in _V2:
+                    return fail("alg_downgrade",
+                                f"alg downgrade at seq {seq}: {alg} after a v2 event "
+                                f"(v1 does not cover query_id)", ev, line_no)
+                seen_v2 = seen_v2 or alg in _V2
+                recomputed = event_hash(alg, prev_hash, seq, ts, actor, type_, payload,
+                                        ev.get("query_id"), key)
                 if recomputed != stored:
                     return fail("hash_mismatch", f"tampered event at seq {seq}: hash mismatch",
                                 ev, line_no, recomputed)
@@ -216,10 +311,13 @@ class Ledger:
     def head(self) -> dict | None:
         """The current chain head: {"seq", "hash", "count"}. Record it externally (it is
         also printed on every keyed append) to make truncation detectable later."""
-        last = self._last()
+        if not os.path.exists(self.path):
+            return None
+        with open(self.path, "rb") as f:
+            last = _tail_head(f)
         if last is None:
             return None
-        return {"seq": last["seq"], "hash": last["hash"], "count": last["seq"] + 1}
+        return {"seq": last[0], "hash": last[1], "count": last[0] + 1}
 
     def verify_anchor(self, seq: int, hash_: str) -> tuple[bool, str]:
         """Check a previously-recorded head against the current file.
