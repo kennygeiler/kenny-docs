@@ -160,16 +160,20 @@ curl -s https://kenny-production.up.railway.app/admin/ledger/export > ~/kenny-pr
 # 3. Set the posture (DEPLOY.md), then deploy the pushed commit
 SHA=$(git rev-parse --short HEAD)
 railway variable set KENNY_BUILD=$SHA KENNY_REQUIRE_AUTH=1 KENNY_ADMIN_PASSWORD='<owner picks>' \
-  KENNY_LEDGER_KEY="$(openssl rand -base64 32)" KENNY_LLM=off --skip-deploys
+  KENNY_LEDGER_KEY="$(openssl rand -base64 32)" KENNY_LLM=off \
+  KENNY_SEED_FORCE=1 KENNY_SEED_FORCE_CONFIRM=yes --skip-deploys   # reseed: the volume's ledger is unkeyed
 railway up --detach -m "$SHA"
 # 4. Check
 curl -s https://kenny-production.up.railway.app/api/case | grep -o '"version":{[^}]*}'   # must show $SHA
 curl -s -o /dev/null -w '%{http_code}\n' https://kenny-production.up.railway.app/admin   # must not be 200 without the password
+curl -sf https://kenny-production.up.railway.app/healthz                                 # ledger ok
+railway variable delete KENNY_SEED_FORCE KENNY_SEED_FORCE_CONFIRM                       # so the next deploy keeps the volume
 ```
 
 Keep the `KENNY_LEDGER_KEY` value somewhere safe: the chain cannot be re-verified without
-it. Reseed the volume (`KENNY_SEED_FORCE=1` with `KENNY_SEED_FORCE_CONFIRM=yes`, DEPLOY.md)
-only if case data changed since `2802ad9`; unset both after.
+it. The reseed is required this time: production's ledger was written without a key, and a
+keyed app fails `verify()` on it (`/healthz` 503). The reseed archives the old case and
+ledger on the volume; the export in step 2 is the off-volume copy.
 
 Decision recorded (2026-10-07): the call-screening `/privacy` and `/terms` pages were
 removed from this app and their templates kept under `archive/call-screening-legal-pages/`.
