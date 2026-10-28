@@ -56,6 +56,7 @@ The case ships with its catalog and search index baked, so no PDF is parsed on s
 ## Go deeper
 
 - [`STATUS.md`](STATUS.md) — the handoff page: what runs where, what is wrong, what is next.
+- [`ROADMAP.md`](ROADMAP.md) — where Kenny goes next: full rulebook, a check against real published pay, a public accuracy score.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) ([PDF](ARCHITECTURE.pdf)) — how it is built. ARCHITECTURE §6 is the approval
   gate; ARCHITECTURE §11 is the shipped case: OCR provenance, who wrote the live rules, the
   admin tabs, every demo question and the expected-results table.

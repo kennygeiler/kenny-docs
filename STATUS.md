@@ -201,7 +201,10 @@ removed from this app and their templates kept under `archive/call-screening-leg
 ## j. Next
 
 1. Owner: ratify `longevity_10yr` in the Review queue with your name (section e).
-2. Later, from the archived backlog via Linear: A3/G3 (bounded drafting), I14 (rate
+2. The plan is [`ROADMAP.md`](ROADMAP.md): the core is M1 (full Local 3535 rulebook), M5
+   (accuracy score) and M4 (check against real published pay), tracked as milestones in
+   Linear project P-KEN-9 (the workspace is at the free plan's issue limit).
+3. Later, from the archived backlog via Linear: A3/G3 (bounded drafting), I14 (rate
    citation), K3 (HTTP acceptance suite + CI), K6 (pinned deps), B7/B8 (dated rates,
    rounding policy).
 
