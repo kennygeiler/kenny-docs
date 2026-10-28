@@ -9,6 +9,7 @@ import sys
 import pytest
 
 import core.app as core_app
+from core.services import state as core_state
 from core import approvals, provenance
 from core.caseio import load_case
 from core.ledger import Ledger
@@ -32,7 +33,7 @@ def case_dir(tmp_path, monkeypatch):
             shutil.rmtree(p)
         elif p.exists():
             p.unlink()
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("KENNY_LEDGER_KEY", raising=False)
     return str(case)

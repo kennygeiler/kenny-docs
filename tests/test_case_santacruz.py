@@ -22,7 +22,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.app import _check_golden  # noqa: E402
+from core.services.gate import _check_golden  # noqa: E402
 from core.caseio import load_case  # noqa: E402
 
 CASE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

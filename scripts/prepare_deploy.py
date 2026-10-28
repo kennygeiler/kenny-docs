@@ -54,7 +54,8 @@ def main(case_rel: str) -> int:
     os.environ["CASE"] = case_rel
 
     if not _baked(case_rel):
-        from core.app import _JOBS, _ingest_worker  # imported after CASE is set
+        from core.services.state import _JOBS  # imported after CASE is set
+        from core.routes.documents import _ingest_worker
         job_id = "build"
         _JOBS[job_id] = {"status": "running", "total": 0, "done": 0, "current": None,
                          "result": None, "error": None}
@@ -102,7 +103,9 @@ def _goldens_fail(case_rel: str) -> bool:
     a human's approval is not sufficient to make a rule live (PRD §9), a green build is not
     sufficient to make an image shippable.
     """
-    from core.app import _case, _check_golden, _live_dicts
+    from core.services.gate import _check_golden
+    from core.services.rulestore import _live_dicts
+    from core.services.state import _case
 
     case = _case()
     goldens = case.manifest.get("golden_cases") or []

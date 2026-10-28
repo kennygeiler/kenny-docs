@@ -9,6 +9,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core import envfile as core_envfile  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import llm  # noqa: E402
 
 Q = "What does an 8-hour overtime shift cost for a Firefighter/Paramedic (56 hr, top step)?"
@@ -20,7 +22,7 @@ def client(tmp_path, monkeypatch):
                        "cases", "santacruz")
     case = tmp_path / "santacruz"
     shutil.copytree(src, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("KENNY_LLM", raising=False)
     from fastapi.testclient import TestClient
@@ -66,9 +68,9 @@ def test_dotenv_does_not_overwrite_an_explicitly_empty_variable(tmp_path, monkey
     (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-from-dotenv\nKENNY_OTHER=1\n")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     monkeypatch.delenv("KENNY_OTHER", raising=False)
-    monkeypatch.setattr(os.path, "abspath", lambda p: str(tmp_path / "core" / "app.py")
-                        if p.endswith("app.py") else os.path.realpath(p))
-    core_app._load_dotenv(force=True)     # the K2 guard would otherwise no-op under pytest
+    monkeypatch.setattr(os.path, "abspath", lambda p: str(tmp_path / "core" / "envfile.py")
+                        if p.endswith("envfile.py") else os.path.realpath(p))
+    core_envfile._load_dotenv(force=True)     # the K2 guard would otherwise no-op under pytest
     assert os.environ["ANTHROPIC_API_KEY"] == "", "an empty real variable must win"
     assert os.environ.get("KENNY_OTHER") == "1", "unset variables are still loaded"
     monkeypatch.delenv("KENNY_OTHER", raising=False)

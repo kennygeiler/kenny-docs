@@ -150,7 +150,7 @@ def backfill(case, dry_run: bool = False) -> dict:
     """Append a back-filled `authoring.ratify` for every live rule whose current
     fingerprint has no full approval event yet. Idempotent: a second run appends
     nothing. Never touches the rule file."""
-    from .app import _check_golden  # local: core.app imports this module
+    from .services.gate import _check_golden  # local: keeps this module import-light (the routes import it)
 
     rules_path = case.path("rules")
     if not rules_path or not os.path.exists(rules_path):

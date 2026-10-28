@@ -12,6 +12,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.routes import chat as chat_routes  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import llm  # noqa: E402
 
 Q = "What does an 8-hour overtime shift cost for a Firefighter/Paramedic (56 hr, top step)?"
@@ -63,7 +65,7 @@ def _scripted(monkeypatch, replies: dict):
 def client(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(os.path.join(ROOT, "cases", "santacruz"), case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("KENNY_LLM", raising=False)
     llm._breaker_reset()
@@ -202,7 +204,7 @@ def test_tag_document_coerces_shapes(monkeypatch):
 # A4: rule errors and handler exceptions are blocked answers with a terminal event
 # --------------------------------------------------------------------------- #
 def test_rule_that_raises_is_blocked_not_500(client, monkeypatch):
-    rules_path = os.path.join(core_app.CASE_DIR, "rules", "rules_ratified.json")
+    rules_path = os.path.join(core_state.CASE_DIR, "rules", "rules_ratified.json")
     data = json.load(open(rules_path))
     for r in data["rules"]:
         if r["id"] == "firefighters_local3535_mou:overtime_premium_rate":
@@ -220,7 +222,7 @@ def test_rule_that_raises_is_blocked_not_500(client, monkeypatch):
 def test_handler_exception_returns_json_blocked_and_records_chat_error(client, monkeypatch):
     def boom(*a, **kw):
         raise RuntimeError("forced")
-    monkeypatch.setattr(core_app, "_chat", boom)
+    monkeypatch.setattr(chat_routes, "_chat", boom)
     res = client.post("/chat", json={"prompt": Q})
     assert res.status_code == 500
     assert res.headers["content-type"].startswith("application/json")

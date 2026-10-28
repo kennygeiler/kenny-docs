@@ -14,6 +14,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import ingest  # noqa: E402
 
 
@@ -23,11 +24,11 @@ def client(tmp_path, monkeypatch):
                        "cases", "santacruz")
     case = tmp_path / "santacruz"
     shutil.copytree(src, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     # The job registry is module-global and outlives a test's app state; a stale
     # running job from another test would 409 every upload here.
-    core_app._JOBS.clear()
+    core_state._JOBS.clear()
     from fastapi.testclient import TestClient
     return TestClient(core_app.app), str(case)
 
@@ -133,7 +134,7 @@ def test_bad_magic_bytes_reject_and_free_the_slot(client, tmp_path):
     assert "magic" in res.json()["error"]
     # The rejected upload must not leave a ghost running job holding the
     # single-flight slot — a real upload right after has to go through.
-    assert not any(j.get("status") == "running" for j in core_app._JOBS.values())
+    assert not any(j.get("status") == "running" for j in core_state._JOBS.values())
 
 
 def test_non_pdf_extension_is_rejected(client, tmp_path):
@@ -156,7 +157,7 @@ def test_upload_cannot_overwrite_a_declared_source(client, mini_pdf, name):
     assert "collides" in res.json()["error"] or "already" in res.json()["error"]
     if before is not None:
         assert open(target, "rb").read() == before
-    assert not any(j.get("status") == "running" for j in core_app._JOBS.values())
+    assert not any(j.get("status") == "running" for j in core_state._JOBS.values())
 
 
 def test_upload_cannot_reuse_an_existing_catalog_id(client, mini_pdf, monkeypatch):

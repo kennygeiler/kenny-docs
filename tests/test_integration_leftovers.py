@@ -17,6 +17,7 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
 import core.app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import approvals, evidence, skeptic  # noqa: E402
 from core.caseio import load_case  # noqa: E402
 from core.catalog import Catalog  # noqa: E402
@@ -46,7 +47,7 @@ def case_dir(tmp_path, monkeypatch):
             shutil.rmtree(p)
         elif p.exists():
             p.unlink()
-    monkeypatch.setattr(core_app, "CASE_DIR", str(dst))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(dst))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("KENNY_LEDGER_KEY", raising=False)
     return str(dst)

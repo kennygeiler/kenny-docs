@@ -24,8 +24,9 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import ingest  # noqa: E402
-from core.app import _extraction_stats  # noqa: E402
+from core.services.sources import _extraction_stats  # noqa: E402
 from core.catalog import Catalog  # noqa: E402
 from core.ingest import (LOW_OCR_CONFIDENCE, _ocr_page_confidence,  # noqa: E402
                          chunk_clauses, parse_pdf)
@@ -142,7 +143,7 @@ def client(tmp_path, monkeypatch):
                        "cases", "santacruz")
     case = tmp_path / "santacruz"
     shutil.copytree(src, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient
     return TestClient(core_app.app), str(case)

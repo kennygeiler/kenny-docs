@@ -15,6 +15,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import sources as core_sources  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import pdfview, rowbands  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -143,7 +145,7 @@ def test_p22_rows_get_their_own_band():
 def client(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(CASE, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient
     return TestClient(core_app.app)
@@ -174,18 +176,18 @@ def test_source_chip_for_a_table_row_carries_its_band(client):
     """A chat source chip built from a p.22 row hit carries `row_bbox`: the row's
     band when the page was verified, the catalog box otherwise (additive field)."""
     from core.caseio import load_case
-    case = load_case(core_app.CASE_DIR)
-    cat = core_app._catalog(case)
+    case = load_case(core_state.CASE_DIR)
+    cat = core_state._catalog(case)
     rows = _p22_rows()
     hit = {"doc_id": FIRE, "clause": "", "page": 22, "bbox": rows[1]["bbox"],
            "text": rows[1]["text"], "score": 0.9, "kind": "table-row"}
-    s = core_app._source_entry(case, cat, hit)
+    s = core_sources._source_entry(case, cat, hit)
     assert s["bbox"] == rows[1]["bbox"]                       # unchanged
     assert s["row_bbox"] != s["bbox"] and s["row_bbox"][1] - s["row_bbox"][3] < 15
     assert s["title"] == "Firefighters Local 3535 MOU 2025–2028 (with Salary Schedule)"
     prose = {"doc_id": FIRE, "clause": "", "page": 8, "bbox": BOX, "text": "x",
              "score": 0.5, "kind": "text"}
-    assert core_app._source_entry(case, cat, prose)["row_bbox"] == BOX
+    assert core_sources._source_entry(case, cat, prose)["row_bbox"] == BOX
 
 
 def test_app_js_shows_the_crop_first():

@@ -17,8 +17,10 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import evidence, ingest  # noqa: E402
-from core.app import _raw_ratified, _revalidate_citations  # noqa: E402
+from core.services.rulestore import _raw_ratified  # noqa: E402
+from core.services.sources import _revalidate_citations  # noqa: E402
 from core.caseio import load_case  # noqa: E402
 from core.catalog import Catalog  # noqa: E402
 
@@ -36,9 +38,9 @@ N_LIVE = len(json.load(open(os.path.join(ROOT, "cases", "santacruz", "rules",
 def case_copy(tmp_path, monkeypatch):
     dst = tmp_path / "santacruz"
     shutil.copytree(os.path.join(ROOT, "cases", "santacruz"), dst)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(dst))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(dst))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    core_app._JOBS.clear()
+    core_state._JOBS.clear()
     return str(dst)
 
 
@@ -221,7 +223,7 @@ def test_unchanged_pdf_is_skipped(case_copy, monkeypatch):
     assert body["result"]["skipped_unchanged"] == ["master_salary_schedule"]
     assert len(parsed) == 4
     # force=true re-parses everything
-    core_app._JOBS.clear()
+    core_state._JOBS.clear()
     parsed.clear()
     job = c.post("/admin/ingest?force=true").json()
     deadline = time.time() + 60

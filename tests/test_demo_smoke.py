@@ -18,6 +18,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import auth, version  # noqa: E402
 from scripts import demo_smoke  # noqa: E402
 
@@ -29,15 +30,15 @@ from scripts import demo_smoke  # noqa: E402
 def smoke_rows(tmp_path_factory):
     case = tmp_path_factory.mktemp("smoke") / "santacruz"
     shutil.copytree(os.path.join(ROOT, "cases", "santacruz"), case)
-    saved_dir, saved_allow = core_app.CASE_DIR, auth.RateLimiter.allow
-    core_app.CASE_DIR = str(case)
+    saved_dir, saved_allow = core_state.CASE_DIR, auth.RateLimiter.allow
+    core_state.CASE_DIR = str(case)
     auth.RateLimiter.allow = lambda self, key: True
     try:
         from fastapi.testclient import TestClient
         client = demo_smoke.TestClientAdapter(TestClient(core_app.app))
         rows = demo_smoke.run_all(client)
     finally:
-        core_app.CASE_DIR, auth.RateLimiter.allow = saved_dir, saved_allow
+        core_state.CASE_DIR, auth.RateLimiter.allow = saved_dir, saved_allow
     return {r["id"]: r for r in rows}
 
 
@@ -70,11 +71,11 @@ def test_smoke_script_never_touches_the_shipped_case(monkeypatch):
     real = os.path.join(ROOT, "cases", "santacruz")
     before = sorted(os.listdir(os.path.join(real, "snapshots"))) if os.path.isdir(
         os.path.join(real, "snapshots")) else None
-    monkeypatch.setattr(core_app, "CASE_DIR", core_app.CASE_DIR)
+    monkeypatch.setattr(core_state, "CASE_DIR", core_state.CASE_DIR)
     monkeypatch.setattr(auth.RateLimiter, "allow", auth.RateLimiter.allow)
     client, case = demo_smoke.scratch_client()
     assert case != real and os.path.isfile(os.path.join(case, "case.yaml"))
-    assert core_app.CASE_DIR == case
+    assert core_state.CASE_DIR == case
     after = sorted(os.listdir(os.path.join(real, "snapshots"))) if before is not None else None
     assert after == before
 
@@ -86,7 +87,7 @@ def test_smoke_script_never_touches_the_shipped_case(monkeypatch):
 def client(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(os.path.join(ROOT, "cases", "santacruz"), case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     from fastapi.testclient import TestClient
     return TestClient(core_app.app)
 

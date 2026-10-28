@@ -15,6 +15,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import auth  # noqa: E402
 from core import costing  # noqa: E402
 
@@ -35,7 +36,7 @@ OFF_SCRIPT = [
 def case_dir(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(CASE_SRC, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("SEARCH_BACKEND", "bm25")
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
@@ -55,7 +56,7 @@ def _ask(client, prompt, **extra):
 
 
 def _types(qid):
-    return [e["type"] for e in core_app._case().ledger().for_query(qid)]
+    return [e["type"] for e in core_state._case().ledger().for_query(qid)]
 
 
 # (a) the headline question is typed overtime and still 640.80 -------------------------

@@ -15,6 +15,9 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import rulestore as core_rulestore  # noqa: E402
+from core.services import state as core_state  # noqa: E402
+from core.routes import rules as rules_routes  # noqa: E402
 
 
 @pytest.fixture
@@ -23,8 +26,8 @@ def case(tmp_path, monkeypatch):
                        "cases", "santacruz")
     dst = tmp_path / "santacruz"
     shutil.copytree(src, dst)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(dst))
-    return core_app._case()
+    monkeypatch.setattr(core_state, "CASE_DIR", str(dst))
+    return core_state._case()
 
 
 def test_failed_write_leaves_previous_library_intact(case, monkeypatch):
@@ -33,7 +36,7 @@ def test_failed_write_leaves_previous_library_intact(case, monkeypatch):
 
     with pytest.raises(Exception):
         # json.dump fails partway (an unserialisable value after some output)
-        core_app._write_proposed(case, [{"id": "x", "bad": object()}])
+        core_rulestore._write_proposed(case, [{"id": "x", "bad": object()}])
     assert open(path).read() == before
     leftovers = [f for f in os.listdir(os.path.dirname(path)) if f.endswith(".tmp")]
     assert leftovers == []
@@ -42,47 +45,47 @@ def test_failed_write_leaves_previous_library_intact(case, monkeypatch):
 def test_write_ratified_is_atomic_replace(case):
     path = case.path("rules")
     ino_before = os.stat(path).st_ino
-    rules = core_app._raw_ratified(case)
-    core_app._write_ratified(case, rules)
+    rules = core_rulestore._raw_ratified(case)
+    core_rulestore._write_ratified(case, rules)
     assert json.load(open(path))["rules"] == rules
     assert os.stat(path).st_ino != ino_before        # replaced, not truncated in place
 
 
 def test_writers_hold_the_rules_lock(case, monkeypatch):
     seen = []
-    real = core_app._atomic_json_write
+    real = core_rulestore._atomic_json_write
 
     def spy(path, obj):
-        seen.append(core_app._RULES_LOCK.locked())
+        seen.append(core_rulestore._RULES_LOCK.locked())
         return real(path, obj)
 
-    monkeypatch.setattr(core_app, "_atomic_json_write", spy)
+    monkeypatch.setattr(core_rulestore, "_atomic_json_write", spy)
     from fastapi.testclient import TestClient
     c = TestClient(core_app.app)
     q = case.path("proposed_rules", "rules/rules_proposed.json")
     data = json.load(open(q))
     data["rules"] = [r for r in data["rules"]
-                     if r.get("id") not in {d["id"] for d in core_app._demo_drafts(case)}]
+                     if r.get("id") not in {d["id"] for d in core_rulestore._demo_drafts(case)}]
     json.dump(data, open(q, "w"))
     assert c.post("/admin/demo_draft/load").status_code == 200
     assert seen and all(seen)
 
-    monkeypatch.setattr(core_app, "_ratify",
-                        lambda body: {"locked": core_app._RULES_LOCK.locked()})
+    monkeypatch.setattr(rules_routes, "_ratify",
+                        lambda body: {"locked": core_rulestore._RULES_LOCK.locked()})
     assert c.post("/admin/ratify", json={"approver": "t"}).json() == {"locked": True}
-    assert not core_app._RULES_LOCK.locked()
+    assert not core_rulestore._RULES_LOCK.locked()
 
 
 def test_concurrent_queue_merges_do_not_lose_rules(case):
     """Each thread adds its own rule to the queue via read-modify-write under the lock."""
     def add(i):
-        with core_app._RULES_LOCK:
-            cur = core_app.admin_proposed()
-            core_app._write_proposed(case, cur["rules"] + [{"id": f"t{i}"}],
+        with core_rulestore._RULES_LOCK:
+            cur = rules_routes.admin_proposed()
+            core_rulestore._write_proposed(case, cur["rules"] + [{"id": f"t{i}"}],
                                      cur.get("needs_data"))
 
     ts = [threading.Thread(target=add, args=(i,)) for i in range(12)]
     [t.start() for t in ts]
     [t.join() for t in ts]
-    ids = {r.get("id") for r in core_app.admin_proposed()["rules"]}
+    ids = {r.get("id") for r in rules_routes.admin_proposed()["rules"]}
     assert {f"t{i}" for i in range(12)} <= ids

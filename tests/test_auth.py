@@ -193,7 +193,8 @@ def test_deploy_refuses_image_whose_goldens_fail(tmp_path, monkeypatch):
     # leaks out of this test and silently sends later tests to the live API — it is what
     # broke test_classify_intent_stub, which passed alone and failed in the suite.
     from core import app as core_app
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    from core.services import state as core_state
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     from scripts.prepare_deploy import _goldens_fail
 
     assert _goldens_fail(str(case)) is True, "a demo with zero ratified rules must not ship"
@@ -242,6 +243,7 @@ def test_doc_file_route_rejects_path_traversal():
     """doc_id comes from the URL. If it were joined into a path, this route would be an
     arbitrary file read on a host that also holds the .env and the ledger."""
     from core import app as core_app
+    from core.services import state as core_state
     from fastapi.testclient import TestClient
 
     c = TestClient(core_app.app)

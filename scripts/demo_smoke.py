@@ -92,11 +92,12 @@ def scratch_client():
     os.environ.pop("ANTHROPIC_API_KEY", None)
     sys.path.insert(0, ROOT)
     from core import app as core_app
+    from core.services import state as core_state
     from core import auth
     tmp = tempfile.mkdtemp(prefix="kenny-smoke-")
     case = os.path.join(tmp, "santacruz")
     shutil.copytree(os.path.join(ROOT, "cases", "santacruz"), case)
-    core_app.CASE_DIR = case
+    core_state.CASE_DIR = case
     auth.RateLimiter.allow = lambda self, key: True   # 20/min cap is a spend cap, not a smoke property
     from fastapi.testclient import TestClient
     return TestClientAdapter(TestClient(core_app.app)), case

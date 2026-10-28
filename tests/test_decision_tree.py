@@ -12,6 +12,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import audit, decisions, llm, mathline  # noqa: E402
 from core.caseio import load_case  # noqa: E402
 from core.catalog import Catalog  # noqa: E402
@@ -35,7 +36,7 @@ FF_RULE = "firefighters_local3535_mou:overtime_premium_rate"
 def case_dir(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(CASE_DIR, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     return str(case)
 
 
@@ -95,7 +96,7 @@ def test_golden_decision_sequence(client):
     positions = [types.index(t) for t in expected]
     assert positions == sorted(positions), types
     assert types.count("llm.call") == 2
-    assert core_app._case().ledger().verify()[0]
+    assert core_state._case().ledger().verify()[0]
 
 
 def test_decision_payload_shape_and_counts(client):
@@ -168,7 +169,7 @@ def test_governance_records_rejected_sources():
 def test_build_tree_is_pure(client):
     res = client.post("/chat", json={"prompt": Q_640}).json()
     a = _events(client, res["query_id"])
-    rebuilt = audit.build_tree(core_app._case().ledger().for_query(res["query_id"]), corpus_size=5)
+    rebuilt = audit.build_tree(core_state._case().ledger().for_query(res["query_id"]), corpus_size=5)
     assert rebuilt == a["tree"]
     assert audit.build_tree([])["legacy"] is True
     legacy = audit.build_tree([{"seq": 7, "type": "chat.prompt", "payload": {"text": "x"}},
@@ -283,7 +284,7 @@ def test_chat_math_line_golden(client, case_dir):
         frozen = f.read()
     assert "53.4" in frozen and '"hours": 8' in frozen and "effective_base * 1.5 * hours" in frozen
     # ... and the chain still verifies, and the answer still replays.
-    assert core_app._case().ledger().verify()[0]
+    assert core_state._case().ledger().verify()[0]
     assert client.get(f"/chat/replay/{res['query_id']}").json()["status"] == "match"
 
 

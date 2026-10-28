@@ -10,6 +10,7 @@ import sys
 import pytest
 
 import core.app as core_app
+from core.services import state as core_state
 from core import audit, provenance
 from core.caseio import load_case
 from core.ruledsl import Rule
@@ -22,7 +23,7 @@ PROMPT = "Cost an 8-hour overtime shift for a Firefighter/Paramedic (56 hr, top 
 def case_dir(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(os.path.join(ROOT, "cases", "santacruz"), case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     return str(case)
 

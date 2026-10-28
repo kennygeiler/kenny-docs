@@ -12,6 +12,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import index, warm  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,7 +43,7 @@ def fake_model(monkeypatch):
 def case_copy(tmp_path, monkeypatch):
     dst = tmp_path / "santacruz"
     shutil.copytree(os.path.join(ROOT, "cases", "santacruz"), dst)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(dst))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(dst))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     warm.reset()
     yield str(dst)
