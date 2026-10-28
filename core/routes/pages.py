@@ -1,4 +1,4 @@
-"""Pages and static assets: /, /admin, /static/*, /healthz, /api/case."""
+"""Pages and static assets: /, /admin, /static/*, /healthz, /api/case, /api/coverage."""
 from __future__ import annotations
 
 import os
@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from .. import llm, warm
 from .. import version as _version  # handoff (K1): the commit this process runs
+from ..services import provisions as _provisions
 from ..services.sources import _doc_meta
 from ..services.state import _NOCACHE, TEMPLATES, _case, _catalog
 
@@ -101,3 +102,12 @@ def tree_js():
     renderTree(tree, el). Served like app.js; chat.html includes it after app.js."""
     return FileResponse(os.path.join(TEMPLATES, "tree.js"),
                         media_type="application/javascript", headers=_NOCACHE)
+
+
+@router.get("/api/coverage")
+def api_coverage():
+    """Provision coverage (ROADMAP M1.5): per document, how many provisions answer with a
+    number (live), how many are drafted and awaiting approval, how many are not modelled
+    and why, plus data errors. `available: false` when the case has no provisions.yaml;
+    every surface hides the feature then. Public read, like /api/case."""
+    return JSONResponse(_provisions.coverage(), headers=_NOCACHE)
