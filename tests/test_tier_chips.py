@@ -1,5 +1,5 @@
 """Extraction-tier chips (OCR-4): every source chip / citation says where its text
-came from. The mapping lives server-side in ONE place (core/app.py::_extraction_tier);
+came from. The mapping lives server-side in ONE place (core/services/sources.py::_extraction_tier);
 app.js only renders the `tier` field it stamps."""
 import os
 import shutil

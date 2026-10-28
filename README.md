@@ -62,6 +62,8 @@ The case ships with its catalog and search index baked, so no PDF is parsed on s
 - [`PRD.md`](PRD.md) ([PDF](PRD.pdf)) — the product, users and scope (ARCHITECTURE wins where they overlap).
 - [`DEPLOY.md`](DEPLOY.md) — putting it behind a shared URL.
 - [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) — the demo walkthrough and talking points.
+- Code: `core/app.py` assembles the app; routes live in `core/routes/` (pages, chat,
+  documents, rules, ledger), shared state and helpers in `core/services/`.
 
 The PDFs were rendered from the Markdown on 2026-10-28 (`scripts/make_prd_pdf.py`); the
 Markdown wins if they differ.

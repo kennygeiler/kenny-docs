@@ -1,6 +1,6 @@
 """Extraction scorecard (OCR_TICKETS.md OCR-3): per-document "how well did we read
 this?" stats on /admin/coverage. The arithmetic lives in the pure helper
-core.app._extraction_stats so the histogram / empty-page / recovered-page math is
+core.services.sources._extraction_stats so the histogram / empty-page / recovered-page math is
 testable on a synthetic catalog entry without the HTTP stack."""
 import json
 import os

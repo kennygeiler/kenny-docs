@@ -222,7 +222,7 @@ def check_table(rows: list[list[str]], headers: list[str] | None = None,
 
 
 # --------------------------------------------------------------------------- #
-# the stored grid: a server-side port of admin.html tableModel()
+# the stored grid: a server-side port of admin.js tableModel()
 # --------------------------------------------------------------------------- #
 _SUMMARY_RE = re.compile(r"^(.*?)\s*\(table:\s*(.+);\s*\d+\s+rows?\)$", re.S)
 _HV_RE = re.compile(r"^(.{1,60}?):\s(.*)$", re.S)
@@ -230,7 +230,7 @@ _HV_RE = re.compile(r"^(.{1,60}?):\s(.*)$", re.S)
 
 def grid_from_rows(trows: list[dict]) -> dict | None:
     """Rebuild one table's grid from its flattened table-row clauses, EXACTLY as the
-    Compare view does (admin.html tableModel), so a cell index computed here lands
+    Compare view does (admin.js tableModel), so a cell index computed here lands
     on the same <td> there. Returns {caption, headers, rows: [{clause, cells}],
     cols} or None when there is nothing to grid."""
     if not trows:

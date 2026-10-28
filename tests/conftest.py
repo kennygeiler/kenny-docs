@@ -2,8 +2,8 @@
 
 The suite must never reach a paid model, whatever is in the developer's .env:
 
-  1. core/app.py runs _load_dotenv() at import, and most test modules import core.app
-     at module top (during collection). KENNY_NO_DOTENV makes that loader a no-op, and
+  1. importing core.app runs _load_dotenv() (core/envfile.py, via core/services/state.py),
+     and most test modules import core.app at module top (during collection). KENNY_NO_DOTENV makes that loader a no-op, and
      the key is popped here BEFORE any test module is collected.
   2. An autouse fixture deletes ANTHROPIC_API_KEY for every test and replaces the SDK
      client constructor so a real client cannot be built by accident. Tests that

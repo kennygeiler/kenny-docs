@@ -77,7 +77,7 @@ function cite(clause, page) {
 }
 
 // Extraction-tier chip (OCR-4): says where a cited passage's text CAME FROM. The tier
-// itself is computed server-side (core/app.py::_extraction_tier — the one mapping);
+// itself is computed server-side (core/services/sources.py::_extraction_tier — the one mapping);
 // this only renders it, so client and server can never disagree. Unknown/absent tier
 // renders nothing: no claim beats a wrong claim.
 const TIER_TITLES = {

@@ -37,7 +37,9 @@ property of the deterministic layer plus a human gate — not of the model.
 
 | Module | Responsibility | Why it is its own thing |
 |---|---|---|
-| `app.py` | HTTP routes, intent router, orchestration | one spine, handlers behind it |
+| `app.py` | assembles the FastAPI app (`core.app:app`): auth, warm-up, routers, the never-500 handler | one entrypoint, nothing else in it |
+| `routes/` | HTTP routes as APIRouters: `pages` (pages, static, health), `chat` (intent router, orchestration), `documents` (PDF/page/x-ray, ingest, upload), `rules` (review queue, draft, ratify, try-to-break, skeptic, cell gate), `ledger` (audit, export, replay, tamper demo) | one file per surface |
+| `services/` | state and helpers the routes share: `state` (case, job registry), `sources` (hashes, citations, revalidation), `rulestore` (rule files, `_RULES_LOCK`), `gate` (known answers, verdict), `answers` (policy/entitlement answers) | one instance of each lock and cache |
 | `llm.py` | **the only AI surface** — classify, parse, draft, tag, rank, compose | quarantine the model to one auditable file |
 | `engine.py` | deterministic interpreter: differentials → base → premiums → rounding | the money path; imports no AI |
 | `ruledsl.py` | rule schema, sandboxed expression evaluation, validation | rules are untrusted data by default |
@@ -451,7 +453,7 @@ it, listed what the rule ignores and ran its counter-examples through the engine
 
 ### 11.3 What the gate checks, in one paragraph
 
-The gate (`_gate_verdict` in `core/app.py`, detail in §6) judges the live library merged with the
+The gate (`_gate_verdict` in `core/services/gate.py`, detail in §6) judges the live library merged with the
 selection, before and after, all-or-nothing: (R1) no known answer may turn from pass or pending to
 *fail*; (R2) a known answer that reproduced may not stop being answered; (R3) a rule drafted for a
 scenario must make that scenario pass; (R4) every selected rule must fire in a passing known answer
@@ -528,7 +530,9 @@ instance) is refused with a reason.
   `index`/`retriever`/`rulematch` (retrieval and scoping), `ruledsl` + `engine` + `costing` +
   `governance` (rules and per-unit math), `audit` + `ledger` + `approvals` + `tamper_demo`
   (snapshots, chain, replay), `llm` (every model call through one schema-checked chokepoint) +
-  `skeptic`, `version` (the build hash), and the chat/admin templates.
+  `skeptic`, `version` (the build hash), and the chat/admin templates (`templates/`, each page's
+  script a served file). `app.py` only assembles the app; routes are in `routes/`, shared state
+  and helpers in `services/`.
 - **`cases/santacruz/`** — the bundle: `sources/` PDFs, `data/roster.csv`, `rules/`, `reviews/`
   (skeptic), `cell_checks.json`, `catalog.json`, `search_index.jsonl`, `case.yaml` (the
   twenty-two known answers), `taxonomy.yaml`, `prompt/`.
