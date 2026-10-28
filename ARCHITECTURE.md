@@ -462,7 +462,7 @@ scenario must make that scenario pass; (R4) every selected rule must fire in a p
 — a rule that fires in no known answer cannot go live; (R5) a live rule outside the selection that
 was proven before must still be proven. What it does not check: whether the rule reads the clause
 correctly beyond that one known answer's inputs — each rule is proved at one set of inputs only, and
-the twenty-two shipped known answers are analyst-derived from the documents, not payroll.
+the forty-four shipped known answers are analyst-derived from the documents, not payroll.
 
 ### 11.4 The admin tabs
 
@@ -514,9 +514,11 @@ What a costing answer contains:
 
 ### 11.6 Expected results
 
-The twenty-two known answers in `case.yaml`: the six below plus the 9- and 10-year longevity edges,
-all reproduced by the live rules, and fourteen vacation-tier answers (five tiers and nine boundary
-answers) pending the queued rules' approval. They are analyst-derived from the documents, not from
+The forty-four known answers in `case.yaml`: the six below plus the 9- and 10-year longevity edges,
+all reproduced by the live rules; fourteen vacation-tier answers (five tiers and nine boundary
+answers) pending the queued tiers' approval; and twenty-two M1 rulebook answers (one per rule
+drafted from `provisions.yaml`, plus 40-hour Captain checks for holiday pay and sick leave)
+pending those rules' approval. They are analyst-derived from the documents, not from
 payroll, and are asserted by `pytest` through the gate and through `/chat`
 (`tests/test_demo_smoke.py`); each proves its rule at one set of inputs only.
 
@@ -543,7 +545,7 @@ instance) is refused with a reason.
   and helpers in `services/`.
 - **`cases/santacruz/`** — the bundle: `sources/` PDFs, `data/roster.csv`, `rules/`, `reviews/`
   (skeptic), `cell_checks.json`, `catalog.json`, `search_index.jsonl`, `case.yaml` (the
-  twenty-two known answers), `taxonomy.yaml`, `prompt/`.
+  forty-four known answers), `provisions.yaml` (the Local 3535 inventory), `taxonomy.yaml`, `prompt/`.
 - **`scripts/`** — `demo_smoke.py` (the demo table), `skeptic.py` (zero-spend bake and
   re-verification), `verify_cells.py`, the back-fills (`backfill_quote_sha.py`,
   `backfill_provenance.py`, `backfill_text_origin.py`), `prepare_deploy.py`, `replay.py`.

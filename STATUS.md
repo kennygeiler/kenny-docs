@@ -62,15 +62,24 @@ and the owner has an export of that ledger (470 events) at `~/kenny-prod-ledger-
 
 ## d. What works (and what proves it)
 
+- **M1 (2026-10-28): coverage of the Local 3535 MOU.** `cases/santacruz/provisions.yaml`
+  inventories 143 provisions (29 modelled by a rule, 114 not, each with a reason); the chat
+  home page shows the coverage line, admin has a public Coverage tab, and chat refusals name
+  the matching provision. Every hourly rate cites its Master Salary Schedule row
+  (`data/salary_schedule.csv`, 54 rows re-read from the PDF in tests; I14 done) and the
+  rate in the answer's sum opens that row boxed. — `tests/test_coverage.py`,
+  `tests/test_m1_rulebook.py` (26 natural questions reach their rules once approved),
+  `tests/test_salary_schedule.py`.
 - The demo questions answer correctly through `/chat`, with the number, document and page
   asserted: $640.80 (L3535 p.8); $656.82 with 12 years (p.12 + p.8); 3 bereavement shifts
   (p.21); heat-pump rebate → `out_of_scope`; a regular shift → `refused` (only overtime
   approved); firefighter + Fire Marshal → $640.80 plus a not-covered row naming the
   Management MOU — `scripts/demo_smoke.py`, `tests/test_demo_smoke.py`. The three home-page
   buttons — `tests/test_examples.py`.
-- Of twenty-two known answers, eight pass (six scenarios plus the longevity edges at 9 and
+- Of forty-four known answers, eight pass (six scenarios plus the longevity edges at 9 and
   10 years) and all five live rules fire in one; the fourteen vacation-accrual answers
-  (five tiers, nine tier edges) are *pending* until the queued tiers are approved in Review
+  (five tiers, nine tier edges) and the twenty-two M1 rulebook answers are *pending* until
+  their queued rules are approved in Review
   (`rules/rules_proposed.json`, agent-drafted; three tiers need a `POST /admin/cell_confirm`
   first) — `/admin/verification`, `tests/test_gate.py`, `tests/test_goldens_chat.py`.
 - Every answer replays from its frozen snapshot with matching hashes —
@@ -100,6 +109,19 @@ and the owner has an export of that ledger (470 events) at `~/kenny-prod-ledger-
 
 Delete a line when it lands. Items marked *owner* need Kenny.
 
+- ***Owner:* the M1 rulebook is queued, not live.** 20 rules drafted from the Local 3535
+  MOU (pay: regular, holiday, FLSA half-time, two acting-Captain rules; leave, time and
+  deadline rules) wait in Review, grouped by contract section with an "Approve this
+  section" button. Three need a decision before approval: `regular_straight_time` flips
+  the demo row "8-hour regular shift is refused"; the FLSA half-time branch was earlier
+  left unapproved on purpose; holiday pay assumes longevity does not raise its base.
+- ***Owner:* nine more Local 3535 roster rows are staged, not live**
+  (`data/roster_staged.csv`: entry steps and 40-hour variants). Going live needs a choice:
+  how a bare rank in a costing question resolves (ask, or default to top step). Loading
+  them also marks the two skeptic reviews stale (`roster_sha256`). Entitlements no longer
+  sum across rows (fixed in M1), so that blocker is gone.
+- M1 rules carry no effective dates (roadmap M2): the acting-Captain add-ons are CY2026
+  figures; 2027 and 2028 print different ones.
 - `firefighters_local3535_mou:longevity_10yr` is live with approver
   `analyst (hand-authored 2026-10-07, …)`, a label rather than a person. To ratify it
   honestly: move it to `rules/rules_proposed.json`, approve it in the Review queue with
@@ -200,6 +222,8 @@ removed from this app and their templates kept under `archive/call-screening-leg
 
 ## j. Next
 
+0. Owner: approve the M1 rulebook section by section in Review (section e), then
+   redeploy (section h, no reseed).
 1. Owner: ratify `longevity_10yr` in the Review queue with your name (section e).
 2. The plan is [`ROADMAP.md`](ROADMAP.md): the core is M1 (full Local 3535 rulebook), M5
    (accuracy score) and M4 (check against real published pay), tracked as milestones in
