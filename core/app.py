@@ -278,6 +278,11 @@ def _revalidate_citations(case, cat, doc_ids: list[str], led) -> list[dict]:
     the wrong text under a confident citation — the exact failure this product exists
     to prevent. Rules whose evidence still checks out get their citation's source hash
     backfilled, so pre-hashing approvals become bound going forward."""
+    with _RULES_LOCK:
+        return _revalidate_citations_locked(case, cat, doc_ids, led)
+
+
+def _revalidate_citations_locked(case, cat, doc_ids: list[str], led) -> list[dict]:
     library = _raw_ratified(case)
     stale, backfilled, rebound = [], 0, []
     for r in library:
@@ -2227,14 +2232,16 @@ async def admin_draft_scenario(request: Request):
     ok, detail = _check_golden(case, _with_live(case, drafted), scenario)
 
     # 5. Merge into the review queue (replace this scenario's prior drafts + gaps).
-    prior = admin_proposed()
-    keep = [r for r in prior.get("rules", []) if r.get("_scenario") != name]
-    keep_needs = [n for n in prior.get("needs_data", []) if n.get("_scenario") != name]
+    #    Locked: the queue may have changed while the model was drafting.
     for r in drafted:
         r["_scenario"] = name
     for n in needs:
         n["_scenario"] = name
-    _write_proposed(case, keep + drafted, keep_needs + needs)
+    async with _rules_locked():
+        prior = admin_proposed()
+        keep = [r for r in prior.get("rules", []) if r.get("_scenario") != name]
+        keep_needs = [n for n in prior.get("needs_data", []) if n.get("_scenario") != name]
+        _write_proposed(case, keep + drafted, keep_needs + needs)
     led.append("authoring.draft_scenario",
                {"scenario": name, "clauses": sorted(f"{d}:{c}" for d, c in want),
                 "rule_ids": [r["id"] for r in drafted], "verify": detail.get("status")},
@@ -2366,6 +2373,17 @@ async def admin_ratify(request: Request):
     sufficient.
     """
     body = await request.json()
+    # Off the event loop (the gate re-runs every known answer) and under _RULES_LOCK:
+    # read queue + library -> gate -> merge -> write is one critical section.
+    return await run_in_threadpool(_ratify_locked, body)
+
+
+def _ratify_locked(body: dict):
+    with _RULES_LOCK:
+        return _ratify(body)
+
+
+def _ratify(body: dict):
     approver = (body.get("approver") or "").strip()
     if not approver:  # F2: a record of who approved must name someone
         return {"ratified": [], "warning": "Nothing was approved — enter the approver's "
@@ -2473,12 +2491,56 @@ def admin_taxonomy():
 
 
 # --------------------------------------------------------------------------- #
-def _write_proposed(case, rules: list[dict], needs_data: list[dict] | None = None) -> None:
+# One lock for every read-modify-write of rules_proposed.json / rules_ratified.json
+# (ratify, draft_scenario, demo_draft load, cell_confirm, citation revalidation). Two
+# concurrent writers used to read the same queue/library and the later write silently
+# dropped the earlier one's rules. A plain Lock (not RLock): async handlers acquire it
+# by polling, so it may be released from a different thread than the one that took it.
+_RULES_LOCK = threading.Lock()
+
+
+class _rules_locked:
+    """`async with _rules_locked():` — take _RULES_LOCK without blocking the event loop
+    (and without a threadpool acquire that a cancelled request could leave held)."""
+
+    async def __aenter__(self):
+        import asyncio
+        while not _RULES_LOCK.acquire(blocking=False):
+            await asyncio.sleep(0.01)
+        return self
+
+    async def __aexit__(self, *exc):
+        _RULES_LOCK.release()
+        return False
+
+
+def _atomic_json_write(path: str, obj) -> None:
+    """Temp file in the SAME directory + fsync + os.replace: a crash or a full disk
+    mid-write leaves the previous file, never a truncated rule library."""
     import json
+    import tempfile
+    d = os.path.dirname(path) or "."
+    os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=os.path.basename(path) + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(obj, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        try:
+            os.chmod(tmp, os.stat(path).st_mode & 0o777)
+        except FileNotFoundError:
+            os.chmod(tmp, 0o644)
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def _write_proposed(case, rules: list[dict], needs_data: list[dict] | None = None) -> None:
     path = case.path("proposed_rules", "rules/rules_proposed.json")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
-        json.dump({"rules": rules, "needs_data": needs_data or []}, f, indent=2)
+    _atomic_json_write(path, {"rules": rules, "needs_data": needs_data or []})
 
 
 def _raw_ratified(case) -> list[dict]:
@@ -2496,7 +2558,6 @@ def _raw_ratified(case) -> list[dict]:
 def _write_ratified(case, rules: list[dict]) -> None:
     """Write the ratified library, backing up the previous one first. Ratification
     replaces the live rule set, so the prior version is always recoverable."""
-    import json
     import shutil
     import time as _t
     path = case.path("rules")
@@ -2504,8 +2565,7 @@ def _write_ratified(case, rules: list[dict]) -> None:
     if os.path.exists(path):
         stamp = _t.strftime("%Y%m%d-%H%M%S")
         shutil.copy(path, f"{path}.{stamp}.bak")
-    with open(path, "w") as f:
-        json.dump({"rules": rules}, f, indent=2)
+    _atomic_json_write(path, {"rules": rules})
 
 
 # --- ids-stale-warm ---
@@ -2972,15 +3032,16 @@ def admin_demo_draft_load():
     if not drafts:
         return JSONResponse({"error": f"no demo draft file at {DEMO_DRAFT_FILE}"},
                             status_code=404)
-    current = admin_proposed()
-    queue = list(current.get("rules", []))
-    before = {r.get("id") for r in queue}
-    merged = {r.get("id"): r for r in queue}
-    for r in drafts:
-        merged[r["id"]] = r
-    added = [r["id"] for r in drafts if r["id"] not in before]
-    if added:
-        _write_proposed(case, list(merged.values()), current.get("needs_data") or [])
+    with _RULES_LOCK:
+        current = admin_proposed()
+        queue = list(current.get("rules", []))
+        before = {r.get("id") for r in queue}
+        merged = {r.get("id"): r for r in queue}
+        for r in drafts:
+            merged[r["id"]] = r
+        added = [r["id"] for r in drafts if r["id"] not in before]
+        if added:
+            _write_proposed(case, list(merged.values()), current.get("needs_data") or [])
         case.ledger().append("authoring.demo_draft_loaded",
                              {"rule_ids": added, "file": DEMO_DRAFT_FILE,
                               "note": "deliberately wrong draft seeded for the gate demo; "
@@ -3154,9 +3215,11 @@ async def admin_cell_confirm(request: Request):
         return JSONResponse({"error": "doc_id, page, row and col are required"}, status_code=400)
     case = _case()
     try:
-        cell = cellcheck.confirm_cell(case_dir=case.dir, doc_id=doc_id, page=page, row=row,
-                                      col=col, value=body.get("value"), by=body.get("by") or "",
-                                      note=str(body.get("note") or ""))
+        async with _rules_locked():   # cell_checks.json read-modify-write + gate read
+            cell = cellcheck.confirm_cell(case_dir=case.dir, doc_id=doc_id, page=page,
+                                          row=row, col=col, value=body.get("value"),
+                                          by=body.get("by") or "",
+                                          note=str(body.get("note") or ""))
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     except KeyError as e:
