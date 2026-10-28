@@ -1,5 +1,5 @@
 """Extraction-tier chips (OCR-4): every source chip / citation says where its text
-came from. The mapping lives server-side in ONE place (core/app.py::_extraction_tier);
+came from. The mapping lives server-side in ONE place (core/services/sources.py::_extraction_tier);
 app.js only renders the `tier` field it stamps."""
 import os
 import shutil
@@ -10,7 +10,9 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
-from core.app import _extraction_tier  # noqa: E402
+from core.services import sources as core_sources  # noqa: E402
+from core.services import state as core_state  # noqa: E402
+from core.services.sources import _extraction_tier  # noqa: E402
 from core.index import LocalBM25Backend  # noqa: E402
 from core.ingest import chunk_clauses  # noqa: E402
 
@@ -56,10 +58,10 @@ def test_extraction_tier_origin_axis(parse_source, kind, origin, tier):
 
 def test_page_origin_prefers_the_page_record_over_the_document():
     entry = {"text_origin": "ocr-layer", "text_origin_pages": {"36": "digital"}}
-    assert core_app._page_origin(entry, 22) == "ocr-layer"
-    assert core_app._page_origin(entry, 36) == "digital"
-    assert core_app._page_origin({"text_origin": "digital"}, 1) == "digital"
-    assert core_app._page_origin({}, 1) is None and core_app._page_origin(None, 1) is None
+    assert core_sources._page_origin(entry, 22) == "ocr-layer"
+    assert core_sources._page_origin(entry, 36) == "digital"
+    assert core_sources._page_origin({"text_origin": "digital"}, 1) == "digital"
+    assert core_sources._page_origin({}, 1) is None and core_sources._page_origin(None, 1) is None
 
 
 def test_recovered_kind_outranks_parse_source():
@@ -107,7 +109,7 @@ def test_enrich_citations_stamps_provenance():
         {"clause": "9.1", "page": 3, "bbox": [1, 2, 3, 4], "kind": "recovered-row"},
         {"clause": "9.2", "page": 4, "bbox": [5, 6, 7, 8]},
     ]}})
-    rd = core_app._enrich_citations(cat, {"line_items": [{"citations": [
+    rd = core_sources._enrich_citations(cat, {"line_items": [{"citations": [
         {"doc_id": "mou", "clause": "9.1", "page": 0, "bbox": []},
         {"doc_id": "mou", "clause": "9.2", "page": 0, "bbox": []},
         {"doc_id": "ghost", "clause": "1", "page": 0, "bbox": []},
@@ -129,7 +131,7 @@ def client(tmp_path, monkeypatch):
                        "cases", "santacruz")
     case = tmp_path / "santacruz"
     shutil.copytree(src, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient
     return TestClient(core_app.app)
@@ -153,17 +155,17 @@ def test_santacruz_mou_sources_say_ocr_scan(client):
 def test_salary_schedule_hit_still_says_text_layer(client, monkeypatch):
     """The born-digital salary schedule keeps its honest label, through the same
     source-chip stamp the chat path uses."""
-    case = core_app._case()
-    cat = core_app._catalog(case)
+    case = core_state._case()
+    cat = core_state._catalog(case)
     hit = {"doc_id": "master_salary_schedule", "clause": "", "page": 1, "bbox": [],
            "text": "Firefighter/Paramedic | $53.40", "score": 1.0, "kind": "table-row"}
-    s = core_app._source_entry(case, cat, hit)
+    s = core_sources._source_entry(case, cat, hit)
     assert s["text_origin"] == "digital" and s["tier"] == "text layer"
     scan = {**hit, "doc_id": "firefighters_local3535_mou", "page": 8, "kind": "text"}
-    s = core_app._source_entry(case, cat, scan)
+    s = core_sources._source_entry(case, cat, scan)
     assert s["text_origin"] == "ocr-layer" and s["tier"] == "OCR'd scan"
     # the digital appendix at the back of the scanned MOU is judged per page
-    s = core_app._source_entry(case, cat, {**scan, "page": 36})
+    s = core_sources._source_entry(case, cat, {**scan, "page": 36})
     assert s["text_origin"] == "digital" and s["tier"] == "text layer"
 
 

@@ -16,6 +16,9 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import rulestore as core_rulestore  # noqa: E402
+from core.services import sources as core_sources  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import auth  # noqa: E402
 
 CASE_SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -29,7 +32,7 @@ AA = "Administrative Analyst (top step)"
 def case_dir(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(CASE_SRC, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("SEARCH_BACKEND", "bm25")
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
@@ -49,11 +52,11 @@ def _ask(client, prompt, **extra):
 
 
 def _events(qid):
-    return core_app._case().ledger().for_query(qid)
+    return core_state._case().ledger().for_query(qid)
 
 
 def _unit_of_doc(case, doc_id):
-    return (core_app.load_case(str(case)).source_by_id(doc_id) or {}).get("bargaining_unit")
+    return (core_state.load_case(str(case)).source_by_id(doc_id) or {}).get("bargaining_unit")
 
 
 # (a) a mixed question prices the covered unit and refuses the other, by name --------
@@ -90,7 +93,7 @@ def test_mixed_units_price_each_under_its_own_contract(client, case_dir):
 def test_every_line_item_is_priced_by_its_own_units_document(client, case_dir):
     res = _ask(client, "Cost an 8-hour overtime shift for all classifications")
     assert res["mode"] == "costing", res
-    case = core_app.load_case(str(case_dir))
+    case = core_state.load_case(str(case_dir))
     subjects = {s["name"]: s for s in case.subjects()}
     units_with_currency_rule = {_unit_of_doc(case_dir, r.citation.doc_id)
                                 for r in case.rules() if r.result_type == "currency"}
@@ -175,15 +178,15 @@ def test_each_unit_gets_its_own_multiplier(client, case_dir):
 #  a 2020 date cannot reach governance through /chat until B4b's date grammar lands)
 def test_date_outside_contract_window_names_the_window(case_dir):
     from core import costing
-    case = core_app.load_case(str(case_dir))
-    cat = core_app._catalog(case)
+    case = core_state.load_case(str(case_dir))
+    cat = core_state._catalog(case)
     led = case.ledger()
     subs = [s for s in case.subjects() if s["name"] == FF]
     out = costing.cost_by_unit(case, cat, led, "q-date", subs,
                                {"hours": 8.0, "date": "", "date_iso": "2020-01-01",
                                 "holiday_weekday": "", "pay_type": "overtime"},
                                "2020-01-01", ["overtime"],
-                               core_app._doc_integrity, core_app._raw_ratified)
+                               core_sources._doc_integrity, core_rulestore._raw_ratified)
     assert len(out) == 1 and out[0]["status"] == "no_contract", out
     assert out[0]["reason"].startswith(
         "No contract on file covers 'firefighters-local-3535' on 2020-01-01; ")

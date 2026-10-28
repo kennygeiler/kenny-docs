@@ -1,7 +1,7 @@
 """Acceptance test for the Santa Cruz case — the only corpus this build ships.
 
 Runs every hand-verified golden scenario in cases/santacruz/case.yaml through the SAME
-gate the ratify step enforces (`core.app._check_golden`), with no LLM and no API key
+gate the ratify step enforces (`core.services.gate._check_golden`), with no LLM and no API key
 involved. This is the determinism guarantee: the ratified rules must reproduce the
 analyst-derived known answers, and must never produce a DIFFERENT number (a "fail").
 
@@ -22,7 +22,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.app import _check_golden  # noqa: E402
+from core.services.gate import _check_golden  # noqa: E402
 from core.caseio import load_case  # noqa: E402
 
 CASE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

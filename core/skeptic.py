@@ -28,7 +28,7 @@ from typing import Any
 from . import governance, index, queryfacts
 from .caseio import CaseContext
 from .catalog import Catalog
-from .engine import NoRuleApplies, calculate
+from .engine import NoRuleApplies, calculate, rounding_policy
 from .ruledsl import SHIFT_BASES, Rule, RuleError, validate_rules
 
 SCHEMA = "skeptic.v1"
@@ -441,7 +441,7 @@ def run_engine(case: CaseContext, rule: dict, rule_set: str, scenario: dict,
         want = rule.get("result_type", "currency")
         rules = [r for r in rules if r.result_type == want]
         scope = SHIFT_BASES if want == "currency" else None
-        res = calculate(params, subs, rules, case.rounding_places(), basis_scope=scope)
+        res = calculate(params, subs, rules, rounding_policy(case.manifest), basis_scope=scope)
     except (NoRuleApplies, RuleError, ValueError, ArithmeticError) as e:
         return {"error": f"{type(e).__name__}: {e}"}
     lines = []

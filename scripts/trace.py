@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core import governance, ingest, llm
 from core.caseio import load_case
 from core.catalog import Catalog
-from core.engine import calculate
+from core.engine import calculate, rounding_policy
 
 CASE_DIR = sys.argv[1] if len(sys.argv) > 1 else "cases/santacruz"
 PROMPTS = {
@@ -103,7 +103,7 @@ def main():
     print(f"    governing doc(s): {chosen}   rules loaded: {[r.id for r in rules]}")
     eng = {"hours": params.get("hours", 0.0), "holiday_weekday": params.get("holiday_weekday", ""),
            "date_iso": date_iso or ""}
-    result = calculate(eng, subjects, rules, case.rounding_places())
+    result = calculate(eng, subjects, rules, rounding_policy(case.manifest))
     print("    per-employee evaluation:")
     for li in result.line_items:
         chosen_step = next((t for t in li.trace if t.kind == "selector-chosen"), None)

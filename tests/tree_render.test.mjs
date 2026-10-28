@@ -63,3 +63,36 @@ test('a legacy tree renders nothing so the caller shows its text fallback', () =
   assert.equal(treeHtml({ legacy: true, nodes: [], counts: {} }), '');
   assert.equal(treeHtml(null), '');
 });
+
+// A rule that reached the engine but that no "Rule applied" fork chose did not change
+// the result: no tick, "not applied" with the reason the rule_select fork recorded.
+const LONGEVITY = '2.5% general salary increase upon completion of ten (10) years';
+const OT = 'Premium overtime compensation at one and one half (1.5x)';
+const REACHED = {
+  legacy: false, counts: {},
+  nodes: [
+    { id: 'f', fork: 'rule_filter', label: 'Rules that reached the engine', status: 'fork', decided_by: 'fixed-logic',
+      children: [
+        { id: 'fc0', fork: 'rule_filter', label: OT, status: 'chosen', children: [] },
+        { id: 'fc1', fork: 'rule_filter', label: LONGEVITY, status: 'chosen', children: [] },
+      ] },
+    { id: 's', fork: 'rule_select', label: 'Rule applied', status: 'fork', decided_by: 'human-rule',
+      children: [
+        { id: 'sc0', fork: 'rule_select', label: OT, status: 'chosen', children: [] },
+        { id: 'sr0', fork: 'rule_select', label: LONGEVITY, status: 'rejected',
+          reason: "when 'years_of_service >= 10' -> False", children: [] },
+      ] },
+  ],
+};
+
+test('a rule that reached the engine but did not apply is shown as not applied, with why', () => {
+  const html = treeHtml(REACHED, { years_of_service: null, hours: 8 });
+  const filter = html.slice(0, html.indexOf('data-fork="rule_select"'));
+  assert.match(filter, new RegExp(`<li class="node skipped"[^>]*><span class="nl">${LONGEVITY.replace(/[()]/g, '\\$&')}`));
+  assert.ok(filter.includes('not applied: no years of service given'));
+  assert.match(filter, new RegExp(`<li class="node chosen"[^>]*><span class="nl">${OT.replace(/[()]/g, '\\$&')}`));
+  // without the question's facts the condition itself is named
+  assert.ok(treeHtml(REACHED).includes('not applied: condition years_of_service &gt;= 10 not met'));
+  // the input tree is not mutated
+  assert.equal(REACHED.nodes[0].children[1].status, 'chosen');
+});

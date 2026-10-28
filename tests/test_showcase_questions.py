@@ -16,6 +16,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import auth, index, rulematch  # noqa: E402
 from core.caseio import load_case  # noqa: E402
 
@@ -39,7 +40,7 @@ def _backends() -> list[str]:
 def client(request, tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(CASE_SRC, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("SEARCH_BACKEND", request.param)
     # The per-minute chat rate limit (core/auth.py) is a spend cap on the model, not a

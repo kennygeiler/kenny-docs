@@ -15,6 +15,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import llm  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -45,7 +46,7 @@ Q8 = "Cost an 8-hour overtime shift for a Firefighter/Paramedic (56 hr, top step
 def env(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(SRC, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient
     return TestClient(core_app.app), str(case)
@@ -111,7 +112,7 @@ def test_gate_sees_role_and_pay_basis(env):
 def test_gate_total_equals_chat_total_for_currency_known_answers(env):
     c, case = env
     v = c.get("/admin/verification").json()
-    cs = core_app._case()
+    cs = core_state._case()
     for g in cs.golden_cases():
         if g.get("result_type", "currency") != "currency":
             continue
@@ -393,7 +394,7 @@ def test_mutation_report_over_the_live_library(env):
 # ---------------- E7: every verification sentence literally true ----------------
 def test_admin_page_makes_no_stale_verification_claims(env):
     c, _ = env
-    html = c.get("/admin").text
+    html = (c.get("/admin").text + c.get("/static/admin.js").text)
     for stale in ("Every live rule is exercised by at least one known answer",
                   "They reproduced every known answer",
                   "Checks passed",

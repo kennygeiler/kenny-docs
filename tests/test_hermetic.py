@@ -8,6 +8,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core import envfile as core_envfile  # noqa: E402
 from core import llm  # noqa: E402
 
 
@@ -23,7 +24,7 @@ def test_dotenv_loader_is_a_no_op_under_pytest(monkeypatch):
     def _no_open(*a, **k):
         raise AssertionError("_load_dotenv opened a file under pytest")
     monkeypatch.setattr(builtins, "open", _no_open)
-    core_app._load_dotenv()          # returns before touching the filesystem
+    core_envfile._load_dotenv()          # returns before touching the filesystem
     assert "ANTHROPIC_API_KEY" not in os.environ
 
 
@@ -32,7 +33,7 @@ def test_dotenv_loader_honours_the_opt_out_outside_pytest(monkeypatch):
     monkeypatch.setattr(os.path, "exists", lambda p: True)
     monkeypatch.setattr(builtins, "open",
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("opened")))
-    core_app._load_dotenv()
+    core_envfile._load_dotenv()
 
 
 def test_real_anthropic_client_cannot_be_constructed():

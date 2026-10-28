@@ -93,14 +93,18 @@ extraction: prompt/extraction.yaml
 ledger: ledger.jsonl
 snapshots: snapshots
 
-# ROUNDING POLICY (a choice, stated so it can be challenged at onboarding): the engine
-# rounds each line's EXTENSION once, half-up to `places`; intermediate rates (e.g. the
+# ROUNDING POLICY (a choice, stated so it can be challenged at onboarding): all money
+# arithmetic is exact decimal (never binary float). The engine rounds each pay TERM once,
+# half-up to `places`: the chosen base's extension, each premium, and a flag's alternate
+# base. A line is the exact sum of its rounded terms; the total is the exact sum of the
+# rounded lines — nothing is rounded twice. Intermediate rates (e.g. the
 # longevity-adjusted hourly rate) are carried unrounded. Rounding the rate to cents first
 # would change the 12-year overtime answer below from 656.82 to 656.88. The district's
 # payroll practice is unconfirmed.
 rounding:
   places: 2
-  mode: half_up
+  mode: half_up          # half_up | half_even
+  granularity: term      # the only supported value today (see above)
 
 # VERIFICATION SCENARIOS — analyst-derived known answers (PRD §7's explicit fallback
 # when no real paystub is available yet). Each expected value is hand-computed from the

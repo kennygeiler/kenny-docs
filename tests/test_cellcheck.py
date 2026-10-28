@@ -11,6 +11,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import cellcheck  # noqa: E402
 from core.catalog import Catalog  # noqa: E402
 
@@ -216,7 +217,7 @@ def test_reread_p22_with_rapidocr_reads_the_printed_values():
 def client(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(CASE, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient
     return TestClient(core_app.app), str(case)

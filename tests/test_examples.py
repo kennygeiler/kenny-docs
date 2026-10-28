@@ -12,6 +12,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def client(tmp_path, monkeypatch):
                        "cases", "santacruz")
     case = tmp_path / "santacruz"
     shutil.copytree(src, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient
     return TestClient(core_app.app)

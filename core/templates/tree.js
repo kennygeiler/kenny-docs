@@ -73,15 +73,56 @@
     return `<div class="counts">${parts.join('')}</div>`;
   }
 
-  // Empty string when the query has no decision events: the caller shows its text
-  // fallback (the old trace list) and says the answer predates decision events.
-  function treeHtml(tree) {
-    if (!tree || tree.legacy || !(tree.nodes || []).length) return '';
-    return countsHtml(tree.counts) + `<ol class="tree">${tree.nodes.map(nodeHtml).join('')}</ol>`;
+  // "Rules that reached the engine" lists every rule the filter let through, but
+  // reaching the engine is not applying. A rule that no "Rule applied" fork chose did
+  // not change the result, so it is shown as not applied (status `skipped`, no tick),
+  // with the reason that fork recorded. Read from the tree itself: the rule_select
+  // forks name what fired and why each other rule did not. `facts` is the answer's
+  // "Read as" interpretation; a condition on a fact the question never gave is
+  // said in those words ("no years of service given").
+  function plainWhy(reason, facts) {
+    const m = /^when '(.+)' -> False$/.exec(reason || '');
+    if (!m) return reason || 'did not change the result';
+    const expr = m[1];
+    const names = expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
+    const missing = facts ? names.find(v => v in facts && !facts[v]) : null;
+    if (missing) return 'no ' + missing.replace(/_/g, ' ') + ' given';
+    return 'condition ' + expr + ' not met';
   }
 
-  function renderTree(tree, host, onRef) {
-    const html = treeHtml(tree);
+  function markNotApplied(nodes, facts) {
+    const selects = [];
+    const walk = list => (list || []).forEach(n => {
+      if (n.fork === 'rule_select' && n.status === 'fork') selects.push(n);
+      walk(n.children);
+    });
+    walk(nodes);
+    if (!selects.length) return nodes;
+    const applied = new Set(), why = new Map();
+    selects.forEach(f => (f.children || []).forEach(c => {
+      if (c.fork !== 'rule_select') return;
+      if (c.status === 'chosen') applied.add(c.label);
+      else if (c.status === 'rejected' && !why.has(c.label)) why.set(c.label, c.reason);
+    }));
+    return nodes.map(n => {
+      if (n.fork !== 'rule_filter' || n.status !== 'fork') return n;
+      return Object.assign({}, n, {children: (n.children || []).map(c =>
+        c.status === 'chosen' && !applied.has(c.label)
+          ? Object.assign({}, c, {status: 'skipped', reason: 'not applied: ' + plainWhy(why.get(c.label), facts)})
+          : c)});
+    });
+  }
+
+  // Empty string when the query has no decision events: the caller shows its text
+  // fallback (the old trace list) and says the answer predates decision events.
+  function treeHtml(tree, facts) {
+    if (!tree || tree.legacy || !(tree.nodes || []).length) return '';
+    const nodes = markNotApplied(tree.nodes, facts);
+    return countsHtml(tree.counts) + `<ol class="tree">${nodes.map(nodeHtml).join('')}</ol>`;
+  }
+
+  function renderTree(tree, host, onRef, facts) {
+    const html = treeHtml(tree, facts);
     host.innerHTML = html;
     if (!html) return false;
     host.querySelectorAll('button.ref').forEach(b => {
@@ -95,7 +136,7 @@
     return true;
   }
 
-  const api = {treeHtml, renderTree, nodeHtml, countsHtml};
+  const api = {treeHtml, renderTree, nodeHtml, countsHtml, markNotApplied, plainWhy};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   global.KennyTree = api;
 })(typeof window !== 'undefined' ? window : globalThis);

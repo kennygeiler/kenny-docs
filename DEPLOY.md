@@ -4,29 +4,52 @@
 **not** a production posture — see "What this deploy is not" below, and say so out loud
 when you share the link.
 
-**Default posture: OPEN.** No sign-in anywhere — chat, documents, and `/admin` all serve
-without credentials, exactly like a local run. Two protections stay on regardless:
+**Default posture: admin-only.** Chat is public; `/admin/*` (ratify, upload, re-read, the
+ledger) needs a password. The Dockerfile sets `KENNY_REQUIRE_AUTH=1`, so an image deployed
+without the secrets below refuses to boot rather than coming up open.
 
-- **Chat rate limit** (default 20/min per client) — an open `/chat` is the operator's
-  Anthropic budget, so removing auth never removes the spend cap.
-- **No API key by default.** The app runs end-to-end on deterministic fallbacks. Add
-  `ANTHROPIC_API_KEY` only once you accept that *anyone with the URL* can spend it
-  (rate-limited, but public).
+| Variable | Required | What it does |
+|---|---|---|
+| `KENNY_REQUIRE_AUTH=1` | default in the Dockerfile | Turns the auth layer on. Set `0` only for a deliberately open demo. |
+| `KENNY_ADMIN_PASSWORD` | yes | Password for `/admin/*`. |
+| `KENNY_LEDGER_KEY` | yes | HMAC key for the audit ledger. Generate with `openssl rand -base64 32`; keep it, the chain cannot be re-verified without it. |
+| `KENNY_VIEWER_PASSWORD` | no | Also puts chat behind a password. Unset = public chat. Must differ from the admin password; set alone (no admin password) the app refuses to start. |
+| `KENNY_LLM=off` | recommended for a public link | Disables every model touchpoint even when `ANTHROPIC_API_KEY` is set, so a public chat cannot spend the key. |
 
-Be aware of what open means here: anyone with the URL can ratify rules, upload/replace
-corpus PDFs, and read the ledger. Fine for a demo corpus; not fine the day real
-decisions live on the volume. To lock it back down, set `KENNY_REQUIRE_AUTH=1` plus
-`KENNY_VIEWER_PASSWORD`, `KENNY_ADMIN_PASSWORD`, and `KENNY_LEDGER_KEY` — the app
-refuses to boot half-configured, the viewer/admin split is enforced per-path, and the
-audit ledger becomes HMAC-signed.
+```bash
+railway variable set KENNY_REQUIRE_AUTH=1 KENNY_ADMIN_PASSWORD='<choose one>' \
+  KENNY_LEDGER_KEY="$(openssl rand -base64 32)" KENNY_LLM=off --skip-deploys
+```
+
+**An existing unkeyed ledger.** Adding `KENNY_LEDGER_KEY` to a deploy whose ledger was
+written without one makes `verify()` fail on the first unkeyed event, so `/healthz`
+returns 503. Export the ledger first (`GET /admin/ledger/export`), then redeploy once with
+`KENNY_SEED_FORCE=1 KENNY_SEED_FORCE_CONFIRM=yes` (archives the old case and ledger on the
+volume and starts a keyed one), then delete those two variables. Production today is in
+this state.
+
+Protections that stay on in every posture:
+
+- **Chat rate limit** (default 20/min per client) — an open `/chat` with a model on is the
+  operator's Anthropic budget.
+- **Admin rate limit** on `/admin/draft_scenario`, `/admin/ingest` and `/admin/upload`
+  (`KENNY_ADMIN_RATE_LIMIT`, default 10/min per client). Clients are told apart by the first
+  `X-Forwarded-For` hop; the entrypoint runs uvicorn with `--proxy-headers`.
+- **The app runs end to end with no key.** Costing and entitlements are deterministic. Add
+  `ANTHROPIC_API_KEY` (and drop `KENNY_LLM=off`) only once you accept that anyone who can
+  reach chat can spend it, rate-limited.
+
+With `KENNY_REQUIRE_AUTH=0` (open) anyone with the URL can ratify rules, upload or replace
+corpus PDFs and read the ledger. Fine for a throwaway demo; not fine once real decisions
+live on the volume.
 
 ## What is deployed today
 
-The production service was last built on 2026-08-25 by `railway up` from the laptop: it
-runs commit `3b326a6` (the last push to GitHub, 2026-08-14) plus an uncommitted diff that
-added the `/privacy` and `/terms` pages. Nothing on it reflects the 2026-10-07 build, and
-its `/api/case` has no `version` field. `STATUS.md` holds the exact commands for the next
-deploy; nothing below has been run since.
+Production runs commit `2802ad9` from `demo-2026-10-07`, deployed 2026-10-07 with `railway
+up` (footer and `/api/case` show `2802ad9`, checked 2026-10-28). It predates the admin-only
+mode: it runs **open** (`KENNY_REQUIRE_AUTH` unset) with a live `ANTHROPIC_API_KEY` and the
+model on. Moving it to the posture above needs the variables set and a redeploy; the steps
+are in `STATUS.md` section h.
 
 ## Deploy (Railway)
 
@@ -66,8 +89,9 @@ your CLI version's spelling):
 | `ANTHROPIC_API_KEY` | Turns on live Claude for routing/drafting (public spend — see above) |
 | `KENNY_LLM=off` | Disables every model touchpoint even when a key is set; the chat badge says so |
 | `KENNY_CHAT_RATE_LIMIT` | Chat requests per client per minute (default 20) |
+| `KENNY_ADMIN_RATE_LIMIT` | Draft/ingest/upload requests per client per minute (default 10) |
 | `KENNY_BANNER` | Standing banner text on both surfaces |
-| `KENNY_REQUIRE_AUTH=1` + 3 secrets | Re-enables the locked posture described above |
+| `KENNY_REQUIRE_AUTH`, `KENNY_ADMIN_PASSWORD`, `KENNY_LEDGER_KEY`, `KENNY_VIEWER_PASSWORD` | The auth posture, above |
 
 ## Checks after deploy
 
@@ -93,8 +117,8 @@ instance instead of as a wrong answer discovered months later.
 
 Do not describe it as production or as 508-conformant.
 
-- **Open by default.** No identity, no attribution: the ledger records `actor: "admin"`
-  for whoever clicked. Real use needs the locked posture at minimum, then SSO + RBAC.
+- **Shared passwords, not identity.** The ledger records `actor: "admin"` for whoever
+  knew the admin password. Real use needs SSO + per-user attribution.
 - **One instance, one volume.** No failover, no replication, no backup schedule.
 - **Rate limit is per-process.** Caps API spend and stops a runaway loop; not an attacker.
 - **Synthetic-ish corpus.** Everything on the link is illustrative. Hence the banner.

@@ -1,6 +1,6 @@
 """Extraction scorecard (OCR_TICKETS.md OCR-3): per-document "how well did we read
 this?" stats on /admin/coverage. The arithmetic lives in the pure helper
-core.app._extraction_stats so the histogram / empty-page / recovered-page math is
+core.services.sources._extraction_stats so the histogram / empty-page / recovered-page math is
 testable on a synthetic catalog entry without the HTTP stack."""
 import json
 import os
@@ -12,7 +12,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
-from core.app import _extraction_stats  # noqa: E402
+from core.services import state as core_state  # noqa: E402
+from core.services.sources import _extraction_stats  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #
@@ -89,7 +90,7 @@ def client(tmp_path, monkeypatch):
                        "cases", "santacruz")
     case = tmp_path / "santacruz"
     shutil.copytree(src, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient
     return TestClient(core_app.app), str(case)

@@ -6,6 +6,7 @@ import shutil
 import pytest
 
 import core.app as core_app
+from core.services import state as core_state
 from core import ledger as ledger_mod
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -15,7 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def client(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(os.path.join(ROOT, "cases", "santacruz"), case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv(ledger_mod.KEY_ENV, raising=False)
     from fastapi.testclient import TestClient

@@ -11,6 +11,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 
 
 @pytest.fixture
@@ -19,7 +20,7 @@ def client(tmp_path, monkeypatch):
                        "cases", "santacruz")
     case = tmp_path / "santacruz"
     shutil.copytree(src, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient
     return TestClient(core_app.app), str(case)
@@ -69,7 +70,7 @@ def test_admin_page_ships_the_compare_view(client):
     point, the split-pane containers, and a bumped stylesheet version (stale cached
     CSS would render the split layout as a broken single column)."""
     c, _ = client
-    html = c.get("/admin").text
+    html = (c.get("/admin").text + c.get("/static/admin.js").text)
     assert "openCompare(" in html, "every document card needs a Compare entry point"
     assert 'id="xrayText"' in html and 'class="xsplit"' in html
     css = c.get("/static/styles.css").text
@@ -83,11 +84,11 @@ def test_admin_page_ships_the_table_xray(client):
     table renderer, the count-strip mode indicator — and a bumped stylesheet version
     (stale cached CSS would render the grid unstyled and unhighlightable)."""
     c, _ = client
-    html = c.get("/admin").text
+    html = (c.get("/admin").text + c.get("/static/admin.js").text)
     assert "function tableModel(" in html, "majority-table detection + row-text parsing"
     assert "renderXTable(" in html and 'class="xtable"' in html
     assert "table page —" in html, "count-strip mode indicator"
-    assert "styles.css?v=12" in html
+    assert "styles.css?v=13" in html
     css = c.get("/static/styles.css").text
     assert ".xtable" in css and ".xtable-wrap" in css
 
@@ -97,7 +98,7 @@ def test_admin_page_ships_the_table_xray(client):
 # --------------------------------------------------------------------------- #
 def test_compare_deep_link_opens_requested_page(client):
     c, _ = client
-    html = c.get("/admin").text
+    html = (c.get("/admin").text + c.get("/static/admin.js").text)
     assert "openCompare = (docId, page" in html, "Compare takes a page argument"
     assert "function openViewer(mode, docId, page" in html
     assert "function compareDeepLink(" in html

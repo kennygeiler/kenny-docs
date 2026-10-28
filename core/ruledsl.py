@@ -17,9 +17,12 @@ is unit-agnostic — it evaluates the expression either way.
 """
 from __future__ import annotations
 
+import ast
 import json
 import os
+import re
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 try:
@@ -224,10 +227,54 @@ def rule_inputs(rule) -> list[dict]:
     return list(getattr(rule, "inputs", None) or [])
 
 
+def to_decimal(v: Any) -> Any:
+    """A float becomes the Decimal of its shortest repr (53.4 -> Decimal('53.4'), never
+    the binary expansion 53.39999…). bool/int/str/Decimal pass through unchanged — ints
+    are exact already and keep their type so serialised trace values do not change."""
+    if isinstance(v, float):
+        return Decimal(repr(v))
+    return v
+
+
+def _decimal_constant(node):
+    """Numeric literals in a rule (`1.5`, `0.025`) evaluate as Decimal, so money math
+    never touches binary floating point (audit: float-then-round)."""
+    value = SimpleEval._eval_constant(node)
+    return to_decimal(value)
+
+
+def _num(v: Any, ints: bool = False) -> Any:
+    if isinstance(v, float):
+        return Decimal(repr(v))
+    if ints and isinstance(v, int) and not isinstance(v, bool):
+        return Decimal(v)
+    return v
+
+
+def _decimal_op(op, ints: bool = False):
+    """Wrap an arithmetic operator so a float operand or result never survives. `ints`
+    (true division only): 300 * 12 / 2920 must be Decimal, not int/int -> float."""
+    def run(a, b):
+        return _num(op(_num(a, ints), _num(b, ints)))
+    return run
+
+
+_ARITH = (("Add", False), ("Sub", False), ("Mult", False), ("Div", True),
+          ("FloorDiv", False), ("Mod", False), ("Pow", False))
+
+
 def _make_evaluator(facts: dict[str, Any]):
     if SimpleEval is None:
         raise RuleError("simpleeval is not installed")
-    ev = SimpleEval(names=dict(facts))
+    # Money is evaluated in Decimal: float facts and float literals are converted on the
+    # way in (to_decimal), so `effective_base * 1.5 * hours` is exact and the engine's
+    # single half-up rounding is applied to the true value, not to float noise.
+    ev = SimpleEval(names={k: to_decimal(v) for k, v in facts.items()})
+    ev.nodes[ast.Constant] = _decimal_constant
+    for name, ints in _ARITH:
+        node = getattr(ast, name)
+        if node in ev.operators:
+            ev.operators[node] = _decimal_op(ev.operators[node], ints)
     # A minimal, safe helper set. No attribute access, no imports.
     ev.functions = {
         "min": min,
@@ -286,6 +333,15 @@ def unsupported_syntax(expr: str) -> list[str]:
     return sorted(bad)
 
 
+# Identifiers that end up in admin-page DOM attributes / inline handlers. A drafted rule
+# is model output over contract text, so its id is attacker-influenced; only plain
+# slug characters may reach the page. Citation CLAUSE labels are human headings
+# ("Overtime Rate (p.8)", "XV. Vacation Leave — ...") and cannot be slugs, so they are
+# held to "no markup / quote / control characters" instead.
+SAFE_ID_RE = re.compile(r"^[a-z0-9_:.\-]+$")
+_UNSAFE_LABEL_RE = re.compile(r"[<>\"'`\\\x00-\x1f\x7f]")
+
+
 def validate_rules(rules: list[dict], known_facts: set[str]) -> dict[str, list[str]]:
     """Static check a drafted rule set BEFORE it can be ratified (PRD §8A).
 
@@ -339,7 +395,20 @@ def validate_rules(rules: list[dict], known_facts: set[str]) -> dict[str, list[s
             if bad_syntax:
                 errs.append(f"syntax the evaluator cannot run ({', '.join(bad_syntax)}) "
                             f"in {e!r}")
-        if not r.get("citation", {}).get("clause"):
+        if not SAFE_ID_RE.match(str(r.get("id") or "")):
+            errs.append(f"rule id {r.get('id')!r} must match {SAFE_ID_RE.pattern} "
+                        f"(lowercase letters, digits, _ : . -)")
+        cit = r.get("citation") or {}
+        if not isinstance(cit, dict):
+            cit = {}
+            errs.append("citation must be an object")
+        if cit.get("doc_id") is not None and not SAFE_ID_RE.match(str(cit.get("doc_id"))):
+            errs.append(f"citation doc_id {cit.get('doc_id')!r} must match "
+                        f"{SAFE_ID_RE.pattern}")
+        if cit.get("clause") and _UNSAFE_LABEL_RE.search(str(cit.get("clause"))):
+            errs.append(f"citation clause {cit.get('clause')!r} contains markup, quote or "
+                        f"control characters")
+        if not cit.get("clause"):
             errs.append("missing citation clause (every rule must cite its source)")
         try:
             parse_inputs(r.get("inputs"), rid)                       # L2: optional, but sound

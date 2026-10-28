@@ -211,7 +211,8 @@ class _FakeCat:
 
 
 def test_revalidation_marks_sha_mismatch_stale(tmp_path):
-    from core.app import _raw_ratified, _revalidate_citations
+    from core.services.rulestore import _raw_ratified
+    from core.services.sources import _revalidate_citations
     case = _mini_case(tmp_path, [_rule(sha="a" * 64)])
     cat = _FakeCat({"doc_id": "d1", "pdf_sha256": "b" * 64,
                     "clauses": [{"clause": "9.1", "page": 1}]})
@@ -223,7 +224,7 @@ def test_revalidation_marks_sha_mismatch_stale(tmp_path):
 
 
 def test_revalidation_marks_missing_clause_stale(tmp_path):
-    from core.app import _revalidate_citations
+    from core.services.sources import _revalidate_citations
     case = _mini_case(tmp_path, [_rule(sha="a" * 64, clause="9.9")])
     cat = _FakeCat({"doc_id": "d1", "pdf_sha256": "a" * 64,
                     "clauses": [{"clause": "9.1", "page": 1}]})
@@ -234,7 +235,8 @@ def test_revalidation_marks_missing_clause_stale(tmp_path):
 def test_revalidation_backfills_legacy_citations(tmp_path):
     """A rule ratified before hashing existed gets bound to the current file when its
     evidence still checks out — no false stale, and future swaps become detectable."""
-    from core.app import _raw_ratified, _revalidate_citations
+    from core.services.rulestore import _raw_ratified
+    from core.services.sources import _revalidate_citations
     case = _mini_case(tmp_path, [_rule(sha="")])
     cat = _FakeCat({"doc_id": "d1", "pdf_sha256": "c" * 64,
                     "clauses": [{"clause": "9.1", "page": 1}]})
@@ -246,7 +248,7 @@ def test_revalidation_backfills_legacy_citations(tmp_path):
 
 
 def test_intact_evidence_stays_ratified(tmp_path):
-    from core.app import _revalidate_citations
+    from core.services.sources import _revalidate_citations
     case = _mini_case(tmp_path, [_rule(sha="c" * 64)])
     cat = _FakeCat({"doc_id": "d1", "pdf_sha256": "c" * 64,
                     "clauses": [{"clause": "9.1", "page": 1}]})

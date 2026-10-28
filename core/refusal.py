@@ -3,17 +3,17 @@
 A refusal is read by a buyer, not an engineer: it names the contract by its declared
 title (never a document id), says in one plain sentence why nothing was computed, and
 points at an admin tab that exists. One helper builds every `mode: blocked` response
-so the four refusal sites in core/app.py cannot drift apart again (they did: two of
+so the refusal sites (core/routes/chat.py) cannot drift apart again (they did: two of
 them sent the reader to "Admin → Ingest" and "Admin → Rule review", tabs that do not
 exist, and all four printed literal markdown asterisks around a document id).
 
-The admin tabs are `docs`, `verify`, `review`, `lib`, `audit` (admin.html `TABS`);
+The admin tabs are `docs`, `verify`, `review`, `lib`, `audit` (admin.js `TABS`);
 tests/test_chat_correctness.py parses that list out of the served page and checks
 every `next.href` here lands on one of them.
 """
 from __future__ import annotations
 
-# Admin tab anchors (admin.html: `const TABS = [...]`; `location.hash` selects one).
+# Admin tab anchors (admin.js: `const TABS = [...]`; `location.hash` selects one).
 TAB_VERIFY = "/admin#verify"
 TAB_LIBRARY = "/admin#lib"
 TAB_DOCUMENTS = "/admin#docs"
@@ -30,7 +30,7 @@ NEXT = {
 
 
 def doc_meta(case, doc_id: str) -> dict:
-    """Same shape as core/app.py::_doc_meta — duplicated here so this module does not
+    """Same shape as core/services/sources.py::_doc_meta — duplicated here so this module does not
     import the app (and the app's refusal sites stay a one-line call)."""
     s = case.source_by_id(doc_id) or {}
     return {"doc_id": doc_id, "title": s.get("title", doc_id),

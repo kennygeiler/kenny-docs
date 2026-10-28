@@ -2,8 +2,8 @@
 
 The suite must never reach a paid model, whatever is in the developer's .env:
 
-  1. core/app.py runs _load_dotenv() at import, and most test modules import core.app
-     at module top (during collection). KENNY_NO_DOTENV makes that loader a no-op, and
+  1. importing core.app runs _load_dotenv() (core/envfile.py, via core/services/state.py),
+     and most test modules import core.app at module top (during collection). KENNY_NO_DOTENV makes that loader a no-op, and
      the key is popped here BEFORE any test module is collected.
   2. An autouse fixture deletes ANTHROPIC_API_KEY for every test and replaces the SDK
      client constructor so a real client cannot be built by accident. Tests that
@@ -40,7 +40,8 @@ def _hermetic(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _fresh_chat_rate_window():
-    """The per-IP chat limiter (core/auth.py, 20 POST /chat per minute per process) is
+    """The per-IP limiters (core/auth.py: 20 POST /chat and 10 drafting/ingest/upload
+    POSTs per minute per process) are
     shared by every TestClient built on the module-level core.app.app. Several wave-1
     files post more than that between them, so each test starts with an empty window;
     test_auth builds its own app instances and still sees the real 429s."""
@@ -51,8 +52,10 @@ def _fresh_chat_rate_window():
         return
     layer = getattr(core_app.app, "middleware_stack", None)
     while layer is not None:
-        lim = getattr(layer, "limiter", None)
-        if lim is not None and hasattr(lim, "_hits"):
-            lim._hits.clear()
+        limits = getattr(layer, "limits", None)       # core/auth.py _Limits
+        for lim in (getattr(limits, "chat", None), getattr(limits, "admin", None),
+                    getattr(layer, "limiter", None)):
+            if lim is not None and hasattr(lim, "_hits"):
+                lim._hits.clear()
         layer = getattr(layer, "app", None)
     yield

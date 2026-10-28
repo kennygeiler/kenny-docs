@@ -162,8 +162,9 @@ def test_submit_load_and_stale_after_rule_edit(case, rule):
 
 def test_endpoints_serve_the_review_and_import_once(case, rule, monkeypatch):
     from core import app as core_app
+    from core.services import state as core_state
     from fastapi.testclient import TestClient
-    monkeypatch.setattr(core_app, "CASE_DIR", case.dir)
+    monkeypatch.setattr(core_state, "CASE_DIR", case.dir)
     # a "baked" artifact: produced by a run this instance's ledger does not hold
     run = _run(case, rule)
     skeptic.submit(run, {"verdict": "no_objection", "summary": "s", "warnings": []})

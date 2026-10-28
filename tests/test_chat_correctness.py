@@ -9,6 +9,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import answers as core_answers  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import llm  # noqa: E402
 
 
@@ -64,9 +66,9 @@ class _Case:
 
 def test_dept_scope_restricts_to_ingested():
     case = _Case()
-    assert core_app._dept_scope(case, _Cat(["fire_mou"]), "fire") == ["fire_mou"]
-    assert core_app._dept_scope(case, _Cat([]), "fire") == []        # declared ≠ ingested
-    assert core_app._dept_scope(case, _Cat(["fire_mou"]), "police") == []
+    assert core_answers._dept_scope(case, _Cat(["fire_mou"]), "fire") == ["fire_mou"]
+    assert core_answers._dept_scope(case, _Cat([]), "fire") == []        # declared ≠ ingested
+    assert core_answers._dept_scope(case, _Cat(["fire_mou"]), "police") == []
 
 
 def test_entitlement_docless_department_never_searches_unscoped(monkeypatch):
@@ -74,10 +76,10 @@ def test_entitlement_docless_department_never_searches_unscoped(monkeypatch):
     means 'no filter' — a police question was answered from the fire MOU. The search
     backend must not be called AT ALL when the scope is empty."""
     backend = _Backend()
-    monkeypatch.setattr(core_app, "_backend", lambda case: backend)
-    monkeypatch.setattr(core_app, "_catalog", lambda case: _Cat(["fire_mou"]))
+    monkeypatch.setattr(core_answers, "_backend", lambda case: backend)
+    monkeypatch.setattr(core_answers, "_catalog", lambda case: _Cat(["fire_mou"]))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    out = core_app._entitlement_answer(_Case(), _Led(), "q1",
+    out = core_answers._entitlement_answer(_Case(), _Led(), "q1",
                                        "how many bereavement days for police?",
                                        department="police")
     assert backend.calls == [], "empty scope must short-circuit, not search unfiltered"
@@ -175,7 +177,7 @@ def client(tmp_path, monkeypatch):
                        "cases", "santacruz")
     case = tmp_path / "santacruz"
     shutil.copytree(src, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     from fastapi.testclient import TestClient
     return TestClient(core_app.app)
@@ -198,9 +200,9 @@ import re as _re  # noqa: E402
 
 
 def _admin_tabs(client) -> list[str]:
-    html = client.get("/admin").text
+    html = (client.get("/admin").text + client.get("/static/admin.js").text)
     m = _re.search(r"const TABS = \[([^\]]*)\]", html)
-    assert m, "admin.html must declare its tab list"
+    assert m, "admin.js must declare its tab list"
     return _re.findall(r"'([a-z]+)'", m.group(1))
 
 
@@ -225,7 +227,7 @@ def test_blocked_message_is_plain_and_points_at_a_real_tab(client):
 
 def test_every_refusal_reason_points_at_a_real_tab(client):
     from core import refusal
-    case = core_app._case()
+    case = core_state._case()
     subjects = [s for s in case.subjects() if s.get("name") == "Fire Marshal (top step)"]
     tabs = _admin_tabs(client)
     for reason, kw in (("no_rules", {}), ("stale_rules", {"stale": ["a", "b"]}),

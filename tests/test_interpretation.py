@@ -16,6 +16,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import app as core_app  # noqa: E402
+from core.services import state as core_state  # noqa: E402
 from core import auth  # noqa: E402
 from core import costing, llm  # noqa: E402
 from core.caseio import load_case  # noqa: E402
@@ -31,7 +32,7 @@ LABELS = [s["name"] for s in load_case(CASE_SRC).subjects()]
 def case_dir(tmp_path, monkeypatch):
     case = tmp_path / "santacruz"
     shutil.copytree(CASE_SRC, case)
-    monkeypatch.setattr(core_app, "CASE_DIR", str(case))
+    monkeypatch.setattr(core_state, "CASE_DIR", str(case))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("SEARCH_BACKEND", "bm25")
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
@@ -171,7 +172,7 @@ def test_interpretation_matches_engine_inputs(client, case_dir):
     assert interp["parsed_via"] == "stub"
     snap = json.load(open(case_dir / "snapshots" / f"{res['query_id']}.json"))
     assert snap["params"]["hours"] == interp["hours"]
-    events = core_app._case().ledger().for_query(res["query_id"])
+    events = core_state._case().ledger().for_query(res["query_id"])
     ci = [e for e in events if e["type"] == "chat.interpretation"]
     assert len(ci) == 1 and ci[0]["payload"]["read_as"] == interp["read_as"]
 
