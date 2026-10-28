@@ -53,7 +53,7 @@ def test_keyed_chain_verifies(tmp_path, keyed):
     led = _make(tmp_path)
     ok, msg = led.verify()
     assert ok, msg
-    assert all(r["alg"] == "hmac-sha256" for r in _rows(led))
+    assert all(r["alg"] == ledger_mod.ALG_HMAC for r in _rows(led))
 
 
 def test_rewrite_with_recompute_fails_without_key(tmp_path, keyed):
@@ -128,3 +128,109 @@ def test_export_header_binds_head(tmp_path, keyed):
     assert header["keyed"] is True
     ok, msg = led.verify_anchor(header["head"]["seq"], header["head"]["hash"])
     assert ok, msg
+
+
+# ---- v2 alg: query_id + alg in the hash; mixed v1/v2 chains; append robustness ----
+
+def _v1_ledger(led, n, key=None):
+    """Write n events the way the pre-v2 code did (alg sha256 / hmac-sha256)."""
+    prev, rows = GENESIS, []
+    for i in range(n):
+        ev = {"seq": i, "ts": 1000.0 + i, "iso": "x", "actor": "old", "query_id": f"q{i}",
+              "type": "event", "payload": {"i": i}, "prev_hash": prev,
+              "alg": ledger_mod.ALG_HMAC_V1 if key else ledger_mod.ALG_PLAIN_V1}
+        ev["hash"] = ledger_mod._hash(prev, i, ev["ts"], "old", "event", {"i": i}, key)
+        prev = ev["hash"]
+        rows.append(ev)
+    _write(led, rows)
+
+
+def test_query_id_edit_is_detected(tmp_path):
+    led = Ledger(str(tmp_path / "ledger.jsonl"))
+    for i in range(3):
+        led.append("event", {"i": i}, actor="t", query_id=f"q{i}")
+    rows = _rows(led)
+    rows[1]["query_id"] = "someone-elses-question"
+    _write(led, rows)
+    d = led.verify_detail()
+    assert not d["ok"] and d["reason"] == "hash_mismatch" and d["failed_seq"] == 1
+
+
+def test_alg_relabel_is_detected(tmp_path):
+    """Relabelling a v2 event as v1 (which ignores query_id) must not pass."""
+    led = Ledger(str(tmp_path / "ledger.jsonl"))
+    for i in range(3):
+        led.append("event", {"i": i}, actor="t", query_id=f"q{i}")
+    rows = _rows(led)
+    rows[2]["alg"] = ledger_mod.ALG_PLAIN_V1
+    _write(led, rows)
+    d = led.verify_detail()
+    assert not d["ok"] and d["reason"] == "alg_downgrade"
+
+
+@pytest.mark.parametrize("use_key", [False, True])
+def test_mixed_v1_then_v2_chain_verifies(tmp_path, monkeypatch, use_key):
+    """Existing deploys hold hundreds of v1 events; new appends continue in v2."""
+    if use_key:
+        monkeypatch.setenv(ledger_mod.KEY_ENV, "k")
+    else:
+        monkeypatch.delenv(ledger_mod.KEY_ENV, raising=False)
+    led = Ledger(str(tmp_path / "ledger.jsonl"))
+    _v1_ledger(led, 5, key=b"k" if use_key else None)
+    assert led.verify()[0]
+    led.append("event", {"i": 5}, query_id="q5")
+    led.append("event", {"i": 6}, query_id="q6")
+    rows = _rows(led)
+    assert [r["seq"] for r in rows] == list(range(7))
+    assert rows[5]["prev_hash"] == rows[4]["hash"]
+    assert rows[6]["alg"] == (ledger_mod.ALG_HMAC if use_key else ledger_mod.ALG_PLAIN)
+    ok, msg = led.verify()
+    assert ok, msg
+    # v1 events still can't hide a payload edit
+    rows[2]["payload"] = {"i": "FORGED"}
+    _write(led, rows)
+    assert not led.verify()[0]
+
+
+def test_malformed_last_line_does_not_break_append(tmp_path):
+    led = _make(tmp_path, n=3)
+    with open(led.path, "a") as f:
+        f.write('{"seq": 3, "torn')          # crash mid-write, no newline
+    ev = led.append("after", {"ok": True})   # must not raise
+    assert ev["seq"] == 3
+    assert ev["prev_hash"] == _rows_ok(led)[2]["hash"]
+    d = led.verify_detail()                  # the torn line is still reported
+    assert not d["ok"] and d["reason"] == "unreadable_line"
+
+
+def _rows_ok(led):
+    out = []
+    with open(led.path) as f:
+        for l in f:
+            try:
+                out.append(json.loads(l))
+            except ValueError:
+                pass
+    return out
+
+
+def test_head_cache_rereads_after_external_change(tmp_path):
+    """Another process (or a second Ledger) appending must not fork the chain."""
+    path = str(tmp_path / "ledger.jsonl")
+    a, b = Ledger(path), Ledger(path)
+    a.append("x", {})
+    b.append("x", {})
+    a.append("x", {})
+    with open(path, "a") as f:               # out-of-band writer, bypasses the cache
+        rows = _rows(a)
+        ts = 5.0
+        ev = {"seq": 3, "ts": ts, "iso": "x", "actor": "o", "query_id": None, "type": "x",
+              "payload": {}, "prev_hash": rows[-1]["hash"], "alg": ledger_mod.ALG_PLAIN}
+        ev["hash"] = ledger_mod.event_hash(ledger_mod.ALG_PLAIN, ev["prev_hash"], 3, ts,
+                                           "o", "x", {}, None)
+        f.write(json.dumps(ev) + "\n")
+    a.append("x", {})
+    assert [r["seq"] for r in _rows(a)] == [0, 1, 2, 3, 4]
+    ok, msg = a.verify()
+    assert ok, msg
+    assert a.head()["seq"] == 4

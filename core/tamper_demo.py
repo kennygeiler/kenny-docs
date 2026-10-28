@@ -24,11 +24,12 @@ import shutil
 import tempfile
 from typing import Any
 
-from .ledger import Ledger, _canonical, _hash
+from .ledger import ALG_PLAIN, Ledger, _canonical, event_hash
 
 MODES = ("edit", "delete", "rechain", "truncate")
-# Only fields that the hash COVERS may be offered: editing query_id, iso or alg is not
-# detected today (DEMO_TICKETS.md F9), so the demo must not pretend it is.
+# Only fields that the hash COVERS may be offered. query_id and alg are covered for
+# v2 events (core/ledger.py ALG_*), but a ledger may still hold v1 events where they
+# are not, and iso is never covered (DEMO_TICKETS.md F9) — so the demo refuses them.
 ALLOWED_TOP_FIELDS = ("actor", "type")
 REFUSED_FIELDS = ("query_id", "iso", "alg", "seq", "prev_hash", "hash", "ts")
 
@@ -177,9 +178,9 @@ def run(real_path: str, mode: str = "edit", seq: int | None = None,
                 prev = rows[by_seq[seq] - 1]["hash"] if by_seq[seq] > 0 else "0" * 64
                 for r in rows[by_seq[seq]:]:
                     r["prev_hash"] = prev
-                    r["alg"] = "sha256"           # no key: plain SHA-256 is all they have
-                    r["hash"] = _hash(prev, r["seq"], r["ts"], r["actor"], r["type"],
-                                      r["payload"], None)
+                    r["alg"] = ALG_PLAIN          # no key: plain SHA-256 is all they have
+                    r["hash"] = event_hash(ALG_PLAIN, prev, r["seq"], r["ts"], r["actor"],
+                                           r["type"], r["payload"], r.get("query_id"))
                     prev = r["hash"]
         elif mode == "delete":
             if seq is None:
