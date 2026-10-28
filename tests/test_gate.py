@@ -25,6 +25,12 @@ FF_OT = f"{FF}:overtime_premium_rate"
 FF_LONG = f"{FF}:longevity_10yr"
 # live rules shipped in the case (data-goldens added longevity_10yr as the fifth)
 N_LIVE = len(json.load(open(os.path.join(SRC, "rules", "rules_ratified.json")))["rules"])
+# Known answers whose topic only queued (proposed) rules answer: the vacation tiers and the
+# M1 Local 3535 rulebook. They read pending on the shipped library.
+_QUEUED_TOPICS = {r.get("topic") for r in json.load(
+    open(os.path.join(SRC, "rules", "rules_proposed.json")))["rules"]}
+_QUEUED_SCENARIOS = {g["name"] for g in __import__("yaml").safe_load(
+    open(os.path.join(SRC, "case.yaml")))["golden_cases"] if g.get("topic") in _QUEUED_TOPICS}
 GOLDEN_640 = ("8-hour overtime shift at base rate, hours beyond the 182-hour threshold, "
               "Firefighter/Paramedic top step (1.5x per Local 3535 MOU)")
 GOLDEN_656 = ("8-hour overtime shift, 12-year Firefighter/Paramedic top step "
@@ -116,6 +122,8 @@ def test_gate_total_equals_chat_total_for_currency_known_answers(env):
     for g in cs.golden_cases():
         if g.get("result_type", "currency") != "currency":
             continue
+        if g.get("topic", "overtime") != "overtime":   # this check asks an OVERTIME question
+            continue
         subj = g["subjects"][0]
         q = f"Cost an {int(g['params']['hours'])}-hour overtime shift for a {subj}"
         if g["params"].get("years_of_service"):      # J1a: tenure comes from the question
@@ -161,6 +169,13 @@ def test_release_gate_refuses_pending_tiers_and_passes_once_they_are_approved(en
     res = c.post("/admin/ratify", json={"approver": "kenny",
                                         "rule_ids": [r["id"] for r in queued]}).json()
     assert sorted(res["ratified"]) == sorted(r["id"] for r in queued), res
+    # the M1 Local 3535 rulebook is queued too; its answers stay pending until approved
+    assert prepare_deploy._goldens_fail("cases/santacruz") is True
+    with open(os.path.join(case, "rules", "rules_proposed.json")) as f:
+        rest = [r["id"] for r in json.load(f)["rules"]]
+    assert rest
+    res = c.post("/admin/ratify", json={"approver": "kenny", "rule_ids": rest}).json()
+    assert sorted(res["ratified"]) == sorted(rest), res
     assert prepare_deploy._goldens_fail("cases/santacruz") is False
 
 
@@ -191,13 +206,14 @@ def test_shipped_library_every_rule_fires_in_a_passing_known_answer(env):
     v = c.get("/admin/verification").json()
     # five vacation-accrual answers are pending (tiers queued, not live): not a failure
     assert v["unverified"] == [] and not any(g["status"] == "fail" for g in v["goldens"])
-    # 22 known answers: 8 pass (six scenarios + the 9-/10-year longevity edges), 14
-    # vacation-tier answers pending (five tiers + nine E10 edges) until approved
-    assert v["pending"] == 14 and sum(g["status"] == "pass" for g in v["goldens"]) == 8
+    # 44 known answers: 8 pass (six scenarios + the 9-/10-year longevity edges), 14
+    # vacation-tier answers (five tiers + nine E10 edges) and 22 M1 Local 3535 answers
+    # pending until their queued rules are approved
+    assert v["pending"] == 36 and sum(g["status"] == "pass" for g in v["goldens"]) == 8
     assert set(v["proved_by"]) == {r["id"] for r in _library(case)}
     for g in v["goldens"]:
         if g["status"] == "pending":
-            assert not g["fired"] and g["name"].startswith("vacation accrual"), g["name"]
+            assert not g["fired"] and g["name"] in _QUEUED_SCENARIOS, g["name"]
             continue
         assert g["fired"], g["name"]
 
