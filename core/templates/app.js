@@ -37,7 +37,7 @@ function showBanner(text) {
 }
 
 function el(html) { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; }
-function esc(s) { return (s ?? '').toString().replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+function esc(s) { return (s ?? '').toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function fmt(n) { return '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 // An MOU is a rulebook: a rule's value may be money, days, hours, a date or a yes/no.
@@ -342,11 +342,13 @@ function renderCosting(res) {
   if (res.interpretation) wrap.appendChild(readAsLine(res.interpretation));  // costing-correctness (B4)
 
   // The headline is honest about what it is. For ONE classification, the total IS the
-  // per-member answer, and the figure itself is the button that opens the audit trail
-  // (I2: thumb-sized on a phone). For several, a grand total would be "one member of
-  // each class" — a number that corresponds to no real staffing — so the per-member
-  // rows are the answer and the sum is labelled as exactly what it is.
+  // per-member answer: the figure is the button that opens the audit trail (I2:
+  // thumb-sized on a phone) and the sum that produced it sits right under it. For
+  // several, a grand total would be "one member of each class" — a number that
+  // corresponds to no real staffing — so the per-member rows are the answer and the
+  // sum is labelled as exactly what it is.
   const items = r.line_items || [];
+  const uncovered = r.uncovered || [];
   if (items.length > 1) {
     wrap.appendChild(el(`<div class="total">${fmt(r.total)}
       <span class="muted" style="font-size:.45em; font-weight:400; display:block">
@@ -363,34 +365,42 @@ function renderCosting(res) {
       `${fmtVal(li.total, li.result_type)} per member for ${li.subject} — open the audit trail`);
     btn.onclick = () => openAudit(res.query_id, li, res);
     total.appendChild(btn);
-    total.appendChild(el('<span class="muted" style="font-size:.45em; font-weight:400; display:block">per member — click the figure to see how it was calculated</span>'));
     wrap.appendChild(total);
+    const sum = sumLine(li);
+    if (sum) {
+      const s = el('<div class="sum-line"></div>');
+      s.textContent = sum;
+      wrap.appendChild(s);
+    }
   }
 
   // Amounts are PER MEMBER of each classification — multiplying by a headcount is the
-  // reader's arithmetic, deliberately not ours (PRD §6a).
-  const linesWrap = el('<div class="lines-wrap"></div>');
-  const table = el(`<table class="lines"><caption>Cost per member, by classification — select an amount to see how it was calculated</caption>
-    <thead><tr><th scope="col">Classification</th><th scope="col">Basis</th><th scope="col">Amount (per member)</th></tr></thead><tbody></tbody></table>`);
-  const tb = table.querySelector('tbody');
-  items.forEach(li => {
-    const row = document.createElement('tr');
-    const amount = document.createElement('button');
-    amount.type = 'button';
-    amount.className = 'amount';
-    amount.setAttribute('aria-label',
-      `${fmtVal(li.total, li.result_type)} per member for ${li.subject} — open the audit trail`);
-    amount.textContent = fmtVal(li.total, li.result_type);
-    amount.onclick = () => openAudit(res.query_id, li, res);
-    const c1 = document.createElement('td'); c1.textContent = li.subject;
-    const c2 = document.createElement('td'); c2.textContent = basisLabel(li);
-    const c3 = document.createElement('td'); c3.appendChild(amount);
-    row.append(c1, c2, c3);
-    tb.appendChild(row);
-  });
-  appendUncoveredRows(tb, r.uncovered);  // costing-correctness (B2)
-  linesWrap.appendChild(table);
-  wrap.appendChild(linesWrap);
+  // reader's arithmetic, deliberately not ours (PRD §6a). One classification with
+  // nothing left uncovered needs no table: the headline already is that row.
+  if (items.length > 1 || uncovered.length) {
+    const linesWrap = el('<div class="lines-wrap"></div>');
+    const table = el(`<table class="lines"><caption>Cost per member, by classification</caption>
+      <thead><tr><th scope="col">Classification</th><th scope="col">Basis</th><th scope="col">Amount (per member)</th></tr></thead><tbody></tbody></table>`);
+    const tb = table.querySelector('tbody');
+    items.forEach(li => {
+      const row = document.createElement('tr');
+      const amount = document.createElement('button');
+      amount.type = 'button';
+      amount.className = 'amount';
+      amount.setAttribute('aria-label',
+        `${fmtVal(li.total, li.result_type)} per member for ${li.subject} — open the audit trail`);
+      amount.textContent = fmtVal(li.total, li.result_type);
+      amount.onclick = () => openAudit(res.query_id, li, res);
+      const c1 = document.createElement('td'); c1.textContent = li.subject;
+      const c2 = document.createElement('td'); c2.textContent = basisLabel(li);
+      const c3 = document.createElement('td'); c3.appendChild(amount);
+      row.append(c1, c2, c3);
+      tb.appendChild(row);
+    });
+    appendUncoveredRows(tb, uncovered);  // costing-correctness (B2)
+    linesWrap.appendChild(table);
+    wrap.appendChild(linesWrap);
+  }
 
   items.filter(li => li.needs_human_confirmation).forEach(li => {
     (li.flags || []).forEach(f => {
@@ -398,8 +408,21 @@ function renderCosting(res) {
         ${esc(f.message)} (primary ${fmt(f.primary)}, alternate ${fmt(f.alternate)})</div>`));
     });
   });
-  wrap.appendChild(el('<div class="muted" style="margin-top:8px">Click any amount to open its audit trail.</div>'));
+  // The one hint on the answer.
+  if (items.length) {
+    wrap.appendChild(el(`<div class="muted answer-hint">${items.length === 1
+      ? 'Per member. Click the figure to see the clause it came from.'
+      : 'Click any amount to see its sum and the clause it came from.'}</div>`));
+  }
   addBot(wrap);
+}
+
+// The arithmetic as a person writes it — "$53.40/hr × 1.5 × 8 h = $640.80" — from the
+// engine's own math step (the same line the drawer shows). Empty when the engine
+// recorded none, so nothing is invented here.
+function sumLine(li) {
+  const m = (li.trace || []).find(t => t.kind === 'math' && t.line);
+  return m ? String(m.line) : '';
 }
 
 // "Basis" cell: the rule's topic in plain words plus where it comes from — never the
@@ -747,11 +770,21 @@ async function loadTree(queryId, host, legacyTrace, res) {
   } catch (e) { /* fall through to the text fallback */ }
   const onRef = ref => openSource({...ref, title: docTitle(ref.doc_id, res)}, res);
   const drawn = window.KennyTree && tree && !tree.legacy
-    ? window.KennyTree.renderTree(tree, host, onRef) : false;
+    ? window.KennyTree.renderTree(tree, host, onRef, questionFacts(res)) : false;
   if (drawn) return;
   host.innerHTML = '';
   host.appendChild(legacyTrace());
   host.appendChild(el(`<div class="muted" style="font-size:12px">Recorded before decision events existed${seq !== null && seq !== undefined ? ` (ledger seq ${esc(seq)})` : ''} — showing the engine trace.</div>`));
+}
+// The facts the question supplied, as the engine was handed them ("Read as"). A
+// rule whose condition needs a fact the question did not give reads "not applied:
+// no years of service given" in the tree. Only facts the interpretation carries.
+function questionFacts(res) {
+  const i = (res && res.interpretation) || null;
+  if (!i) return null;
+  const out = {};
+  ['years_of_service', 'hours'].forEach(k => { if (k in i) out[k] = i[k]; });
+  return out;
 }
 // --- end search-tree helpers -----------------------------------------------------
 

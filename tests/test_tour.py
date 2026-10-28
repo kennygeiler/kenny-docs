@@ -39,14 +39,14 @@ def test_chat_page_ships_the_tour(client):
     assert '/static/tour.js?v=' in html, "chat must load the tour engine"
     assert 'id="tourStart"' in html and "Take the tour" in html
     assert 'data-page="chat"' in html, "the engine keys its step list off this"
-    assert "styles.css?v=7" in html, "stale cached CSS would ship no coach-mark styles"
+    assert "styles.css?v=13" in html, "stale cached CSS would ship no coach-mark styles"
 
 
 def test_admin_page_ships_the_tour_resume_hook(client):
     html = client.get("/admin").text
     assert '/static/tour.js?v=' in html, "admin must load the engine so ?tour=1 resumes"
     assert 'data-page="admin"' in html
-    assert "styles.css?v=12" in html
+    assert "styles.css?v=13" in html
 
 
 def test_no_foreign_legal_pages(client):
@@ -158,8 +158,8 @@ def test_admin_ships_the_load_demo_draft_button(client):
     assert 'id="loadDemoDraft"' in html and "Load the demo draft" in html
     assert "async function loadDemoDraft(" in html and "window.loadDemoDraft" in html
     assert "/admin/demo_draft/load" in html
-    assert "tour.js?v=3" in html, "the rewritten engine must not be served from cache"
-    assert "tour.js?v=3" in client.get("/").text
+    assert "tour.js?v=4" in html, "the rewritten engine must not be served from cache"
+    assert "tour.js?v=4" in client.get("/").text
 
 
 def test_demo_draft_file_is_wrong_on_purpose_and_cites_the_live_clause():

@@ -105,13 +105,13 @@
     if (!qa('#log .msg.bot .total').length) await askQuestion(QUESTION_COSTING, ctx);
   }
 
-  // Find a document-card button by its onclick prefix, preferring one whose doc id
-  // (in the onclick attribute) matches `re`, then one whose card text does — the tour
-  // survives documents being reordered or retitled. (Matching card TEXT first was a
-  // bug: the salary schedule's summary mentions "firefighter" rows.)
-  function docButton(prefix, re) {
-    const btns = qa(`#docs button[onclick^="${prefix}"]`);
-    return btns.find(b => re.test(b.getAttribute('onclick') || ''))
+  // Find a document-card button by its action (data-act="xray" / "compare"),
+  // preferring one whose doc id (data-doc) matches `re`, then one whose card text does —
+  // the tour survives documents being reordered or retitled. (Matching card TEXT first
+  // was a bug: the salary schedule's summary mentions "firefighter" rows.)
+  function docButton(act, re) {
+    const btns = qa(`#docs button[data-act="${act}"]`);
+    return btns.find(b => re.test(b.dataset.doc || ''))
         || btns.find(b => re.test((b.closest('.card') || b).textContent || ''))
         || btns[0] || null;
   }
@@ -301,6 +301,8 @@
           if (v) parts.push(` “${text(v)}” is where a second OCR read disagrees — next.`);
           return parts.join('');
         },
+        // Admin opens on Verification; the tour starts on Documents.
+        pre: async () => { const t = q('#tab-docs'); if (t) t.click(); },
         waitFor: '#docs .score',
         waitTimeout: 20000,
         target: '#docs .score',
@@ -311,9 +313,9 @@
           + 'page it came from — the machine\'s reading laid over the paper. The arrows '
           + 'above step through the pages; hover a box to read what was extracted from it.',
         pre: async ctx => {
-          await poll(() => q('#docs button[onclick^="openXray"]'), 15000);
+          await poll(() => q('#docs button[data-act="xray"]'), 15000);
           if (!ctx.alive()) return;
-          const b = docButton('openXray', SHOWCASE_DOC);
+          const b = docButton('xray', SHOWCASE_DOC);
           if (b) { mark('xray'); b.click(); }
         },
         waitFor: '#xrayStage .xbox',
@@ -345,9 +347,9 @@
         },
         pre: async ctx => {
           closeXrayIfOpen();
-          await poll(() => q('#docs button[onclick^="openCompare"]'), 15000);
+          await poll(() => q('#docs button[data-act="compare"]'), 15000);
           if (!ctx.alive()) return;
-          const b = q('#docs .btn-showcase') || docButton('openCompare', SHOWCASE_DOC);
+          const b = q('#docs .btn-showcase') || docButton('compare', SHOWCASE_DOC);
           if (b) { mark('xray'); b.click(); }
         },
         waitFor: '#xrayText .xtable, #xrayText .xrow',
@@ -363,8 +365,8 @@
           const cards = qa('#verify .card.ratified, #verify .card.invalid, #verify .card.warn-card')
             .filter(c => c.querySelector('.rule-head'));
           const ok = cards.filter(c => c.classList.contains('ratified')).length;
-          return `Each card is a known answer: ${cards.length || 'the ones'} here were worked out by `
-            + 'hand from the contract, not taken from payroll (a real paystub replaces each at '
+          return `Each card is a known answer: ${cards.length || 'the ones'} here were worked out `
+            + 'from the contract itself, not taken from payroll (a real paystub replaces each at '
             + `onboarding)${cards.length ? `, and ${ok} read “Reproduced”` : ''}. A rule goes live only `
             + 'if it fires in a known answer and the library then reproduces that answer.';
         },
