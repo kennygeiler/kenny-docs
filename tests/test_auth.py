@@ -13,7 +13,8 @@ from core import auth  # noqa: E402
 
 def _app(monkeypatch, **env):
     for k in ("KENNY_VIEWER_PASSWORD", "KENNY_ADMIN_PASSWORD", "KENNY_REQUIRE_AUTH",
-              "KENNY_CHAT_RATE_LIMIT", "KENNY_LEDGER_KEY", "FLY_APP_NAME"):
+              "KENNY_CHAT_RATE_LIMIT", "KENNY_ADMIN_RATE_LIMIT", "KENNY_LEDGER_KEY",
+              "FLY_APP_NAME"):
         monkeypatch.delenv(k, raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -37,6 +38,26 @@ def _app(monkeypatch, **env):
 
     @app.post("/admin/upload")
     def upload():
+        return {"ok": True}
+
+    @app.get("/admin")
+    def admin_page():
+        return {"page": "admin"}
+
+    @app.post("/admin/draft_scenario")
+    def draft():
+        return {"ok": True}
+
+    @app.post("/admin/ingest")
+    def ingest():
+        return {"ok": True}
+
+    @app.post("/admin/ratify")
+    def ratify():
+        return {"ok": True}
+
+    @app.get("/doc/x/file")
+    def doc():
         return {"ok": True}
 
     auth.install(app)
@@ -269,3 +290,75 @@ def test_table_only_page_recovers_rows_not_a_blob():
     assert sergeant["bbox"][0] == 84 and sergeant["bbox"][2] == 240
 
     assert _from_doc_texts(type("D", (), {"texts": []})()) is None
+
+
+# ---- admin-only mode: public chat, locked /admin (audit 2026-10-28) ----
+
+def test_admin_only_mode_keeps_chat_public_and_locks_admin(monkeypatch):
+    c = _app(monkeypatch, KENNY_ADMIN_PASSWORD="decide")
+    assert c.get("/").status_code == 200
+    assert c.post("/chat").status_code == 200
+    assert c.get("/doc/x/file").status_code == 200
+    for method, path in [("get", "/admin"), ("get", "/admin/ledger"),
+                         ("post", "/admin/upload"), ("post", "/admin/ratify"),
+                         ("post", "/admin/draft_scenario")]:
+        assert getattr(c, method)(path).status_code == 401, path
+        assert getattr(c, method)(path, headers=_basic("wrong")).status_code == 401, path
+        assert getattr(c, method)(path, headers=_basic("decide")).status_code == 200, path
+
+
+def test_admin_only_mode_still_throttles_and_blocks_csrf(monkeypatch):
+    c = _app(monkeypatch, KENNY_ADMIN_PASSWORD="decide")
+    assert c.post("/admin/ratify", headers={**_basic("decide"),
+                                            "Origin": "https://evil.example"}
+                  ).status_code == 403
+    for _ in range(6):
+        assert c.get("/admin/ledger", headers=_basic("wrong")).status_code == 401
+    assert c.get("/admin/ledger", headers=_basic("wrong")).status_code == 429
+
+
+def test_viewer_password_alone_is_refused(monkeypatch):
+    """Locking chat while /admin is open is the worst of both: refuse it."""
+    with pytest.raises(RuntimeError, match="KENNY_ADMIN_PASSWORD"):
+        _app(monkeypatch, KENNY_VIEWER_PASSWORD="look")
+
+
+def test_require_auth_accepts_admin_only_with_ledger_key(monkeypatch):
+    with pytest.raises(RuntimeError, match="KENNY_LEDGER_KEY"):
+        _app(monkeypatch, KENNY_REQUIRE_AUTH="1", KENNY_ADMIN_PASSWORD="decide")
+    c = _app(monkeypatch, KENNY_REQUIRE_AUTH="1", KENNY_ADMIN_PASSWORD="decide",
+             KENNY_LEDGER_KEY="k")
+    assert c.post("/chat").status_code == 200
+    assert c.get("/admin").status_code == 401
+
+
+@pytest.mark.parametrize("env", [{}, {"KENNY_ADMIN_PASSWORD": "decide"},
+                                 {"KENNY_ADMIN_PASSWORD": "decide",
+                                  "KENNY_VIEWER_PASSWORD": "look"}])
+def test_model_and_docling_routes_are_rate_limited_in_every_mode(monkeypatch, env):
+    c = _app(monkeypatch, KENNY_ADMIN_RATE_LIMIT="2", **env)
+    h = _basic("decide") if env else {}
+    codes = [c.post("/admin/draft_scenario", headers=h).status_code for _ in range(2)]
+    assert codes == [200, 200]
+    assert c.post("/admin/draft_scenario", headers=h).status_code == 429
+    assert c.post("/admin/ingest", headers=h).status_code == 429   # shared budget
+    assert c.post("/admin/upload", headers=h).status_code == 429
+    assert c.post("/admin/ratify", headers=h).status_code == 200   # not a costly route
+
+
+def test_x_forwarded_for_first_hop_is_the_client():
+    """Railway: every connection comes from the proxy; the client is XFF's first hop."""
+    from types import SimpleNamespace
+    proxy = SimpleNamespace(host="100.64.0.2")
+    req = SimpleNamespace(headers={"x-forwarded-for": "198.51.100.7, 100.64.0.2"},
+                          client=proxy)
+    assert auth._client_ip(req) == "198.51.100.7"
+    assert auth._client_ip(SimpleNamespace(headers={}, client=proxy)) == "100.64.0.2"
+
+
+def test_container_defaults_to_required_auth_and_proxy_headers():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    docker = open(os.path.join(root, "Dockerfile")).read()
+    assert "KENNY_REQUIRE_AUTH=1" in docker
+    entry = open(os.path.join(root, "scripts", "entrypoint.sh")).read()
+    assert "--proxy-headers" in entry and "--forwarded-allow-ips" in entry
