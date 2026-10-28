@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kenny Admin — contract library, rule review and audit</title>
-  <link rel="stylesheet" href="/static/styles.css?v=13">
+  <link rel="stylesheet" href="/static/styles.css?v=14">
   <!-- ocr chunk (D1/D2/D4): origin badge, disputed/unverified cells, showcase button.
        Kept inline so the shared stylesheet stays untouched. -->
   <style id="ocr-cells">
@@ -52,6 +52,7 @@
       <button role="tab" id="tab-docs"   aria-controls="panel-docs"   aria-selected="false" class="tab" tabindex="-1">Documents <span class="pill" id="cnt-docs"></span></button>
       <button role="tab" id="tab-review" aria-controls="panel-review" aria-selected="false" class="tab" tabindex="-1">Review queue <span class="pill" id="cnt-review"></span></button>
       <button role="tab" id="tab-lib"    aria-controls="panel-lib"    aria-selected="false" class="tab" tabindex="-1">Rule library <span class="pill" id="cnt-lib"></span></button>
+      <button role="tab" id="tab-coverage" aria-controls="panel-coverage" aria-selected="false" class="tab" tabindex="-1" hidden>Coverage</button>
       <button role="tab" id="tab-audit"  aria-controls="panel-audit"  aria-selected="false" class="tab" tabindex="-1">Audit</button>
     </div>
 
@@ -143,6 +144,21 @@
             approval stays with the human.</p>
           <div id="skeptic-list"></div>
         </section>
+      </section>
+
+      <!-- ---------------- COVERAGE (ROADMAP M1.5) ----------------
+           Every provision in cases/<case>/provisions.yaml with its state, grouped by
+           article. Public to read; the tab stays hidden when the case has no inventory. -->
+      <section role="tabpanel" id="panel-coverage" aria-labelledby="tab-coverage" class="panel" tabindex="0" hidden>
+        <h2>Coverage</h2>
+        <p class="lede">Every pay and leave provision in the contract: live ones answer with a
+          number, drafted ones wait for a person on the Review queue, and the rest are quoted,
+          with the reason they are not modelled.</p>
+        <div class="toolbar">
+          <input type="search" id="covSearch" placeholder="Search provisions"
+            aria-label="Search provisions" autocomplete="off">
+        </div>
+        <div id="coverage"></div>
       </section>
 
       <!-- ---------------- AUDIT ---------------- -->
@@ -248,7 +264,7 @@
     </div>
   </div>
 
-  <script src="/static/admin.js?v=2"></script>
+  <script src="/static/admin.js?v=3"></script>
   <!-- handoff (K1): the commit this build runs, filled from /api/case -->
   <footer id="buildTag" class="build-tag" style="text-align:center;font-size:11px;color:#8a97a8;padding:4px 16px 16px">build …</footer>
   <!-- Guided demo tour: resumes here when chat hands off with ?tour=1. -->
