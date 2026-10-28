@@ -70,10 +70,14 @@ header nav a[aria-current="page"] { color: #fff; font-weight: 600; }
 
 /* ---------------- tabs ---------------- */
 .tabs {
-  display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 2px solid var(--line);
-  margin-bottom: 18px;
+  /* One row at every width: on a phone it scrolls sideways instead of wrapping. */
+  display: flex; gap: 4px; flex-wrap: nowrap; border-bottom: 2px solid var(--line);
+  margin-bottom: 18px; overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
+.tabs::-webkit-scrollbar { display: none; }
 .tab {
+  flex: 0 0 auto; white-space: nowrap;
   background: none; border: 0; border-bottom: 3px solid transparent;
   color: var(--grey); font-size: 14px; font-weight: 600; cursor: pointer;
   padding: 10px 14px; border-radius: 5px 5px 0 0;
@@ -424,6 +428,11 @@ table.lines caption { text-align: left; font-size: 12.5px; color: var(--grey); p
 /* The headline figure is the same button, at headline size. */
 .total .amount.total-btn { font-size: inherit; color: var(--navy); padding: 6px 0; }
 .total .amount.total-btn:hover { color: var(--steel); }
+/* The sum behind the headline figure, right under it (same line the drawer shows). */
+.sum-line { margin: -6px 0 8px; font-size: 15px; color: var(--navy); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.answer-hint { margin-top: 8px; }
+/* Re-read all documents: maintenance, kept small and apart from Upload. */
+.reread-row { margin: 18px 0 4px; }
 
 /* Request lifecycle (DEMO_TICKETS I1): the pending bubble holds the answer's place. */
 .msg.pending { display: flex; gap: 8px; align-items: center; color: var(--grey); }
@@ -570,6 +579,11 @@ details.tech .mono { font-size: 11.5px; overflow-wrap: anywhere; margin: 4px 0; 
 .node.rejected { color: var(--grey); opacity: .78; }
 .node.rejected > .nl::before { content: "\2717\00a0"; color: var(--grey); }
 .node.chosen > .nl::before { content: "\2713\00a0"; color: var(--ok); }
+/* Matched and handed to the engine, but did not change the result (e.g. longevity
+   with no years of service given): neither a tick nor a cross. */
+.node.skipped { color: var(--grey); }
+.node.skipped > .nl::before { content: "\2013\00a0"; color: var(--grey); }
+.node.skipped > .why { font-style: normal; }
 .node.info > .nl { font-style: italic; color: var(--grey); }
 .node .why { color: var(--grey); font-style: italic; }
 .node .tally { color: var(--grey); font-size: 11px; }

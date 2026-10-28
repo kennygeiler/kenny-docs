@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kenny Admin — contract library, rule review and audit</title>
-  <link rel="stylesheet" href="/static/styles.css?v=12">
+  <link rel="stylesheet" href="/static/styles.css?v=13">
   <!-- ocr chunk (D1/D2/D4): origin badge, disputed/unverified cells, showcase button.
        Kept inline so the shared stylesheet stays untouched. -->
   <style id="ocr-cells">
@@ -43,21 +43,21 @@
     <!-- Organised by lifecycle state: what we hold, what needs a decision, what is
          live, whether it is verified, and what is blocked on data. Each tab has one
          verb and one owner. -->
-    <!-- Tab order follows the actual flow: read documents, then per known answer draft
-         the rules it needs (Verification), then approve them (Review queue), then inspect
-         what is live (Rule library). Review-before-Verification was a fossil of the old
-         ingest-drafts-everything flow. -->
+    <!-- The page opens on Verification: the known answers are where an admin starts
+         (does the library reproduce them?). Documents holds what was read; drafting per
+         known answer fills the Review queue; approved rules show in the Rule library.
+         An explicit #hash (e.g. #docs, #audit) still opens its own tab. -->
     <div role="tablist" aria-label="Admin sections" class="tabs">
-      <button role="tab" id="tab-docs"   aria-controls="panel-docs"   aria-selected="true"  class="tab">1 · Documents <span class="pill" id="cnt-docs"></span></button>
-      <button role="tab" id="tab-verify" aria-controls="panel-verify" aria-selected="false" class="tab" tabindex="-1">2 · Verification <span class="pill" id="cnt-verify"></span></button>
-      <button role="tab" id="tab-review" aria-controls="panel-review" aria-selected="false" class="tab" tabindex="-1">3 · Review queue <span class="pill" id="cnt-review"></span></button>
+      <button role="tab" id="tab-verify" aria-controls="panel-verify" aria-selected="true"  class="tab">Verification <span class="pill" id="cnt-verify"></span></button>
+      <button role="tab" id="tab-docs"   aria-controls="panel-docs"   aria-selected="false" class="tab" tabindex="-1">Documents <span class="pill" id="cnt-docs"></span></button>
+      <button role="tab" id="tab-review" aria-controls="panel-review" aria-selected="false" class="tab" tabindex="-1">Review queue <span class="pill" id="cnt-review"></span></button>
       <button role="tab" id="tab-lib"    aria-controls="panel-lib"    aria-selected="false" class="tab" tabindex="-1">Rule library <span class="pill" id="cnt-lib"></span></button>
       <button role="tab" id="tab-audit"  aria-controls="panel-audit"  aria-selected="false" class="tab" tabindex="-1">Audit</button>
     </div>
 
     <main id="main">
       <!-- ---------------- DOCUMENTS ---------------- -->
-      <section role="tabpanel" id="panel-docs" aria-labelledby="tab-docs" class="panel" tabindex="0">
+      <section role="tabpanel" id="panel-docs" aria-labelledby="tab-docs" class="panel" tabindex="0" hidden>
         <h2>Contract library</h2>
         <p class="lede">Every document Kenny can answer from. Reading a contract makes it
           <strong>searchable</strong> (chat can quote it immediately); costing rules are drafted
@@ -68,19 +68,24 @@
           <label class="file-label" for="pdfFile">Add a contract (PDF)</label>
           <input type="file" id="pdfFile" accept="application/pdf" aria-describedby="upload-help">
           <button type="button" onclick="upload()">Upload and read</button>
-          <button type="button" class="ghost" onclick="ingest()">Re-read all documents</button>
         </div>
         <p class="help" id="upload-help">Reading a large contract takes a few minutes: every page is
           parsed for its text, its tables, and the exact position of each clause.</p>
         <div id="uploadMsg" class="muted" role="status" aria-live="polite"></div>
         <div id="docs"></div>
+        <!-- Re-reading is maintenance, not a step in the flow: kept small, away from
+             Upload, and behind an inline confirm that says what it does (ingest()). -->
+        <p class="reread-row">
+          <button type="button" class="ghost small" id="rereadBtn" data-act="reread">Re-read all documents</button>
+        </p>
+        <div id="rereadMsg" role="status" aria-live="polite"></div>
       </section>
 
       <!-- ---------------- VERIFICATION ---------------- -->
-      <section role="tabpanel" id="panel-verify" aria-labelledby="tab-verify" class="panel" tabindex="0" hidden>
-        <h2>Verification — start here</h2>
-        <p class="lede">Each card is a <strong>known answer</strong>. The four shipped here are
-          analyst-derived: worked out by hand from the contract, not taken from payroll. A rule can go
+      <section role="tabpanel" id="panel-verify" aria-labelledby="tab-verify" class="panel" tabindex="0">
+        <h2>Verification</h2>
+        <p class="lede">Each card is a <strong>known answer</strong>, worked out from the contract
+          itself rather than taken from payroll; its source line says how. A rule can go
           live only if it fires in a known answer and the library then reproduces it. To cover a
           scenario nothing answers yet, press <strong>Draft the rules for this scenario</strong>: Kenny
           pulls only the clauses that answer it, drafts the handful of rules they need, and checks the
@@ -245,13 +250,17 @@
 
   <script>
     const $ = id => document.getElementById(id);
-    const esc = s => (s ?? '').toString().replace(/[&<>"]/g, m =>
-      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+    // Escapes for HTML text AND attribute values (either quote). Never feed its output
+    // into an inline handler: dynamic values travel as data-* attributes and one
+    // delegated listener below reads them (see "actions").
+    const esc = s => (s ?? '').toString().replace(/[&<>"']/g, m =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     const el = h => { const d = document.createElement('div'); d.innerHTML = h.trim(); return d.firstChild; };
 
     /* ---------------- accessible tabs (WCAG 2.1 AA keyboard pattern) ---------------- */
-    const TABS = ['docs', 'verify', 'review', 'lib', 'audit'];
-    function showTab(name, focus = true) {
+    const TABS = ['verify', 'docs', 'review', 'lib', 'audit'];
+    const DEFAULT_TAB = 'verify';
+    function showTab(name, focus = true, remember = true) {
       TABS.forEach(t => {
         const tab = $('tab-' + t), panel = $('panel-' + t);
         const on = t === name;
@@ -260,7 +269,7 @@
         panel.hidden = !on;
       });
       if (focus) $('tab-' + name).focus();
-      history.replaceState(null, '', '#' + name);
+      if (remember) history.replaceState(null, '', location.pathname + location.search + '#' + name);
     }
     TABS.forEach((t, i) => {
       $('tab-' + t).addEventListener('click', () => showTab(t));
@@ -272,6 +281,26 @@
                 : k === 'ArrowRight' ? (i + 1) % TABS.length : (i - 1 + TABS.length) % TABS.length;
         showTab(TABS[n]);
       });
+    });
+
+    /* ---------------- actions ----------------
+       Every button rendered from data carries its arguments in data-* attributes and
+       is wired here, once. No handler is ever assembled from a string, so a quote in a
+       document id, clause label or scenario name cannot break out into script. */
+    document.addEventListener('click', e => {
+      const b = e.target.closest('[data-act]');
+      if (!b || b.disabled) return;
+      const d = b.dataset;
+      switch (d.act) {
+        case 'xray':    openXray(d.doc); break;
+        case 'compare': openCompare(d.doc, d.page ? Number(d.page) : 1); break;
+        case 'source':  viewSource(d.doc || '', d.clause || '', d.rule || ''); break;
+        case 'break':   tryBreak(b); break;
+        case 'draft':   draftScenario(b, d.name || ''); break;
+        case 'reread':  ingest(); break;
+        case 'reread-go':     ingestConfirmed(); break;
+        case 'reread-cancel': $('rereadMsg').textContent = ''; $('rereadBtn').focus(); break;
+      }
     });
 
     /* ---------------- documents + coverage ---------------- */
@@ -380,13 +409,13 @@
         <h4><a href="/doc/${encodeURIComponent(d.doc_id)}/file" target="_blank"
                rel="noopener">${esc(d.title || d.doc_id)}<span class="ext" aria-hidden="true"> &#8599;</span><span class="sr-only"> (opens the PDF in a new tab)</span></a></h4>
         <p class="mono id">${esc(d.doc_id)} · ${tot} clauses
-          <button type="button" class="ghost small" onclick="openXray('${esc(d.doc_id)}')"
+          <button type="button" class="ghost small" data-act="xray" data-doc="${esc(d.doc_id)}"
                   title="See every clause the machine extracted, boxed on the page it came from">
             X-ray</button>
-          <button type="button" class="ghost small" onclick="openCompare('${esc(d.doc_id)}')"
+          <button type="button" class="ghost small" data-act="compare" data-doc="${esc(d.doc_id)}"
                   title="Page image beside its extracted text — hover either side to check the extraction by eye">
             Compare</button>${SHOWCASE && SHOWCASE.doc === d.doc_id ? `
-          <button type="button" class="ghost small btn-showcase" onclick="openCompare('${esc(d.doc_id)}', ${Number(SHOWCASE.page)})"
+          <button type="button" class="ghost small btn-showcase" data-act="compare" data-doc="${esc(d.doc_id)}" data-page="${Number(SHOWCASE.page)}"
                   title="${esc(SHOWCASE.label)}: open Compare on the page where a second OCR read disagrees with what was stored">
             Showcase: p.${Number(SHOWCASE.page)}</button>` : ''}</p>
         ${scorecard(d)}
@@ -461,10 +490,10 @@
           ${bad ? `<span class="bad">Cannot be approved</span>`
                 : `<span class="ok" title="Parses and uses only real fields. The known-answer check runs when you approve.">Well-formed</span>`}
           <button type="button" class="ghost small"
-            onclick="viewSource('${esc(cit.doc_id || r._doc_id || '')}','${esc(cit.clause || '')}','${esc(r.id)}')">
+            data-act="source" data-doc="${esc(cit.doc_id || r._doc_id || '')}" data-clause="${esc(cit.clause || '')}" data-rule="${esc(r.id)}">
             View source</button>
           ${bad ? '' : `<button type="button" class="ghost small" data-id="${esc(r.id)}"
-            onclick="tryBreak(this)">Try to break it</button>`}
+            data-act="break">Try to break it</button>`}
         </div>
         ${ruleBody(r)}
         ${bad ? `<p class="flagline">${errs.map(esc).join('<br>')}</p>` : ''}
@@ -616,10 +645,10 @@
                 <span class="badge-ratified">Live</span>
                 ${unverified.has(r.id) ? `<span class="warn-badge">No known answer exercises this rule</span>` : ''}
                 <button type="button" class="ghost small"
-                  onclick="viewSource('${esc(cit.doc_id || '')}','${esc(cit.clause || '')}','${esc(r.id)}')">
+                  data-act="source" data-doc="${esc(cit.doc_id || '')}" data-clause="${esc(cit.clause || '')}" data-rule="${esc(r.id)}">
                   View source</button>
                 <button type="button" class="ghost small" data-id="${esc(r.id)}"
-                  onclick="tryBreak(this)">Try to break it</button>
+                  data-act="break">Try to break it</button>
               </div>
               ${ruleBody(r)}
               ${proved.length ? `<p class="muted">Proved by: ${proved.map(esc).join('; ')} — checked at that answer's inputs only.</p>` : ''}
@@ -632,6 +661,21 @@
     }
 
     /* ---------------- verification ---------------- */
+    // A known answer reads the way chat prints it: money as $640.80, other units named.
+    // Mirrors app.js fmtVal; anything non-numeric (a date, text) is shown as given.
+    function fmtVal(v, type) {
+      if (v === null || v === undefined || v === '') return '—';
+      const n = Number(v);
+      if (!Number.isFinite(n)) return String(v);
+      const unit = (one, many) => `${n} ${n === 1 ? one : many}`;
+      switch (type) {
+        case 'currency': return '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        case 'days':   return unit('day', 'days');
+        case 'shifts': return unit('shift', 'shifts');
+        case 'hours':  return unit('hour', 'hours');
+        default:       return String(v);
+      }
+    }
     async function loadVerify() {
       const v = await fetch('/admin/verification').then(r => r.json());
       $('cnt-verify').textContent = (v.goldens || []).length;
@@ -647,18 +691,18 @@
             <span class="badge-type">${esc(g.result_type)}</span>
             <span class="${TONE[g.status] || 'bad'}">${WORD[g.status] || 'Did not reproduce'}</span>
           </div>
-          <p class="muted">Known answer <strong>${esc(g.expected)}</strong> · Kenny computes
-            <strong>${esc(g.actual ?? '—')}</strong>${
+          <p class="muted">Known answer <strong>${esc(fmtVal(g.expected, g.result_type))}</strong> · Kenny computes
+            <strong>${esc(fmtVal(g.actual, g.result_type))}</strong>${
               g.status !== 'pending' && g.error ? ' · ' + esc(g.error) : ''}</p>
           ${g.source ? `<p class="muted">Source: ${esc(g.source)}</p>` : ''}
           ${(g.fired || []).length ? `<p class="muted">Exercises: ${g.fired.map(esc).join('; ')}</p>` : ''}
           ${g.note ? `<p class="muted">${esc(g.note)}</p>` : ''}
           ${g.per_subject ? `<p class="muted">${Object.entries(g.per_subject)
-            .map(([k, x]) => `${esc(k)}: ${esc(x)}`).join(' · ')}</p>` : ''}
+            .map(([k, x]) => `${esc(k)}: ${esc(fmtVal(x, g.result_type))}`).join(' · ')}</p>` : ''}
           ${(g.needs_docs || []).length ? `<p class="muted">Needs: ${g.needs_docs.map(d =>
             `${esc(d.title)} <span class="${d.ingested ? 'ok' : 'bad'}">${d.ingested ? '✓ ingested' : '✗ not ingested'}</span>`).join(' · ')}</p>` : ''}
           ${g.status !== 'pass' ? (g.ready
-            ? `<button class="ghost" onclick="draftScenario(this, ${JSON.stringify(g.name).replace(/"/g, '&quot;')})">
+            ? `<button type="button" class="ghost" data-act="draft" data-name="${esc(g.name)}">
                  Draft the rules for this scenario</button>`
             : `<p class="warn-text">Ingest the documents above first (Documents tab), then draft.</p>`) : ''}
         </article>`).join('');
@@ -892,18 +936,19 @@
     function ingest() {
       const n = (typeof COVERAGE !== 'undefined' && COVERAGE.length) || 5;
       const r = (typeof RATIFIED_RULES !== 'undefined' && RATIFIED_RULES.length) || 0;
-      $('uploadMsg').innerHTML =
-        `<span class="warn-text">Re-reading parses all ${n} PDFs again (several minutes, ` +
-        `multi-GB RAM) and re-checks ${r} live rule${r === 1 ? '' : 's'}.</span> ` +
-        `<button type="button" id="ingestConfirm" onclick="ingestConfirmed()">Re-read</button> ` +
-        `<button type="button" class="ghost" onclick="$('uploadMsg').textContent = ''">Cancel</button>`;
+      $('rereadMsg').innerHTML =
+        `<p class="warn-text">This parses all ${n} PDFs again (several minutes, multi-GB RAM) ` +
+        `and re-checks ${r} live rule${r === 1 ? '' : 's'} against the new text. On the shipped ` +
+        `case the rule library goes empty until <code>scripts/backfill_quote_sha.py</code> is run.</p>` +
+        `<p><button type="button" id="ingestConfirm" data-act="reread-go">Re-read anyway</button> ` +
+        `<button type="button" class="ghost" data-act="reread-cancel">Cancel</button></p>`;
       $('ingestConfirm').focus();
     }
     async function ingestConfirmed() {
-      $('uploadMsg').textContent = 'Reading all documents…';
+      $('rereadMsg').textContent = 'Reading all documents…';
       const start = await fetch('/admin/ingest', {method: 'POST'}).then(r => r.json());
-      if (start.error) { $('uploadMsg').innerHTML = `<span class="bad">${esc(start.error)}</span>`; return; }
-      const res = await pollJob(start.job_id);
+      if (start.error) { $('rereadMsg').innerHTML = `<span class="bad">${esc(start.error)}</span>`; return; }
+      const res = await pollJob(start.job_id, 'rereadMsg');
       if (!res) return;
       // Say which declared documents have no file. Silently cataloguing them as empty
       // made the library list contracts Kenny could not answer from, with no reason given.
@@ -920,7 +965,7 @@
         msg += ` ${miss.length} declared in this case have no PDF yet and were skipped — ` +
                `upload them to add them: ${miss.map(m => m.doc_id).join(', ')}.`;
       }
-      $('uploadMsg').innerHTML = (miss.length || stale.length)
+      $('rereadMsg').innerHTML = (miss.length || stale.length)
         ? `<span class="warn-text">${esc(msg)}</span>` : esc(msg);
       loadDocs(); loadRules();
     }
@@ -960,7 +1005,7 @@
           ${low.length ? `<span class="score-badge score-lowconf" title="docling's OCR scored page${low.length === 1 ? '' : 's'} ${esc(low.join(', '))} below its 'excellent' grade — the text read from there may contain misread characters">low OCR confidence</span>` : ''}</p>
         ${r.warning ? `<p class="notice">${esc(r.warning)}</p>` : ''}
         <p class="muted">${esc(r.note || '')}</p>
-        <p><button type="button" onclick="openXray('${esc(r.doc_id)}')"
+        <p><button type="button" data-act="xray" data-doc="${esc(r.doc_id)}"
              title="See every clause just extracted, boxed on the page it came from">
            Open X-ray</button></p></div>`;
     }
@@ -990,16 +1035,16 @@
       await loadDocs(); loadRules();   // COVERAGE must know the new doc before its X-ray opens
     }
 
-    async function pollJob(jobId) {
+    async function pollJob(jobId, out = 'uploadMsg') {
       for (;;) {
         await new Promise(r => setTimeout(r, 900));
         const j = await fetch(`/admin/ingest/status/${jobId}`).then(r => r.json());
         if (j.status === 'running') {
-          $('uploadMsg').textContent = `Reading ${j.current || ''} — ${j.done} of ${j.total} documents done.`;
+          $(out).textContent = `Reading ${j.current || ''} — ${j.done} of ${j.total} documents done.`;
           continue;
         }
         if (j.status === 'error') {
-          $('uploadMsg').innerHTML = `<span class="bad">Could not read the documents: ${esc(j.error)}</span>`;
+          $(out).innerHTML = `<span class="bad">Could not read the documents: ${esc(j.error)}</span>`;
           return null;
         }
         return j.result;
@@ -1548,7 +1593,9 @@
     }
     const DEEP = compareDeepLink(location.hash);
     const docsLoaded = loadDocs(); loadRules(); loadVerify(); loadLedger();
+    // No hash opens the default tab without writing one, so a plain /admin stays plain.
     if (location.hash && TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1), false);
+    else if (!DEEP) showTab(DEFAULT_TAB, false, false);
     if (DEEP) {
       if (TABS.includes(DEEP.tab)) showTab(DEEP.tab, false);
       docsLoaded.then(() => openCompare(DEEP.doc, DEEP.page));
@@ -1557,6 +1604,6 @@
   <!-- handoff (K1): the commit this build runs, filled from /api/case -->
   <footer id="buildTag" class="build-tag" style="text-align:center;font-size:11px;color:#8a97a8;padding:4px 16px 16px">build …</footer>
   <!-- Guided demo tour: resumes here when chat hands off with ?tour=1. -->
-  <script src="/static/tour.js?v=3"></script>
+  <script src="/static/tour.js?v=4"></script>
 </body>
 </html>
