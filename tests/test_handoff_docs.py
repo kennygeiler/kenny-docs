@@ -2,9 +2,14 @@
 (DEMO_TICKETS.md K4, K5).
 
 README sentences the 2026-10-07 audit found false must stay gone; STATUS.md must keep
-its ten sections; every relative link in the two handoff pages must resolve; every
-`TICKETS.md <id>` comment in code must still find its heading in the archive; and every
-question the README promises an answer for must be in the smoke table.
+its ten sections; every relative link in the handoff pages must resolve; every
+`TICKETS.md <id>` and `DEMO_TICKETS.md <id>` comment in code must still find its heading
+in the archive; and every demo question must be written down with its expected answer.
+
+Since 2026-10-28 the README is a one-minute start and the case detail (OCR provenance,
+who wrote the live rules, gate R1-R5, admin tabs, expected results) lives in
+ARCHITECTURE.md §11. Assertions about that detail check README + ARCHITECTURE together:
+the facts must still be written down, not on which page.
 """
 import os
 import re
@@ -30,8 +35,12 @@ def _tracked():
 # --------------------------------------------------------------------------- #
 # K4: README
 # --------------------------------------------------------------------------- #
+def _readme_and_arch():
+    return _read("README.md") + "\n" + _read("ARCHITECTURE.md")
+
+
 def test_readme_has_none_of_the_false_sentences():
-    readme = _read("README.md")
+    readme = _readme_and_arch()
     for bad in ("No rules exist yet", "not the ~33", "§11 (pitfalls)", "read as *pending*",
                 "config-not-code", "deterministic fallbacks cover every LLM touchpoint",
                 "routed to the right document", "Four green cards", "approver: 'kenny'"):
@@ -40,12 +49,17 @@ def test_readme_has_none_of_the_false_sentences():
 
 def test_readme_states_what_the_gate_checks_and_who_wrote_the_rules():
     readme = _read("README.md")
-    for must in ("fires in no known answer", "(R1)", "(R2)", "(R3)", "(R4)", "(R5)",
-                 "one set of inputs", "produced none of them", "longevity_10yr",
-                 "has not yet been ratified by a human", "KENNY_LLM=off",
-                 "/chat/replay/", "Try to break it", "OCR'd scan", "Skeptic",
-                 "STATUS.md", "DEMO_TICKETS.md", "twenty-two known answers"):
+    for must in ("fires in no known answer", "one set of inputs", "longevity_10yr",
+                 "KENNY_LLM=off", "/chat/replay/", "STATUS.md", "ARCHITECTURE.md",
+                 "SOURCES.md", "https://kenny-production.up.railway.app", "$640.80"):
         assert must in readme, must
+    both = _readme_and_arch()
+    for must in ("(R1)", "(R2)", "(R3)", "(R4)", "(R5)", "produced none of them",
+                 "has not yet been ratified by a human", "Try to break it", "OCR'd scan",
+                 "Skeptic", "twenty-two known answers", "OCRmyPDF 17.8.0"):
+        assert must in both, must
+    # the open backlog moved to Linear; the README must not point at a root ticket file
+    assert "(DEMO_TICKETS.md)" not in readme
 
 
 def test_readme_architecture_references_resolve():
@@ -56,7 +70,7 @@ def test_readme_architecture_references_resolve():
 
 
 def test_readme_admin_tabs_match_the_page():
-    readme, admin = _read("README.md"), _read("core", "templates", "admin.html")
+    readme, admin = _read("ARCHITECTURE.md"), _read("core", "templates", "admin.html")
     tabs = re.findall(r'role="tab"[^>]*>([^<]+?)\s*<span', admin)
     assert tabs, "admin tabs not found"
     for t in tabs:
@@ -69,9 +83,10 @@ def test_readme_demo_questions_are_in_the_smoke_table():
     chat = _read("core", "templates", "chat.html")
     for q in re.findall(r'data-q="([^"]+)"', chat):
         assert q in readme, q
-    for q in (demo_smoke.Q_OVERTIME, demo_smoke.Q_BEREAVEMENT, demo_smoke.Q_OFF_CORPUS,
-              demo_smoke.Q_REGULAR):
-        assert q in readme, q
+    both = re.sub(r"\s+", " ", _readme_and_arch())
+    for q in (demo_smoke.Q_OVERTIME, demo_smoke.Q_LONGEVITY, demo_smoke.Q_BEREAVEMENT,
+              demo_smoke.Q_OFF_CORPUS, demo_smoke.Q_REGULAR):
+        assert q in both, q
 
 
 def test_readme_live_rule_facts_match_the_library():
@@ -83,8 +98,8 @@ def test_readme_live_rule_facts_match_the_library():
     assert lon.startswith("analyst (hand-authored 2026-10-07") and "claude" not in lon.lower()
     humans = [r for r in rules.values() if r["approver"] == "kenny"]
     assert len(humans) == 4
-    readme = _read("README.md")
-    assert "four original" in readme and "The fifth" in readme
+    arch = _read("ARCHITECTURE.md")
+    assert "four original" in arch and "The fifth" in arch
 
 
 def test_architecture_and_prd_no_longer_overclaim():
@@ -126,7 +141,9 @@ def _links(text):
 
 
 def test_every_relative_link_in_the_handoff_pages_resolves():
-    for name in ("STATUS.md", "README.md", "DEMO_TICKETS.md"):
+    for name in ("STATUS.md", "README.md", "SOURCES.md", "ARCHITECTURE.md",
+                 os.path.join("archive", "backlog-2026-10-07", "DEMO_TICKETS.md"),
+                 os.path.join("archive", "backlog-2026-10-07", "README.md")):
         base = os.path.dirname(os.path.join(ROOT, name))
         for target in _links(_read(name)):
             assert os.path.exists(os.path.join(base, target)), (name, target)
@@ -140,8 +157,10 @@ def test_old_backlogs_are_archived_with_corrections():
     tracked = _tracked()
     tickets = sorted(p for p in tracked if p.endswith("TICKETS.md"))
     if tickets:  # git available
-        assert tickets == ["DEMO_TICKETS.md", "archive/backlog-2026-08-14/OCR_TICKETS.md",
-                           "archive/backlog-2026-08-14/TICKETS.md"], tickets
+        assert tickets == ["archive/backlog-2026-08-14/OCR_TICKETS.md",
+                           "archive/backlog-2026-08-14/TICKETS.md",
+                           "archive/backlog-2026-10-07/DEMO_TICKETS.md"], tickets
+    assert not os.path.exists(os.path.join(ROOT, "DEMO_TICKETS.md"))
     assert not os.path.exists(os.path.join(ROOT, "TICKETS.md"))
     assert not os.path.exists(os.path.join(ROOT, "OCR_TICKETS.md"))
     old = _read("archive", "backlog-2026-08-14", "TICKETS.md")
@@ -177,6 +196,36 @@ def test_code_comments_that_cite_the_old_backlogs_still_resolve():
 
 
 def test_demo_tickets_carries_the_state_after_wave_1_note():
-    demo = _read("DEMO_TICKETS.md")
+    demo = _read("archive", "backlog-2026-10-07", "DEMO_TICKETS.md")
     head = demo[:4000]
     assert "State after wave 1" in head and "9129f7d" in head and "STATUS.md" in head
+    assert "Archived 2026-10-28" in head
+
+
+def test_code_comments_that_cite_the_demo_backlog_still_resolve():
+    demo = _read("archive", "backlog-2026-10-07", "DEMO_TICKETS.md")
+    headings = set(re.findall(r"^#{2,4} ([A-Z]\d+[a-z]?)\.", demo, flags=re.M))
+    pat = re.compile(r"DEMO_TICKETS(?:\.md)?\s+([A-Z]\d+[a-z]?)\b")
+    seen = 0
+    for sub in ("core", "scripts", "tests", "cases"):
+        for dirpath, _, files in os.walk(os.path.join(ROOT, sub)):
+            for fn in files:
+                if not fn.endswith((".py", ".html", ".js", ".css", ".sh", ".yaml", ".json")):
+                    continue
+                text = open(os.path.join(dirpath, fn), encoding="utf-8", errors="ignore").read()
+                for ref in pat.findall(text):
+                    seen += 1
+                    assert ref in headings, (fn, ref)
+    assert seen >= 40
+
+
+def test_sources_lists_every_shipped_pdf_with_its_hash():
+    import hashlib
+    sources = _read("SOURCES.md")
+    folder = os.path.join(ROOT, "cases", "santacruz", "sources")
+    pdfs = sorted(f for f in os.listdir(folder) if f.endswith(".pdf"))
+    assert len(pdfs) == 5
+    for fn in pdfs:
+        with open(os.path.join(folder, fn), "rb") as f:
+            digest = hashlib.sha256(f.read()).hexdigest()
+        assert f"`{fn}`" in sources and digest in sources, fn

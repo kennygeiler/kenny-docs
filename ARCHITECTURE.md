@@ -410,3 +410,132 @@ and for a Battalion Chief; 40 hours under the Chief Officers MOU; $716.16 under 
 — the PRD's explicit fallback until the district supplies real payroll. The guided test path for
 reviewers is PRD §12. The engine and ledger in `core/` are case-agnostic; the demo surfaces still
 carry Santa Cruz prompts and cue words (§1.1).
+
+---
+
+## 11. The shipped Santa Cruz case
+
+What ships in `cases/santacruz/`, who made each part, and what to expect from it. Moved here
+from the README on 2026-10-28 so the README can stay a one-minute start; nothing was dropped.
+
+### 11.1 Sources and OCR provenance
+
+One corpus: the **Central Fire District of Santa Cruz County** — four bargaining-unit MOUs (with
+side letters) plus the master salary schedule, all published by the district (file list and hashes
+in [`SOURCES.md`](SOURCES.md)). The four MOU PDFs in this repo are the district's scans with an OCR
+text layer added (OCRmyPDF 17.8.0 with Tesseract 5.5.2, 17 July 2026), not the district's original
+bytes; the salary schedule is born-digital. Every citation chip says which (`OCR'd scan` or
+`text layer`). The numeric cells of the vacation table on Local 3535 p.22 were re-read by a second
+OCR engine: 6 cells disagree and are shown in amber (Admin → Documents → *Showcase: p.22*).
+
+The engine, rule DSL, governance and ledger in `core/` are case-agnostic: `CASE=<dir>` points the
+app at another bundle. The demo UI is still Santa Cruz-specific (example prompts in `chat.html`,
+tour targets in `tour.js`, department cue words in `llm.py`).
+
+### 11.2 Who wrote the live rules
+
+The in-app drafter ("Draft the rules for this scenario") produced none of them. In the author's
+local ledger it was run five times on this corpus (17–18 July 2026), drafting 43, 59, 7, 22 and 6
+candidate rules; four of the five runs failed their known-answer check and nothing from any run was
+approved. The four original live rules were written by the reviewing analyst against the clause
+text and approved through the same gate on 2026-07-18. The fifth,
+`firefighters_local3535_mou:longevity_10yr`, was hand-authored on 2026-10-07 in a Claude Code
+session against the catalog's p.12 text (reviewed against the p.38 column), passes its known answer
+($656.82) and the gate, and **has not yet been ratified by a human** through the Review queue — its
+`approver` field is the analyst label `analyst (hand-authored 2026-10-07, …)`, not a person's name.
+
+Two baked **Skeptic reviews** (an agent that read each overtime rule's clause and the pages around
+it, listed what the rule ignores and ran its counter-examples through the engine) ship under
+`cases/santacruz/reviews/`. They were produced in a Claude Code session with zero API spend, and
+`scripts/skeptic.py` re-verifies every quote and replays every engine call.
+
+### 11.3 What the gate checks, in one paragraph
+
+The gate (`_gate_verdict` in `core/app.py`, detail in §6) judges the live library merged with the
+selection, before and after, all-or-nothing: (R1) no known answer may turn from pass or pending to
+*fail*; (R2) a known answer that reproduced may not stop being answered; (R3) a rule drafted for a
+scenario must make that scenario pass; (R4) every selected rule must fire in a passing known answer
+— a rule that fires in no known answer cannot go live; (R5) a live rule outside the selection that
+was proven before must still be proven. What it does not check: whether the rule reads the clause
+correctly beyond that one known answer's inputs — each rule is proved at one set of inputs only, and
+the twenty-two shipped known answers are analyst-derived from the documents, not payroll.
+
+### 11.4 The admin tabs
+
+| Tab | What it does | What to expect on the shipped case |
+|---|---|---|
+| **1 · Documents** | The contract library: each document parsed by docling for its text, its tables and the position of every clause, then indexed. X-ray and Compare show every extracted clause boxed on its page. | Five documents (four MOUs + the master salary schedule), 1,861 clauses, each with its text origin. *Showcase: p.22* opens Compare on the Local 3535 vacation table with the 6 cells the OCR misread in amber beside the page image. |
+| **2 · Verification** | The trust anchor: each card is a known answer with expected and actual, the rules that fired, and its analyst-derived source. **"Draft the rules for this scenario"** appears only on a scenario that is not passing. | Six green cards ($640.80; $656.82 with 12 years' longevity; 3 bereavement shifts for a Firefighter/Paramedic and for a Battalion Chief; 40 hours for a Division Chief; $716.16 for an Administrative Analyst) and five **pending** cards — the vacation-accrual tiers (7.38 … 14.78 hours per pay period), whose agent-drafted rules wait in the Review queue; they turn green once approved there (three cite OCR-disputed p.22 cells and need a cell confirm first). |
+| **3 · Review queue** | The human gate. Each drafted rule is shown beside its highlighted source clause. Approval needs the approver's name and is **refused** when a selected rule fires in no known answer, when a known answer that reproduced stops reproducing, or when one comes out wrong. | Empty on the shipped case. |
+| **Rule library** | The five live rules (each naming its clause and approver), the gaps Kenny declined to model, **Try to break it** per rule, and the two **Skeptic reviews**. | `longevity_10yr`'s approver is an analyst label, not a person's name (§11.2). |
+| **Audit** | The hash-chained ledger: every question, approval and ingest as an event with decision-relevant payloads, `verify()` status, head hash, export, and a **tamper demo** that alters one event in a scratch copy and names the entry that fails. | The ledger file is not in git, so a fresh clone starts empty; the July 2026 authoring trail for the four original rules exists only in the author's local ledger. Without `KENNY_LEDGER_KEY` the chain is unkeyed SHA-256: it detects edits, not a full rewrite by someone with disk access. |
+
+### 11.5 The demo questions
+
+Every answer opens with a **"Read as:"** line stating how the question was interpreted (hours, pay
+type, classifications, date). Beyond the three home-page buttons, the smoke table
+(`scripts/demo_smoke.py`) also asks:
+
+- *"Cost an 8-hour overtime shift for a Firefighter/Paramedic (56 hr, top step) with 12 years of
+  service"* → **$656.82**, with the longevity clause (p.12) as a second boxed citation.
+- *"How much bereavement leave does a firefighter get?"* → **3 shifts** from the ratified rule,
+  Article XIV boxed on p.21.
+- *"Cost an 8-hour regular shift for a Firefighter/Paramedic (56 hr, top step)"* → refused, because
+  only an overtime rule is approved for that unit (the nearest clause is shown as text, not a
+  number).
+- A firefighter **and** a Fire Marshal in one question → $640.80 for the firefighter and a "not
+  covered" row for the Fire Marshal.
+- *"What is the heat pump rebate for a 3 ton system?"* → "not covered by the 5 documents I have".
+
+A costing question with no pay-type cue asks which pay type you mean instead of guessing.
+
+What a costing answer contains:
+
+1. A **single deterministic figure**, with the sum written out ($53.40/hr × 1.5 × 8 h).
+2. The multiplier comes from the governing document for the classification's bargaining unit: the
+   1.5× is from the Local 3535 MOU, cited to p.8. The $53.40 rate comes from the classification
+   table (`cases/santacruz/data/roster.csv`), transcribed from the Master Salary Schedule; the
+   rate's own citation to its schedule row is open work (DEMO_TICKETS I14, archived backlog).
+3. **Click any dollar amount** → the audit drawer opens with the decision trace, the citations, the
+   source clause boxed on the rendered PDF page, and a panel saying which steps a model performed
+   (none, when the model is off).
+
+### 11.6 Expected results
+
+The twenty-two known answers in `case.yaml`: the six below plus the 9- and 10-year longevity edges,
+all reproduced by the live rules, and fourteen vacation-tier answers (five tiers and nine boundary
+answers) pending the queued rules' approval. They are analyst-derived from the documents, not from
+payroll, and are asserted by `pytest` through the gate and through `/chat`
+(`tests/test_demo_smoke.py`); each proves its rule at one set of inputs only.
+
+| Scenario | Prompt | Expected | Source |
+|---|---|---|---|
+| Overtime | 8-hour overtime shift, Firefighter/Paramedic (56 hr, top step) | **$640.80** | Local 3535 MOU p.8 (1.5×) × $53.40/hr (Master Salary Schedule) |
+| Overtime + longevity | the same, with 12 years of service | **$656.82** | Local 3535 MOU p.12 (2.5% longevity) into the 1.5× rate |
+| Bereavement | Firefighter/Paramedic | **3 shifts** | Local 3535 MOU Article XIV (p.21) |
+| Bereavement | Battalion Chief (56 hr top step) | **3 shifts** | Local 3535 MOU Article XIV (p.21); Battalion Chief is in the Local 3535 unit (Recognition p.3) |
+| Bereavement | Division Chief | **40 hours** | Chief Officers MOU p.14 |
+| Overtime | 8-hour overtime shift, Administrative Analyst (top step) | **$716.16** | Admin Group MOU p.6 (1.5×) |
+
+Management has no known answer and no rule, so a Management costing question (a Fire Marshal, for
+instance) is refused with a reason.
+
+### 11.7 Repo layout
+
+- **`core/`** — the engine and surfaces: ingest, `cellcheck` (second-engine cell verification),
+  `index`/`retriever`/`rulematch` (retrieval and scoping), `ruledsl` + `engine` + `costing` +
+  `governance` (rules and per-unit math), `audit` + `ledger` + `approvals` + `tamper_demo`
+  (snapshots, chain, replay), `llm` (every model call through one schema-checked chokepoint) +
+  `skeptic`, `version` (the build hash), and the chat/admin templates.
+- **`cases/santacruz/`** — the bundle: `sources/` PDFs, `data/roster.csv`, `rules/`, `reviews/`
+  (skeptic), `cell_checks.json`, `catalog.json`, `search_index.jsonl`, `case.yaml` (the
+  twenty-two known answers), `taxonomy.yaml`, `prompt/`.
+- **`scripts/`** — `demo_smoke.py` (the demo table), `skeptic.py` (zero-spend bake and
+  re-verification), `verify_cells.py`, the back-fills (`backfill_quote_sha.py`,
+  `backfill_provenance.py`, `backfill_text_origin.py`), `prepare_deploy.py`, `replay.py`.
+  `trace.py` and `reset_case.py` are hazardous on the shipped case — see STATUS.md.
+- **`tests/`** — acceptance proofs; `tests/conftest.py` makes the suite hermetic (no `.env`, a real
+  model client cannot be constructed).
+- **`archive/`** — closed backlogs with corrected status blocks (`backlog-2026-08-14/`,
+  `backlog-2026-10-07/`), the Fly assets, the call-screening legal pages removed from this app, the
+  police roster sample.
