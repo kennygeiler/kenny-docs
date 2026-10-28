@@ -208,7 +208,7 @@ def test_admin_page_ships_the_confidence_surfaces(client):
     assert "score-lowconf" in html, "scorecard + upload card badge"
     assert "low OCR confidence on this page" in html, "X-ray tooltip / count strip"
     assert "xlow" in html, "box, Compare row and table-row tint class"
-    assert "styles.css?v=13" in html
+    assert "styles.css?v=14" in html
     css = c.get("/static/styles.css").text
     assert ".score-lowconf" in css and ".xlow" in css
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kenny — ask a question about your contracts</title>
-  <link rel="stylesheet" href="/static/styles.css?v=13">
+  <link rel="stylesheet" href="/static/styles.css?v=14">
 </head>
 <body data-page="chat">
   <a class="skip-link" href="#prompt">Skip to the question box</a>
@@ -43,6 +43,9 @@
                   data-q="Cost an 8-hour overtime shift for a Fire Marshal (top step)">
             <span class="ex-kind">A refusal</span>Cost an 8-hour overtime shift for a Fire Marshal (top step)</button>
         </div>
+        <!-- Coverage meter (ROADMAP M1.5): filled from /api/coverage; stays hidden when
+             the case has no provisions.yaml. -->
+        <p class="muted coverage-line" id="coverageLine" hidden></p>
       </div>
     </main>
   </div>

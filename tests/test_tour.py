@@ -40,14 +40,14 @@ def test_chat_page_ships_the_tour(client):
     assert '/static/tour.js?v=' in html, "chat must load the tour engine"
     assert 'id="tourStart"' in html and "Take the tour" in html
     assert 'data-page="chat"' in html, "the engine keys its step list off this"
-    assert "styles.css?v=13" in html, "stale cached CSS would ship no coach-mark styles"
+    assert "styles.css?v=14" in html, "stale cached CSS would ship no coach-mark styles"
 
 
 def test_admin_page_ships_the_tour_resume_hook(client):
     html = (client.get("/admin").text + client.get("/static/admin.js").text)
     assert '/static/tour.js?v=' in html, "admin must load the engine so ?tour=1 resumes"
     assert 'data-page="admin"' in html
-    assert "styles.css?v=13" in html
+    assert "styles.css?v=14" in html
 
 
 def test_no_foreign_legal_pages(client):

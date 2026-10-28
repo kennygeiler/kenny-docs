@@ -26,6 +26,24 @@ fetch('/api/case').then(r => r.json()).then(c => {
   if (CASE.version && document.getElementById('buildTag')) document.getElementById('buildTag').textContent = 'build ' + CASE.version.sha + (CASE.version.dirty ? ' +uncommitted' : '');   // handoff (K1)
 }).catch(() => {});
 
+// Coverage meter (ROADMAP M1.5): one quiet line under the home-page intro, e.g.
+// "Local 3535 MOU: 23 of 61 provisions answer with a number · 9 awaiting approval".
+// Built with DOM calls; hidden when the case has no provisions.yaml.
+function coverageLine(cov) {
+  const line = document.getElementById('coverageLine');
+  if (!line || !cov || !cov.available || !(cov.documents || []).length) return;
+  const parts = cov.documents.map(d =>
+    `${d.short_title || d.title || d.doc_id}: ${d.live} of ${d.total} provisions answer with a number`
+    + (d.awaiting ? ` · ${d.awaiting} awaiting approval` : ''));
+  line.textContent = parts.join(' · ') + ' · ';
+  const a = document.createElement('a');
+  a.href = '/admin#coverage';
+  a.textContent = "see what's covered";
+  line.appendChild(a);
+  line.hidden = false;
+}
+fetch('/api/coverage').then(r => r.json()).then(coverageLine).catch(() => {});
+
 // role="note" rather than an alert: it is standing context, not an event, so it should
 // be reachable in the reading order without interrupting whatever is being announced.
 function showBanner(text) {

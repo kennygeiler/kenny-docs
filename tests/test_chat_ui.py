@@ -102,13 +102,13 @@ def test_api_case_exposes_declared_titles(client):
 
 def test_chat_page_pins_fresh_assets(client):
     html = client.get("/").text
-    assert "app.js?v=8" in html and "styles.css?v=13" in html
+    assert "app.js?v=8" in html and "styles.css?v=14" in html
 
 
 def test_admin_page_loads_its_script_from_a_pinned_file(client):
     """The admin console's script is a served file, not an inline block."""
     html = client.get("/admin").text
-    assert '<script src="/static/admin.js?v=2"></script>' in html
+    assert '<script src="/static/admin.js?v=3"></script>' in html
     assert "<script>" not in html, "admin.html must carry no inline script"
     res = client.get("/static/admin.js")
     assert res.status_code == 200
