@@ -3042,6 +3042,7 @@ def admin_demo_draft_load():
         added = [r["id"] for r in drafts if r["id"] not in before]
         if added:
             _write_proposed(case, list(merged.values()), current.get("needs_data") or [])
+    if added:
         case.ledger().append("authoring.demo_draft_loaded",
                              {"rule_ids": added, "file": DEMO_DRAFT_FILE,
                               "note": "deliberately wrong draft seeded for the gate demo; "
