@@ -5,7 +5,7 @@
 > D in "Retrieval…", E in "Delimit document text…", F alongside A, G in the hygiene
 > commit). **Re-audited 2026-10-07 against the shipped Santa Cruz data: the items below
 > are inert, partial or harmful on that data; everything not listed was not re-audited.**
-> Open work is in [/DEMO_TICKETS.md](../../DEMO_TICKETS.md). Code and test comments that
+> Open work is in [DEMO_TICKETS.md](../backlog-2026-10-07/DEMO_TICKETS.md) (itself archived 2026-10-28; live backlog in Linear, see STATUS.md). Code and test comments that
 > say `TICKETS.md <id>` refer to the headings in this file (see README.md beside it).
 > File:line references in the ticket bodies describe the PRE-fix code of August 2026 and
 > are kept as the audit record; the bodies are unchanged.

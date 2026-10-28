@@ -6,14 +6,18 @@ land; the headings stay (tests/test_handoff_docs.py checks them).
 
 ## a. Last verified
 
-- **When / what:** 2026-10-07, branch `ken-50-handoff` on top of `demo-2026-10-07` at
-  `9129f7d` (the wave-1 merge), by the handoff coding agent (Claude Code, Fable 5.1) in a
-  git worktree. Kenny Geiler (owner) had not yet reviewed it when this was written.
+- **When / what:** 2026-10-28, a repo audit run as parallel agents in git worktrees
+  (branches `audit/docs`, `audit/sec`, `audit/money`, `audit/ui`), all based on `3233baf`
+  (the head of `demo-2026-10-07` and of GitHub `main`). This page was rewritten on
+  `audit/docs`. The owner had not reviewed the audit branches when this was written.
+- **Suite at `3233baf`:** 660 passed, 1 failed, 3 skipped. The failure is in
+  `tests/test_llm_schema.py` and is fixed on an audit branch; the skips are
+  environment-gated (OpenSearch cluster, in-band docling OCR, model downloads).
 - **Re-verify (from the repo root, no key needed):**
   ```bash
   git status --short                                   # must print nothing
-  python scripts/demo_smoke.py                         # 11 of 11 demo checks pass, exit 0
-  pytest -q -p no:cacheprovider                        # 524 passed, 5 skipped on this branch (section d)
+  python scripts/demo_smoke.py                         # every demo check passes, exit 0
+  pytest -q -p no:cacheprovider                        # all pass but the environment-gated skips
   uvicorn core.app:app --port 8000 &                   # then:
   curl -s http://127.0.0.1:8000/api/case | grep -o '"version":{[^}]*}'   # build <sha>, dirty false
   ```
@@ -21,108 +25,105 @@ land; the headings stay (tests/test_handoff_docs.py checks them).
 ## b. Names
 
 - **Product:** Kenny.
-- **GitHub:** <https://github.com/kennygeiler/kenny-docs> (public; `kennygeiler/kenny` and
-  the local remote URL `kenny.git` redirect to it — `git remote -v` still prints `kenny.git`).
+- **GitHub:** <https://github.com/kennygeiler/kenny-docs> (public; `kennygeiler/kenny`
+  redirects to it). The local remote should point at `kenny-docs.git`; check with
+  `git remote -v` and fix with
+  `git remote set-url origin https://github.com/kennygeiler/kenny-docs.git`.
 - **Local folder:** `~/holly` (the name predates the product; renaming is not recommended,
-  the venv has absolute paths). Parallel work runs in `~/holly/.claude/worktrees/`.
+  the venv has absolute paths). Parallel work runs in `~/holly/.claude/worktrees/`. The
+  `.claude/launch.json` config is `kenny-santacruz` (port 8401).
 - **Live URL:** <https://kenny-production.up.railway.app> (Railway project `kenny`).
-- **Linear:** project [Kenny demo build 2026-10-07](https://linear.app/kennydocs/project/kenny-demo-build-2026-10-07-69a96bed42d3)
-  (team KennyDocs, key `KEN`); branch names carry the issue id so Linear links them
-  (this branch: [KEN-50](https://linear.app/kennydocs/issue/KEN-50)).
+- **Linear (the live backlog):** project [Kenny demo build 2026-10-07](https://linear.app/kennydocs/project/kenny-demo-build-2026-10-07-69a96bed42d3)
+  (team KennyDocs, key `KEN`); branch names carry the issue id so Linear links them.
+  The 2026-10-07 ticket file is archived (section i); code comments that cite
+  `DEMO_TICKETS.md <id>` resolve to headings there.
 
 ## c. What is running where
 
-| Where | Commit | Date | Tree | How it got there |
-|---|---|---|---|---|
-| Laptop, demo | `demo-2026-10-07` (after the wave-2 merges; footer shows the hash) | 2026-10-07 | clean after each merge | `uvicorn core.app:app` from `~/holly` |
-| GitHub `main` | `3b326a6` | pushed 2026-08-14 | n/a | last push before the demo build; the demo branch is pushed; `main` still points at the August commit |
-| Production (Railway) | `2802ad9` on `demo-2026-10-07` (footer/`/api/case` show it) | deployed 2026-10-07 14:16 | clean | `railway up` from `~/holly`; model ON (`KENNY_LLM=on`, key set), `KENNY_CHAT_RATE_LIMIT=1000`; volume reseeded (August case archived at `/data/cases/santacruz.pre-reseed.*`, its ledger exported before) |
+| Where | Commit | Date | How it got there |
+|---|---|---|---|
+| GitHub `main` and `demo-2026-10-07` | `3233baf` | pushed after 2026-10-07 | both point at the same commit (`main` sat at `3b326a6`, the August build, until then); no tags exist |
+| Production (Railway) | `2802ad9` on `demo-2026-10-07` | deployed 2026-10-07 14:16 | `railway up` from a clean `~/holly`; footer and `/api/case` show `2802ad9` (checked 2026-10-28, `/healthz` ok) |
+| Audit branches | `audit/*` off `3233baf` | 2026-10-28 | local worktrees, not pushed, not deployed |
 
-Production, further facts (from the 2026-10-07 audit; this build did not contact it):
-variables set by name only — `ANTHROPIC_API_KEY` set, `KENNY_BANNER` unset,
-`KENNY_LEDGER_KEY` unset (ledger unkeyed), `KENNY_REQUIRE_AUTH` unset (open posture),
-`KENNY_BUILD` unset (the code there has no `version` field anyway). `/data` was seeded at
-first boot, so the case data on the volume is frozen at the August state; a data fix
-reaches it only through the reseed (DEPLOY.md). Its ledger holds the questions people
-asked at the public link since August; export it before any redeploy.
+`3233baf` differs from `2802ad9` only in STATUS.md and README.md, so production runs the
+current code. Production settings (by name, from the 2026-10-07 deploy and the 2026-10-28
+audit): **open posture** (`KENNY_REQUIRE_AUTH` unset, `/admin` reachable by anyone),
+`ANTHROPIC_API_KEY` set and the model on (`/api/case` reports `has_api_key: true`,
+`llm_mode: claude`; `/admin` answers 200 with no credentials, both checked 2026-10-28),
+`KENNY_CHAT_RATE_LIMIT=1000`, `KENNY_LEDGER_KEY` unset (ledger
+unkeyed). The volume was reseeded on 2026-10-07; the August case is archived on it at
+`/data/cases/santacruz.pre-reseed.*`. Its ledger holds every question asked at the public
+link since then; export it before any redeploy.
 
 ## d. What works (and what proves it)
 
-- The six demo questions answer correctly through `/chat`, with the number, document
-  and page asserted: $640.80 (L3535 p.8); $656.82 with 12 years (p.12 + p.8); 3
-  bereavement shifts (p.21); heat-pump rebate → `out_of_scope`; a regular shift →
-  `refused` (only overtime approved); firefighter + Fire Marshal → $640.80 plus a
-  not-covered row naming the Management MOU — `scripts/demo_smoke.py`,
-  `tests/test_demo_smoke.py`.
-- Of twenty-two known answers, eight pass (six scenarios plus the E10 longevity edges at
-  9 and 10 years) and all five live rules fire in one; the fourteen vacation-accrual
-  answers (five tiers, nine E10 tier edges) are *pending* until the queued tiers are
-  approved in Review (`rules/rules_proposed.json`, agent-drafted; the 6-10, 14-16 and 17+
-  tiers need a `POST /admin/cell_confirm` first) — `/admin/verification`
-  (`all_passing: true`, `unverified: []`), `tests/test_gate.py`, `tests/test_goldens_chat.py`.
+- The demo questions answer correctly through `/chat`, with the number, document and page
+  asserted: $640.80 (L3535 p.8); $656.82 with 12 years (p.12 + p.8); 3 bereavement shifts
+  (p.21); heat-pump rebate → `out_of_scope`; a regular shift → `refused` (only overtime
+  approved); firefighter + Fire Marshal → $640.80 plus a not-covered row naming the
+  Management MOU — `scripts/demo_smoke.py`, `tests/test_demo_smoke.py`. The three home-page
+  buttons — `tests/test_examples.py`.
+- Of twenty-two known answers, eight pass (six scenarios plus the longevity edges at 9 and
+  10 years) and all five live rules fire in one; the fourteen vacation-accrual answers
+  (five tiers, nine tier edges) are *pending* until the queued tiers are approved in Review
+  (`rules/rules_proposed.json`, agent-drafted; three tiers need a `POST /admin/cell_confirm`
+  first) — `/admin/verification`, `tests/test_gate.py`, `tests/test_goldens_chat.py`.
 - Every answer replays from its frozen snapshot with matching hashes —
-  `GET /chat/replay/{id}` (`status: match`, 6 checks), `tests/test_replay.py`.
+  `GET /chat/replay/{id}`, `tests/test_replay.py`.
 - The approval gate R1–R5 refuses uncovered, wrong and breaking rules; `/admin/ratify`
   needs an approver; `/admin/try_break` reports caught and surviving mutants —
   `tests/test_gate.py`, `tests/test_mutate.py`, `tests/test_approvals.py`.
 - Ledger chain verifies; the tamper demo names the altered entry — `tests/test_ledger.py`,
   `tests/test_tamper_demo.py`; `/healthz` reports ledger, library and retrieval.
+- The live rules are bound to the text they cite: `scripts/backfill_quote_sha.py` ran on
+  the shipped library (`d2fd14b`), and source-PDF hashes are armed (`bfec348`, C7) —
+  `tests/test_integration_leftovers.py`, `tests/test_provenance_shipped.py`. The
+  `backfill_provenance.py --approvals` script is proven additive and idempotent on a copy.
 - OCR honesty: text origin per document, 6 disputed cells on L3535 p.22, Compare deep
-  link — `tests/test_cellcheck.py`, `tests/test_text_origin.py`.
-- Two skeptic reviews, fresh against the shipped rule and roster hashes, re-verifiable
-  with zero spend — `/admin/skeptic`, `tests/test_skeptic*.py`, `scripts/skeptic.py`.
+  link — `tests/test_cellcheck.py`, `tests/test_text_origin.py`. Provenance and hashes of
+  the five PDFs: [`SOURCES.md`](SOURCES.md).
+- Two skeptic reviews, re-verified at clean commit `f358af6` with zero spend
+  (`8bbc9ea`) — `/admin/skeptic`, `tests/test_skeptic*.py`, `scripts/skeptic.py`.
 - The model is optional and switchable (`KENNY_LLM=off`), every model call goes through
-  one schema-checked chokepoint, and the test suite cannot reach a paid API —
+  one schema-checked chokepoint, and the suite cannot reach a paid API —
   `tests/test_llm_switch.py`, `tests/test_llm_schema.py`, `tests/test_hermetic.py`.
-- The app shows the commit it runs — footer `build <sha>` on both pages, `version` on
-  `/api/case` — `tests/test_demo_smoke.py` (K1 section).
-- **Test suite:** 492 passed, 5 skipped at `9129f7d`; **524 passed, 5 skipped** on this
-  branch (`pytest -q -p no:cacheprovider`, 2026-10-07, ~35 s with the models cached).
-  Four of the five skips are environment-gated (OpenSearch cluster, in-band docling OCR,
-  rapidocr models, sentence-transformers) and one is a real skip, listed in section e.
+- The app shows the commit it runs — footer `build <sha>`, `version` on `/api/case`.
+- `tests/test_showcase_questions.py::test_lookup_names_the_classification_it_could_not_find`
+  runs again on a tmp-case roster (`d2fd14b`).
 
 ## e. Known wrong today
 
-Each line names the DEMO_TICKETS id that fixes it; delete the line when it lands.
+Delete a line when it lands. Items marked *owner* need Kenny.
 
-- **Owed back-fills on the shipped case** (idempotent scripts; run from `~/holly`, the
-  only checkout with the local ledger):
-  - `python scripts/backfill_quote_sha.py cases/santacruz` — the live rules' citations
-    carry `quote_sha256: ""`, so the evidence-based stale check (A2) cannot bind them;
-    until it runs, "Re-read all documents" is unsafe on the shipped case.
-  - `python scripts/backfill_provenance.py cases/santacruz --approvals` — the four July
-    approvals have no `authoring.ratify` event in the ledger (F2); the script appends
-    back-filled events labelled as such.
-  - `firefighters_local3535_mou:longevity_10yr` is live with approver
-    `analyst (hand-authored 2026-10-07, …)`, a label rather than a person (J1a; the
-    agent string it carried before KEN-19 is gone). To ratify it honestly: move it to
-    `rules/rules_proposed.json`, approve it in the Review queue with your name (the gate
-    runs), and let F2 record the approval.
-  - The two skeptic reviews record `code_rev: d84d5f3-dirty` — produced on an
-    uncommitted tree (G6). Re-bake on a clean commit with `scripts/skeptic.py` in a Claude
-    Code session (zero API spend) so the provenance block names a real commit.
-- One deliberately skipped test: `tests/test_showcase_questions.py::
-  test_lookup_names_the_classification_it_could_not_find` — the police roster rows it
-  used moved to `archive/santacruz_roster_police_sample.csv`; it needs a tmp-case roster
-  fixture (B6 follow-up, wave 2).
-- Citations carry `doc_sha256: ""` — the source-hash gate is inert on the shipped
-  corpus (C7, F8; citations-polish, wave 2). The hourly rate has no citation to its
-  salary-schedule row (I14).
-- Rule drafting in the app is unbounded (sends most of the contract to the drafter) and
-  needs a key (A3/G3, later). Effective-dated rates and a declared rounding policy are
-  not implemented (B7, B8).
-- The git remote is still `kenny.git`; there is no LICENSE and no SOURCES.md for the
-  redistributed district PDFs (K7, K8). Dependencies are unpinned except docling (K6).
-- Everything in the plan's "Not tonight" list (DEMO_TICKETS.md, line "Not tonight"):
-  A3/G3, A6, B7, B8, C3, C5, C6, C8, C9, D3, D5, D7, D8, E4–E6, F4, F5, F7, G4, G5
-  (remainder), G7, G8, I7, I9–I11, J1c, J2–J4, K3, K6–K8, L4–L7.
-- The live link runs the August build (section c).
+- ***Owner:* production is open and spends a live key.** Anyone with the URL can use
+  `/admin` (ratify rules, upload or replace PDFs, read the ledger) and every chat question
+  can call the model on the owner's `ANTHROPIC_API_KEY`. The fix is the admin-only mode
+  (being added on `audit/sec`, described in DEPLOY.md): set `KENNY_REQUIRE_AUTH=1`,
+  `KENNY_ADMIN_PASSWORD`, `KENNY_LEDGER_KEY` (`openssl rand -base64 32`) and `KENNY_LLM=off`
+  in Railway, then redeploy (section h). Until then, `KENNY_LLM=off` alone stops the
+  spend.
+- `firefighters_local3535_mou:longevity_10yr` is live with approver
+  `analyst (hand-authored 2026-10-07, …)`, a label rather than a person. To ratify it
+  honestly: move it to `rules/rules_proposed.json`, approve it in the Review queue with
+  your name (the gate runs), and let the approval land in the ledger.
+- Not verified: whether `python scripts/backfill_provenance.py cases/santacruz --approvals`
+  was run on the local ledger in `~/holly` (the four July approvals need a back-filled
+  `authoring.ratify` event). The ledger is local-only; check there.
+- The two skeptic reviews record `code_rev: d84d5f3-dirty` for the session that wrote them
+  (an uncommitted tree); they carry a clean re-verification at `f358af6`. A fresh bake on a
+  clean commit is optional.
+- From the 2026-10-07 backlog, not re-checked in this audit: the hourly rate has no
+  citation to its salary-schedule row (I14); in-app rule drafting is unbounded and needs a
+  key (A3/G3); effective-dated rates and a declared rounding policy are missing (B7, B8);
+  dependencies are unpinned except docling (K6).
+- No LICENSE (K8; *owner*). SOURCES.md now covers the redistributed district PDFs.
 
 ## f. Hazards — do not
 
-- **Do not press "Re-read all documents"** on the shipped case until the quote-sha
-  back-fill (section e) has run: the stale check cannot bind the shipped rules and the
-  library empties.
+- **"Re-read all documents"** on the shipped case: the live rules now carry quote hashes,
+  so the stale check can bind them, but a re-read of the shipped case has not been
+  exercised since. Try it on a copy (`CASE=<copy>`) first.
 - **Do not run `scripts/trace.py`** (it re-ingests and rewrites the catalog) or
   **`scripts/reset_case.py`** (it deletes the local ledger after copying it to the home
   folder; that ledger is the only approval trail for the four original rules) on `~/holly`.
@@ -133,8 +134,8 @@ Each line names the DEMO_TICKETS id that fixes it; delete the line when it lands
 
 ## g. Local-only state (not in git)
 
-In `~/holly` only: `cases/santacruz/ledger.jsonl` (422 events — the July 2026 drafting and
-approval trail for the four original rules, plus every local question since);
+In `~/holly` only: `cases/santacruz/ledger.jsonl` (the July 2026 drafting and approval
+trail for the four original rules, plus every local question since);
 `cases/santacruz/snapshots/` (frozen answers); four `cases/santacruz/rules/
 rules_ratified.json.*.bak` files (17–18 July 2026); `.env` (the API key); 17
 `~/holly_backup_*` folders (older copies of the rule library and ledger from
@@ -142,61 +143,65 @@ rules_ratified.json.*.bak` files (17–18 July 2026); `.env` (the API key); 17
 under `~/holly/.claude/worktrees/` have none of these, which is why the smoke script and
 the tests work on a scratch copy.
 
-## h. Deploy policy and the exact commands (none run yet)
+## h. Deploy policy and the exact commands
 
-Nothing deploys from a dirty tree, and nothing deploys that is not on GitHub. The handoff
-chunk wrote these commands and did **not** run them; the lead runs them after the wave-2
-merge and a browser pass.
+Nothing deploys from a dirty tree, and nothing deploys that is not on GitHub. The last
+deploy ran on 2026-10-07 (`2802ad9`, section c). The next one should move production to
+the admin-only posture; it needs the audit branches merged and pushed first, and the
+owner to choose the admin password.
 
 ```bash
-# 1. Merge and push the demo branch (lead, from ~/holly)
+# 1. Merge and push (from ~/holly)
 git status --short                                    # must print nothing
-git checkout demo-2026-10-07
-git merge --no-ff ken-50-handoff                      # and the other wave-2 branches, in the plan's order
 pytest -q -p no:cacheprovider && python scripts/demo_smoke.py
-git push origin demo-2026-10-07
-git tag -a demo-2026-10-07 -m "Demo build 2026-10-07" && git push origin demo-2026-10-07 --tags
-# 2. Confirm the running build (laptop)
-curl -s http://127.0.0.1:8000/api/case | grep -o '"version":{[^}]*}'   # sha == git rev-parse --short HEAD, dirty false
-# 3. Production redeploy — OPTIONAL, only from the pushed commit, after exporting the ledger
+git push origin <branch>
+# 2. Export the production ledger before touching anything
 curl -s https://kenny-production.up.railway.app/admin/ledger/export > ~/kenny-prod-ledger-$(date +%Y%m%d).jsonl
+# 3. Set the posture (DEPLOY.md), then deploy the pushed commit
 SHA=$(git rev-parse --short HEAD)
-railway variable set KENNY_BUILD=$SHA --skip-deploys
-railway variable set KENNY_SEED_FORCE=1 KENNY_SEED_FORCE_CONFIRM=yes --skip-deploys   # the data changed (rules, roster, case.yaml); the old case is archived on the volume
+railway variable set KENNY_BUILD=$SHA KENNY_REQUIRE_AUTH=1 KENNY_ADMIN_PASSWORD='<owner picks>' \
+  KENNY_LEDGER_KEY="$(openssl rand -base64 32)" KENNY_LLM=off --skip-deploys
 railway up --detach -m "$SHA"
+# 4. Check
 curl -s https://kenny-production.up.railway.app/api/case | grep -o '"version":{[^}]*}'   # must show $SHA
-railway variable delete KENNY_SEED_FORCE KENNY_SEED_FORCE_CONFIRM                     # so the next deploy does not reseed again
+curl -s -o /dev/null -w '%{http_code}\n' https://kenny-production.up.railway.app/admin   # must not be 200 without the password
 ```
 
-Decision recorded (K1 step 0): the call-screening `/privacy` and `/terms` pages were
-removed from this app by the wave-1 chat-ui chunk (I8) and their templates kept under
-`archive/call-screening-legal-pages/`. Production still serves them until it is
-redeployed; if a Twilio A2P registration points at those URLs, host them with that
-project first.
+Keep the `KENNY_LEDGER_KEY` value somewhere safe: the chain cannot be re-verified without
+it. Reseed the volume (`KENNY_SEED_FORCE=1` with `KENNY_SEED_FORCE_CONFIRM=yes`, DEPLOY.md)
+only if case data changed since `2802ad9`; unset both after.
+
+Decision recorded (2026-10-07): the call-screening `/privacy` and `/terms` pages were
+removed from this app and their templates kept under `archive/call-screening-legal-pages/`.
 
 ## i. Where things are
 
-- `README.md` — the walkthrough and the trust model as built.
-- `ARCHITECTURE.md` — behaviour (tiebreak over the PRD); `PRD.md` — intent.
-- `DEPLOY.md` — Railway; `DEPLOYMENT_STRATEGY.md` — the engagement plan (not re-audited;
-  DEMO_TICKETS K10).
-- `DEMO_TICKETS.md` — the open backlog, with a "state after wave 1" note at the top.
-- `archive/backlog-2026-08-14/` — the two closed backlogs with corrected status blocks;
+- `README.md` — what it is, the live link, running locally, the trust rules.
+- `ARCHITECTURE.md` — behaviour (tiebreak over the PRD); §11 is the shipped case (OCR
+  provenance, who wrote the live rules, admin tabs, demo questions, expected results).
+  `PRD.md` — intent. `PRD.pdf` and `ARCHITECTURE.pdf` were re-rendered from the Markdown on
+  2026-10-28 with `scripts/make_prd_pdf.py` (it writes to `~/Kenny_*.pdf`; copy them in).
+  Re-render after any edit to either file.
+- `SOURCES.md` — the five district PDFs: titles, provenance, SHA-256.
+- `DEPLOY.md` — Railway and the auth posture; `DEPLOYMENT_STRATEGY.md` — the engagement
+  plan (not re-audited). `DEMO_SCRIPT.md` — the demo walkthrough.
+- `archive/backlog-2026-10-07/DEMO_TICKETS.md` — the 2026-10-07 ticket file (119 tickets,
+  ticket ids cited in code comments). The live backlog is Linear (section b).
+- `archive/backlog-2026-08-14/` — the two August backlogs with corrected status blocks;
   `archive/fly/` — the abandoned Fly deploy; `archive/call-screening-legal-pages/`;
   `archive/santacruz_roster_police_sample.csv`.
 - `scripts/demo_smoke.py` — the demo table; `tests/` — the proofs.
 
 ## j. Next
 
-1. Merge the remaining wave-2 chunks (`search-tree`, `vacation-accrual`,
-   `tour-and-gate-demo`, `citations-polish`) in the plan's order; full suite and
-   `scripts/demo_smoke.py` green after each; browser pass of the demo script.
-2. Run the three owed back-fills and the longevity ratification (section e), then push
-   (section h).
-3. Later milestone, in order of what the demo exposes first: A3/G3 (bounded drafting),
-   C7/F8 (arm source hashes), K3 (HTTP acceptance suite + CI), K6 (pinned deps), B7/B8
-   (dated rates, rounding policy), K8 (LICENSE + SOURCES.md).
+1. Merge the 2026-10-28 audit branches; full suite and `scripts/demo_smoke.py` green.
+2. Owner: pick the admin password, then redeploy production in the admin-only posture
+   (section h). Until then, set `KENNY_LLM=off` on Railway to stop public key spend.
+3. Owner: ratify `longevity_10yr` in the Review queue with your name (section e).
+4. Later, from the archived backlog via Linear: A3/G3 (bounded drafting), I14 (rate
+   citation), K3 (HTTP acceptance suite + CI), K6 (pinned deps), B7/B8 (dated rates,
+   rounding policy).
 
-Decisions waiting on the owner: where the SMS legal pages live (section h); whether
-production keeps a live `ANTHROPIC_API_KEY` on an open link; the licence (K8); whether
-to redeploy production before or after the Later milestone.
+Decisions waiting on the owner: the admin password and when to redeploy; whether
+production keeps a live `ANTHROPIC_API_KEY` at all; **a licence for the repo** (none
+chosen; no LICENSE file exists).

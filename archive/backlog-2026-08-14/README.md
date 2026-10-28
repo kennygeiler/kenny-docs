@@ -9,4 +9,5 @@ history.
 
 Code and test comments that cite `TICKETS.md <id>` (for example `TICKETS.md C5`,
 `TICKETS.md OCR-3`) refer to the headings in this folder; `DEMO_TICKETS.md <id>` refers
-to the open backlog at the repo root. The current handoff page is `/STATUS.md`.
+to [`../backlog-2026-10-07/DEMO_TICKETS.md`](../backlog-2026-10-07/DEMO_TICKETS.md), archived
+2026-10-28. The current handoff page is `/STATUS.md`.
