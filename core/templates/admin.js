@@ -11,7 +11,7 @@
     const el = h => { const d = document.createElement('div'); d.innerHTML = h.trim(); return d.firstChild; };
 
     /* ---------------- accessible tabs (WCAG 2.1 AA keyboard pattern) ---------------- */
-    const TABS = ['verify', 'docs', 'review', 'lib', 'audit'];
+    const TABS = ['verify', 'docs', 'review', 'lib', 'coverage', 'audit'];
     const DEFAULT_TAB = 'verify';
     function showTab(name, focus = true, remember = true) {
       TABS.forEach(t => {
@@ -24,15 +24,18 @@
       if (focus) $('tab-' + name).focus();
       if (remember) history.replaceState(null, '', location.pathname + location.search + '#' + name);
     }
-    TABS.forEach((t, i) => {
+    TABS.forEach(t => {
       $('tab-' + t).addEventListener('click', () => showTab(t));
       $('tab-' + t).addEventListener('keydown', e => {
         const k = e.key;
         if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(k)) return;
         e.preventDefault();
-        const n = k === 'Home' ? 0 : k === 'End' ? TABS.length - 1
-                : k === 'ArrowRight' ? (i + 1) % TABS.length : (i - 1 + TABS.length) % TABS.length;
-        showTab(TABS[n]);
+        // A hidden tab (Coverage, when the case has no provisions.yaml) is skipped.
+        const shown = TABS.filter(x => !$('tab-' + x).hidden);
+        const j = Math.max(0, shown.indexOf(t)), L = shown.length;
+        const n = k === 'Home' ? 0 : k === 'End' ? L - 1
+                : k === 'ArrowRight' ? (j + 1) % L : (j - 1 + L) % L;
+        showTab(shown[n]);
       });
     });
 
@@ -53,6 +56,7 @@
         case 'reread':  ingest(); break;
         case 'reread-go':     ingestConfirmed(); break;
         case 'reread-cancel': $('rereadMsg').textContent = ''; $('rereadBtn').focus(); break;
+        case 'approve-section': approveSection((d.ids || '').split(' ').filter(Boolean)); break;
       }
     });
 
@@ -225,9 +229,43 @@
       $('review').innerHTML = Object.entries(byDoc).map(([doc, rules]) => `
         <section aria-label="Rules from ${esc(docTitle(doc))}" class="dept">
           <h3 class="dept-head">${esc(docTitle(doc))} <span class="muted">${rules.length} to review</span></h3>
-          ${rules.map(reviewCard).join('')}
+          ${PROV.available ? reviewSections(doc, rules) : rules.map(reviewCard).join('')}
         </section>`).join('');
       $('reviewBtns').hidden = false;
+    }
+
+    /* Per-section approval (ROADMAP M1.3): with a provisions.yaml, queued rules are
+       grouped by the contract article their provision sits in (rules in no provision go
+       under "Other"). Each group links its clauses' pages and has one "Approve this
+       section" action, which selects exactly that group's rules and runs the ordinary
+       ratify(): same gate, same approver name, same error rendering. */
+    function reviewSections(doc, rules) {
+      const idx = PROV.rule_index || {}, groups = {};
+      rules.forEach(r => ((groups[(idx[r.id] || {}).article || 'Other'] ||= []).push(r)));
+      const names = Object.keys(groups).sort((a, b) =>
+        (a === 'Other') - (b === 'Other') || a.localeCompare(b, undefined, {numeric: true}));
+      return names.map(name => {
+        const rs = groups[name];
+        const pages = [...new Set(rs.flatMap(r => (idx[r.id] || {}).pages || []))].sort((a, b) => a - b);
+        const pdoc = ((idx[rs[0].id] || {}).doc_id) || doc;
+        const links = pages.map(pg => pageLink(pdoc, pg)).join(' ');
+        return `<div class="review-section" aria-label="${esc(name)}">
+          <h4 class="cov-article">${esc(name)} <span class="muted">${rs.length} to review</span></h4>
+          <p class="muted section-line">${links ? 'Clauses on ' + links + ' · ' : ''}<button type="button"
+            class="ghost small" data-act="approve-section" data-ids="${esc(rs.map(r => r.id).join(' '))}">Approve this section</button></p>
+          ${rs.map(reviewCard).join('')}
+        </div>`;
+      }).join('');
+    }
+    function approveSection(ids) {
+      const want = new Set(ids);
+      let n = 0;
+      document.querySelectorAll('.ruleChk').forEach(c => {
+        c.checked = want.has(c.dataset.id) && !c.disabled;
+        if (c.checked) n++;
+      });
+      if (!n) { msg('reviewMsg', 'bad', 'Nothing in this section can be approved.'); return; }
+      ratify().then(() => { const m = $('reviewMsg'); if (m && m.scrollIntoView) m.scrollIntoView({block: 'nearest'}); });
     }
 
     function reviewCard(r) {
@@ -357,11 +395,75 @@
       } else {
         msg('reviewMsg', 'bad', esc(res.warning || res.error || 'Nothing was approved.'));
       }
-      loadRules(); loadVerify(); loadDocs(); loadLedger();
+      loadRules(); loadVerify(); loadLedger(); loadDocs().then(loadCoverage, loadCoverage);
     }
 
     const msg = (where, kind, html) =>
       $(where).innerHTML = `<p class="${kind === 'ok' ? 'notice ok-notice' : 'flagline'}">${html}</p>`;
+
+    /* ---------------- coverage (ROADMAP M1.5) ----------------
+       GET /api/coverage: every provision in provisions.yaml with its derived state. The
+       tab stays hidden when the case has none. Page links open Compare on that page. */
+    let PROV = {available: false, documents: [], rule_index: {}};
+    const STATE_WORD = {live: 'Live', awaiting: 'Awaiting approval',
+                        not_modelled: 'Not modelled', error: 'Data error'};
+    const pageLink = (doc, pg) => `<button type="button" class="linkbtn" data-act="compare"
+      data-doc="${esc(doc)}" data-page="${esc(pg)}">p.${esc(pg)}</button>`;
+    async function loadCoverage() {
+      try { PROV = await fetch('/api/coverage').then(r => r.json()); }
+      catch (e) { PROV = {available: false, documents: [], rule_index: {}}; }
+      const on = !!(PROV && PROV.available);
+      $('tab-coverage').hidden = !on;
+      if (!on && !$('panel-coverage').hidden) showTab(DEFAULT_TAB, false, false);
+      renderCoverage();
+      renderReview();
+    }
+    function provItem(p) {
+      const ids = (p.rules || []).map(r => `<code>${esc(r.id)}</code>${r.state === 'live' ? ''
+        : ` <span class="muted">(${esc(r.state)})</span>`}`).join(', ');
+      const why = p.state === 'not_modelled' ? (p.reason || 'no reason given')
+                : p.state === 'error' ? p.error : '';
+      const text = [p.title, p.article, p.id, p.reason, p.error, STATE_WORD[p.state],
+                    ...(p.rules || []).map(r => r.id)].join(' ').toLowerCase();
+      return `<li class="cov-item" data-text="${esc(text)}">
+        <span class="cov-title">${esc(p.title || p.id)}</span>
+        ${(p.pages || []).map(pg => pageLink(p.doc_id, pg)).join(' ')}
+        <span class="cov-state pstate-${esc(p.state)}">${esc(STATE_WORD[p.state] || p.state)}</span>
+        ${why ? `<span class="cov-why${p.state === 'error' ? ' bad' : ''}">${esc(why)}</span>` : ''}
+        ${ids ? `<div class="cov-rules">${ids}</div>` : ''}
+      </li>`;
+    }
+    function renderCoverage() {
+      if (!PROV.available) { $('coverage').innerHTML = ''; return; }
+      $('coverage').innerHTML = PROV.documents.map(d => {
+        const errs = d.provisions.filter(p => p.state === 'error');
+        const byArt = {};
+        d.provisions.forEach(p => (byArt[p.article || 'No article'] ||= []).push(p));
+        return `<section class="dept" aria-label="Provisions of ${esc(d.title)}">
+          <h3 class="dept-head">${esc(d.title)}</h3>
+          <p class="cov-summary">${d.total} provisions. Of the ${d.numeric} with a number:
+            ${d.live} live · ${d.awaiting} awaiting approval · ${d.numeric - d.live - d.awaiting - d.errors} not modelled.
+            The other ${d.quoted} are answered by quoting the clause.${d.errors
+            ? ` · <span class="bad">${d.errors} with a data error</span>` : ''}</p>
+          ${errs.length ? `<p class="flagline cov-errors">Data errors in provisions.yaml: ${errs.map(p =>
+            `<code>${esc(p.id)}</code> ${esc(p.error)}`).join('; ')}</p>` : ''}
+          ${Object.entries(byArt).map(([art, ps]) => `<div class="cov-group">
+            <h4 class="cov-article">${esc(art)}</h4>
+            <ul class="cov-list">${ps.map(provItem).join('')}</ul></div>`).join('')}
+        </section>`;
+      }).join('');
+      filterCoverage();
+    }
+    function filterCoverage() {
+      const q = ($('covSearch').value || '').trim().toLowerCase();
+      document.querySelectorAll('#coverage .cov-item').forEach(li => {
+        li.hidden = !!q && !li.dataset.text.includes(q);
+      });
+      document.querySelectorAll('#coverage .cov-group').forEach(g => {
+        g.hidden = !g.querySelector('.cov-item:not([hidden])');
+      });
+    }
+    $('covSearch').addEventListener('input', filterCoverage);
 
     /* ---------------- rule library ---------------- */
     async function renderLibrary() {
@@ -1346,6 +1448,7 @@
     }
     const DEEP = compareDeepLink(location.hash);
     const docsLoaded = loadDocs(); loadRules(); loadVerify(); loadLedger();
+    docsLoaded.then(loadCoverage, loadCoverage);   // review groups need the document titles too
     // No hash opens the default tab without writing one, so a plain /admin stays plain.
     if (location.hash && TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1), false);
     else if (!DEEP) showTab(DEFAULT_TAB, false, false);

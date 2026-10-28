@@ -26,6 +26,26 @@ fetch('/api/case').then(r => r.json()).then(c => {
   if (CASE.version && document.getElementById('buildTag')) document.getElementById('buildTag').textContent = 'build ' + CASE.version.sha + (CASE.version.dirty ? ' +uncommitted' : '');   // handoff (K1)
 }).catch(() => {});
 
+// Coverage meter (ROADMAP M1.5): one quiet line under the home-page intro, e.g.
+// "Local 3535 MOU: 6 of 81 provisions with a number are live · 23 awaiting approval ·
+// 62 more are answered by quoting the clause".
+// Built with DOM calls; hidden when the case has no provisions.yaml.
+function coverageLine(cov) {
+  const line = document.getElementById('coverageLine');
+  if (!line || !cov || !cov.available || !(cov.documents || []).length) return;
+  const parts = cov.documents.map(d =>
+    `${d.short_title || d.title || d.doc_id}: ${d.live} of ${d.numeric} provisions with a number are live`
+    + (d.awaiting ? ` · ${d.awaiting} awaiting approval` : '')
+    + (d.quoted ? ` · ${d.quoted} more are answered by quoting the clause` : ''));
+  line.textContent = parts.join(' · ') + ' · ';
+  const a = document.createElement('a');
+  a.href = '/admin#coverage';
+  a.textContent = "see what's covered";
+  line.appendChild(a);
+  line.hidden = false;
+}
+fetch('/api/coverage').then(r => r.json()).then(coverageLine).catch(() => {});
+
 // role="note" rather than an alert: it is standing context, not an event, so it should
 // be reachable in the reading order without interrupting whatever is being announced.
 function showBanner(text) {
@@ -369,7 +389,28 @@ function renderCosting(res) {
     const sum = sumLine(li);
     if (sum) {
       const s = el('<div class="sum-line"></div>');
-      s.textContent = sum;
+      // M1.4/I14: the rate is a citation chip — it opens its salary-schedule row boxed
+      // on the page, as a clause chip opens its clause. The rest of the line is text.
+      const m = (li.trace || []).find(t => t.kind === 'math' && t.line);
+      const rate = m && (m.operands || []).find(o => o.role === 'rate' && o.source
+                                                && o.source.citation && !o.source.unsourced);
+      const at = rate ? sum.indexOf(opText(rate)) : -1;
+      if (at >= 0) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rate-cite';
+        // styled inline like the drawer's .math-line .op so styles.css (and its pinned
+        // ?v=) stays untouched
+        b.style.cssText = 'font:inherit;background:none;border:0;border-bottom:2px solid var(--steel);'
+          + 'color:var(--navy);cursor:pointer;padding:0 2px;font-variant-numeric:tabular-nums';
+        b.textContent = opText(rate);
+        b.title = opTitle(rate, res);
+        b.setAttribute('aria-label', `${opText(rate)} — open its row on the ${rate.source.title || 'salary schedule'}, p.${rate.source.page}`);
+        b.onclick = () => openOperand(rate, res);
+        s.append(sum.slice(0, at), b, sum.slice(at + opText(rate).length));
+      } else {
+        s.textContent = sum;
+      }
       wrap.appendChild(s);
     }
   }
@@ -739,11 +780,15 @@ function opTitle(o, res) {
 function openOperand(o, res) {
   const s = o.source || {};
   if (s.kind === 'schedule-cell' && !s.unsourced) {
-    // The row band (label to cell) is boxed so the row is findable on the landscape
-    // page; the cell itself is named in the heading and quoted in the passage.
-    openSource({doc_id: s.doc_id, page: s.page, bbox: s.context_bbox || s.bbox || [],
+    // M1.4/I14: a bound rate carries a citation like a clause chip's — the whole printed
+    // row boxed and its line quoted verbatim. An unbound rate (title search) falls back
+    // to the label-to-cell band and the cell text.
+    const c = s.citation;
+    openSource({doc_id: s.doc_id, page: s.page,
+                bbox: (c && c.bbox) || s.context_bbox || s.bbox || [],
                 clause: `${s.row} · ${s.column}`, title: s.title,
-                text: `${s.row} — ${s.column}: ${s.text}`}, res);
+                text: c && c.quote ? `${s.column} ${s.text} — “${c.quote}”`
+                                   : `${s.row} — ${s.column}: ${s.text}`}, res);
     return;
   }
   if (s.kind === 'clause' && s.doc_id) {

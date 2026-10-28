@@ -1,0 +1,51 @@
+# Test fixture for the coverage meter (tests/test_coverage.py). Not the real inventory:
+# cases/santacruz/provisions.yaml is written separately. Rule ids are the shipped ones.
+doc_id: firefighters_local3535_mou
+generated: 2026-10-28
+label: Local 3535 MOU
+provisions:
+  - id: l3535.overtime_premium
+    title: Premium overtime at 1.5x beyond 182 hours in a 24-day period
+    article: "IX. Hours of Work and Overtime"
+    pages: [8]
+    category: pay
+    value_kind: currency
+    status: modelled
+    rules: [firefighters_local3535_mou:overtime_premium_rate]
+    reason: ""
+    quote: "premium overtime compensation at the rate of one and one-half"
+  - id: l3535.bereavement
+    title: Bereavement leave
+    article: "XVI. Leaves"
+    pages: [14]
+    category: leave
+    value_kind: shifts
+    status: modelled
+    rules: [firefighters_local3535_mou:bereavement_shifts]
+  - id: l3535.vacation_accrual
+    title: Vacation accrual by years of service
+    article: "XV. Vacation"
+    pages: [12, 13]
+    category: leave
+    value_kind: hours
+    status: modelled
+    rules:
+      - firefighters_local3535_mou:vacation_accrual_1_5
+      - firefighters_local3535_mou:vacation_accrual_6_10
+  - id: l3535.holiday_pay
+    title: Holiday pay
+    article: "XIII. Holidays"
+    pages: [10]
+    category: pay
+    value_kind: currency
+    status: not_modelled
+    rules: []
+    reason: needs the holiday calendar per shift
+  - id: l3535.uniform
+    title: Uniform allowance
+    article: "XX. Uniforms"
+    pages: [18]
+    category: benefit
+    value_kind: currency
+    status: modelled
+    rules: [firefighters_local3535_mou:uniform_allowance_missing]

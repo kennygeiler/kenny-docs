@@ -15,7 +15,7 @@ from .. import (
     queryfacts,
     rulematch,
 )
-from ..engine import calculate, rounding_policy
+from ..engine import NoRuleApplies, calculate, rounding_policy
 from ..ruledsl import RuleError
 from .sources import _doc_meta, _enrich_citations, _source_entry
 from .state import DEFAULT_YEAR, _backend, _catalog, _extraction
@@ -352,7 +352,41 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
                          detail={"query": query or prompt, "scope": scope, "unit": unit})
         candidates = [r for r in case.rules()
                       if r.result_type != "currency" and r.citation.doc_id in scope]
-        rules, found, ambiguous = rulematch.select_rules(candidates, hits, stems)
+        subjects = [s for s in named_rows if s.get("bargaining_unit") == unit] \
+            or [s for s in subjects_all if s.get("bargaining_unit") == unit]
+        # M1: with a full rulebook a neighbouring clause can outrank the one asked about
+        # ("how many holiday hours" retrieves the 40-hour administrative-holiday clause
+        # first). A topic whose rules fit none of these subjects is not the answer for
+        # them, so it is set aside and the next-best topic is tried, unless the question
+        # named it; a topic that fits still wins on rank exactly as before. Bounded by
+        # the number of topics.
+        skipped: list[str] = []
+        while True:
+            rules, found, ambiguous = rulematch.select_rules(candidates, hits, stems)
+            if ambiguous or not rules:
+                break
+            try:
+                calculate(eng, subjects, rules, rounding_policy(case.manifest))
+                break
+            except NoRuleApplies:
+                # Only a topic the search surfaced is set aside. A topic the question
+                # NAMES ("administrative holiday hours" for a 56-hour member) keeps its
+                # refusal: answering it with another entitlement would be a wrong number.
+                if not subjects or any(rulematch.topic_in_prompt(r, stems) for r in rules):
+                    break
+                tried = {r.topic for r in rules}
+                rest = [r for r in candidates if r.topic not in tried]
+                if not rest:
+                    break
+                skipped += sorted(tried)
+                candidates = rest
+            except (ValueError, RuleError, ArithmeticError):
+                break                      # reported by the calculate below, as before
+        if skipped:
+            led.append("entitlement.topic_skipped",
+                       {"unit": unit, "topics": skipped,
+                        "reason": "no rule of this topic fits the named classification"},
+                       actor="chat", query_id=qid)
         if ambiguous:
             led.append("entitlement.clarify", {"reason": "several topics match",
                                                "options": ambiguous},
@@ -362,8 +396,6 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
         if not rules:
             not_covered.append({"unit": unit, "docs": scope})
             continue
-        subjects = [s for s in named_rows if s.get("bargaining_unit") == unit] \
-            or [s for s in subjects_all if s.get("bargaining_unit") == unit]
         try:
             result = calculate(eng, subjects, rules, rounding_policy(case.manifest))
         except (ValueError, RuleError, ArithmeticError) as e:   # A4: a rule error is not a 500
@@ -382,12 +414,17 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
                        and r.id not in {u.id for u in rules_used}]
         rd = _enrich_citations(cat, raw)
         items = rd.get("line_items", [])
-        if not any(s.get("bargaining_unit") == unit for s in named_rows) and items \
-                and len({(li.get("total"), li.get("rule_id")) for li in items}) == 1:
-            # Nobody named: the whole unit gets the same answer, so show one row for
-            # the unit rather than six identical ones.
-            title = _titles(case, scope[:1])[0] if scope else unit
-            items = [dict(items[0], subject=f"Any {title} member")]
+        if items and len({(li.get("total"), li.get("rule_id")) for li in items}) == 1:
+            if not any(s.get("bargaining_unit") == unit for s in named_rows):
+                # Nobody named: the whole unit gets the same answer, so show one row for
+                # the unit rather than six identical ones.
+                title = _titles(case, scope[:1])[0] if scope else unit
+                items = [dict(items[0], subject=f"Any {title} member")]
+            elif len(items) > 1:
+                # A bare rank ("Firefighter/Paramedic") matches several roster rows
+                # (steps, 56/40-hour). Same rule, same value: one row, not a sum.
+                names = [li.get("subject") for li in items if li.get("subject")]
+                items = [dict(items[0], subject=", ".join(dict.fromkeys(names)))]
         for m in found:
             led.append("entitlement.match", {**m, "unit": unit, "scope_how": how},
                        actor="chat", query_id=qid)
@@ -400,8 +437,11 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
                     "units": units}, actor="chat", query_id=qid)
         return _policy_answer(case, led, qid, prompt, department, doc_scope=all_scope)
 
-    total = line_items[0]["total"] if len(line_items) == 1 else \
-        round(sum(float(li.get("total") or 0) for li in line_items), case.rounding_places())
+    # An entitlement is per person: 11.08 sick hours for one classification and 11.08
+    # for another is 11.08, not 22.16. One shared value is the answer; differing values
+    # are shown per row with no combined total.
+    values = {(li.get("total"), li.get("result_type")) for li in line_items}
+    total = line_items[0]["total"] if len(values) == 1 else None
     rd = {"total": total, "line_items": line_items}
     # Same path as the costing branch: schema-2 snapshot bound to the chain. The frozen
     # result is the engine's shape (uncollapsed rows, pre-enrichment) so a replay
@@ -504,7 +544,7 @@ def _input_decision(led, qid: str, backend, outcome: dict, rule, inp: dict,
             rr = rate_refs.get(sname) if field == "base_hourly" else None
             if rr and not rr.get("unsourced"):
                 ref = decisions.ref(rr.get("doc_id"), rr.get("page"), rr.get("context_bbox") or rr.get("bbox"),
-                                    f"{rr.get('row')} · {rr.get('column')}", rr.get("text"))
+                                    f"{rr.get('row')} · {rr.get('column')}", rr.get("quote") or rr.get("text"))
             chosen.append({"id": f"roster:{field}:{sname}",
                            "label": f"{field} = {s.get(field)} — roster row {sname}",
                            "value": s.get(field), "ref": ref,

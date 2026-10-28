@@ -102,13 +102,13 @@ def test_api_case_exposes_declared_titles(client):
 
 def test_chat_page_pins_fresh_assets(client):
     html = client.get("/").text
-    assert "app.js?v=7" in html and "styles.css?v=13" in html
+    assert "app.js?v=8" in html and "styles.css?v=14" in html
 
 
 def test_admin_page_loads_its_script_from_a_pinned_file(client):
     """The admin console's script is a served file, not an inline block."""
     html = client.get("/admin").text
-    assert '<script src="/static/admin.js?v=2"></script>' in html
+    assert '<script src="/static/admin.js?v=3"></script>' in html
     assert "<script>" not in html, "admin.html must carry no inline script"
     res = client.get("/static/admin.js")
     assert res.status_code == 200
@@ -210,3 +210,12 @@ def test_reread_is_demoted_and_confirm_says_what_it_does(client):
     first = html[html.index("function ingest()"):html.index("function ingestConfirmed()")]
     assert "backfill_quote_sha.py" in first and "rule library goes empty" in first
     assert "window.confirm" not in html and "confirm(" not in first
+
+
+def test_rate_in_the_sum_line_is_a_citation_chip(client):
+    """M1.4/I14: the chat's arithmetic line renders the rate as a button that opens its
+    salary-schedule row (the citation's row box), not plain text."""
+    js = client.get("/static/app.js").text
+    assert "className = 'rate-cite'" in js and "o.source.citation" in js
+    assert "b.onclick = () => openOperand(rate, res)" in js
+    assert "(c && c.bbox) || s.context_bbox" in js

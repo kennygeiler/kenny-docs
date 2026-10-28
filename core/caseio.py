@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from .dataadapter import make_adapter
+from .dataadapter import load_rate_bindings, make_adapter
 from .ledger import Ledger
 from .ruledsl import Rule, load_rules
 
@@ -52,6 +52,11 @@ class CaseContext:
             if "classification" in r and not r.get("name"):
                 r["name"] = r["classification"]
         return records
+
+    def rate_bindings(self) -> dict[str, dict]:
+        """{classification: its Master Salary Schedule row} (M1.4/I14) — see
+        dataadapter.load_rate_bindings. Empty when the case declares no `data.rates`."""
+        return load_rate_bindings(self.manifest.get("data", {}), self.dir)
 
     # ---- rules ----
     def rules(self) -> list[Rule]:

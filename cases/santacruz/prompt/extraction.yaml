@@ -32,6 +32,9 @@ pay_types:
   callback: [callback, "call back"]
   standby: [standby, "on call"]
   out_of_class: ["out of class", acting, upgrade]
+  # The FLSA premium on the scheduled hours between 182 and 192 of a 24-day work period
+  # (Local 3535 VII.B.1 p.7) is paid at half-time, a different branch from 1.5x overtime.
+  flsa: [flsa, "fair labor standards", "half time"]
 
 # Bounds on what a question may hand the engine (DEMO_TICKETS B4). Above the cap the app
 # asks instead of multiplying.

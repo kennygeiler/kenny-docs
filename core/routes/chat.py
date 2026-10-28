@@ -27,6 +27,7 @@ from ..services.answers import (
     _nearest_clauses,
     _policy_answer,
 )
+from ..services import provisions as _provisions
 from ..services.rulestore import _raw_ratified
 from ..services.sources import _doc_integrity, _doc_meta, _enrich_citations
 from ..services.state import DEFAULT_YEAR, _backend, _case, _catalog, _extraction
@@ -304,12 +305,16 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                         "reason": reason, "doc": gov_docs,
                         "nearest": [{"doc_id": n["doc_id"], "page": n["page"]} for n in nearest]},
                        actor="engine", query_id=qid)
+            # M1.5: name the provision this question is about, and where it stands.
+            prov_note, prov_named = _provisions.refusal_note(case, gov_docs, asked, lexicon)
             return {"query_id": qid, "needs_confirmation": False, "mode": "refused",
                     "chosen_doc": chosen, "bargaining_units": units, "shift_date": date_iso,
                     "asked": asked, "approved_topics": approved, "reason": reason,
                     "message": ("I can't compute that: " + reason + ". "
-                                "The closest clause is shown below as text — it is not a "
+                                + (prov_note + " " if prov_note else "")
+                                + "The closest clause is shown below as text — it is not a "
                                 "computed answer."),
+                    "provisions": prov_named,
                     "nearest": nearest, "nearest_label": "closest text — not a computed answer",
                     "approved_clauses": approved_clauses,
                     "uncovered": uncovered, "interpretation": interp, "params": params}
@@ -345,6 +350,11 @@ async def _chat(body: dict, qid: str, continues: str | None = None):
                                                    for r in refused))
         res.update({"bargaining_units": units, "shift_date": date_iso,
                     "uncovered": uncovered, "interpretation": interp})
+        if res.get("reason") == "no_rules":   # M1.5: the provision, and where it stands
+            prov_note, prov_named = _provisions.refusal_note(case, gov_docs, asked, lexicon)
+            if prov_note:
+                res["message"] += " " + prov_note
+                res["provisions"] = prov_named
         return res
 
     # 6. Ledger: decision logic + math + citations, straight from the engine trace.

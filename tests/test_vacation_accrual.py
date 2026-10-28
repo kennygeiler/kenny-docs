@@ -122,9 +122,10 @@ def test_shipped_library_has_no_vacation_rule_and_their_known_answers_read_pendi
     for g in v["goldens"]:
         by_status.setdefault(g["status"], []).append(g["name"])
     assert len(by_status.get("pass", [])) == 8 and "fail" not in by_status
-    assert sorted(by_status["pending"]) == sorted(
-        g["name"] for g in v["goldens"] if "vacation" in g["name"].lower())
-    assert v["pending"] == 14 and v["rule_count"] == 5 and v["all_passing"] is False
+    # pending = the 14 vacation answers + the 22 M1 Local 3535 answers (rules queued)
+    assert sorted(n for n in by_status["pending"] if "vacation accrual" in n.lower()) == sorted(
+        g["name"] for g in v["goldens"] if "vacation accrual" in g["name"].lower())
+    assert v["pending"] == 36 and v["rule_count"] == 5 and v["all_passing"] is False
 
 
 def test_rule_values_are_the_reread_not_the_stored_text():
@@ -182,7 +183,12 @@ def test_every_tier_has_a_passing_known_answer_and_the_money_goldens_are_untouch
                    "Firefighter/Paramedic top step (1.5x per Local 3535 MOU)"]["actual"] == 640.80
     assert by_name["8-hour overtime shift, 12-year Firefighter/Paramedic top step "
                    "(longevity 2.5% into the 1.5x rate)"]["actual"] == 656.82
-    assert all(d["status"] == "pass" for d in by_name.values()), by_name
+    # every known answer the live rules + tiers answer passes; the M1 rulebook's answers
+    # (other topics, rules still queued) stay pending, never fail
+    topic = {g["name"]: g.get("topic") for g in case.golden_cases()}
+    assert all(d["status"] == "pass" for n, d in by_name.items()
+               if topic[n] in ("overtime", "bereavement", "vacation")), by_name
+    assert not any(d["status"] == "fail" for d in by_name.values()), by_name
 
 
 # ---------------- the cell-evidence gate ----------------

@@ -38,8 +38,8 @@ property of the deterministic layer plus a human gate — not of the model.
 | Module | Responsibility | Why it is its own thing |
 |---|---|---|
 | `app.py` | assembles the FastAPI app (`core.app:app`): auth, warm-up, routers, the never-500 handler | one entrypoint, nothing else in it |
-| `routes/` | HTTP routes as APIRouters: `pages` (pages, static, health), `chat` (intent router, orchestration), `documents` (PDF/page/x-ray, ingest, upload), `rules` (review queue, draft, ratify, try-to-break, skeptic, cell gate), `ledger` (audit, export, replay, tamper demo) | one file per surface |
-| `services/` | state and helpers the routes share: `state` (case, job registry), `sources` (hashes, citations, revalidation), `rulestore` (rule files, `_RULES_LOCK`), `gate` (known answers, verdict), `answers` (policy/entitlement answers) | one instance of each lock and cache |
+| `routes/` | HTTP routes as APIRouters: `pages` (pages, static, health, `/api/coverage`), `chat` (intent router, orchestration), `documents` (PDF/page/x-ray, ingest, upload), `rules` (review queue, draft, ratify, try-to-break, skeptic, cell gate), `ledger` (audit, export, replay, tamper demo) | one file per surface |
+| `services/` | state and helpers the routes share: `state` (case, job registry), `sources` (hashes, citations, revalidation), `rulestore` (rule files, `_RULES_LOCK`), `gate` (known answers, verdict), `answers` (policy/entitlement answers), `provisions` (provision inventory `cases/<case>/provisions.yaml` → coverage counts, review-queue sections, the provision named in a refusal; no file hides it all) | one instance of each lock and cache |
 | `llm.py` | **the only AI surface** — classify, parse, draft, tag, rank, compose | quarantine the model to one auditable file |
 | `engine.py` | deterministic interpreter: differentials → base → premiums → rounding | the money path; imports no AI |
 | `ruledsl.py` | rule schema, sandboxed expression evaluation, validation | rules are untrusted data by default |
@@ -462,7 +462,7 @@ scenario must make that scenario pass; (R4) every selected rule must fire in a p
 — a rule that fires in no known answer cannot go live; (R5) a live rule outside the selection that
 was proven before must still be proven. What it does not check: whether the rule reads the clause
 correctly beyond that one known answer's inputs — each rule is proved at one set of inputs only, and
-the twenty-two shipped known answers are analyst-derived from the documents, not payroll.
+the forty-four shipped known answers are analyst-derived from the documents, not payroll.
 
 ### 11.4 The admin tabs
 
@@ -500,17 +500,25 @@ What a costing answer contains:
 1. A **single deterministic figure**, with the sum written out ($53.40/hr × 1.5 × 8 h).
 2. The multiplier comes from the governing document for the classification's bargaining unit: the
    1.5× is from the Local 3535 MOU, cited to p.8. The $53.40 rate comes from the classification
-   table (`cases/santacruz/data/roster.csv`), transcribed from the Master Salary Schedule; the
-   rate's own citation to its schedule row is open work (DEMO_TICKETS I14, archived backlog).
+   table (`cases/santacruz/data/roster.csv`) and cites its Master Salary Schedule row (M1.4,
+   old ticket I14): `data/schedule_refs.csv` binds each classification to a row of
+   `data/salary_schedule.csv` (54 rows, 27 titles × minimum/maximum, each with page, row box,
+   cell box and the verbatim line, extracted by `scripts/extract_salary_schedule.py`). The
+   rate in the sum line opens that row boxed on the page; `tests/test_salary_schedule.py`
+   re-reads the PDF and fails if a roster rate drifts from its row. The schedule's
+   minimum/maximum equal the first and last CY2026 step of the Local 3535 MOU's own
+   Appendix "A" (p.35), so the roster rates match both.
 3. **Click any dollar amount** → the audit drawer opens with the decision trace, the citations, the
    source clause boxed on the rendered PDF page, and a panel saying which steps a model performed
    (none, when the model is off).
 
 ### 11.6 Expected results
 
-The twenty-two known answers in `case.yaml`: the six below plus the 9- and 10-year longevity edges,
-all reproduced by the live rules, and fourteen vacation-tier answers (five tiers and nine boundary
-answers) pending the queued rules' approval. They are analyst-derived from the documents, not from
+The forty-four known answers in `case.yaml`: the six below plus the 9- and 10-year longevity edges,
+all reproduced by the live rules; fourteen vacation-tier answers (five tiers and nine boundary
+answers) pending the queued tiers' approval; and twenty-two M1 rulebook answers (one per rule
+drafted from `provisions.yaml`, plus 40-hour Captain checks for holiday pay and sick leave)
+pending those rules' approval. They are analyst-derived from the documents, not from
 payroll, and are asserted by `pytest` through the gate and through `/chat`
 (`tests/test_demo_smoke.py`); each proves its rule at one set of inputs only.
 
@@ -537,7 +545,7 @@ instance) is refused with a reason.
   and helpers in `services/`.
 - **`cases/santacruz/`** — the bundle: `sources/` PDFs, `data/roster.csv`, `rules/`, `reviews/`
   (skeptic), `cell_checks.json`, `catalog.json`, `search_index.jsonl`, `case.yaml` (the
-  twenty-two known answers), `taxonomy.yaml`, `prompt/`.
+  forty-four known answers), `provisions.yaml` (the Local 3535 inventory), `taxonomy.yaml`, `prompt/`.
 - **`scripts/`** — `demo_smoke.py` (the demo table), `skeptic.py` (zero-spend bake and
   re-verification), `verify_cells.py`, the back-fills (`backfill_quote_sha.py`,
   `backfill_provenance.py`, `backfill_text_origin.py`), `prepare_deploy.py`, `replay.py`.

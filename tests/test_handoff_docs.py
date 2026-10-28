@@ -56,7 +56,7 @@ def test_readme_states_what_the_gate_checks_and_who_wrote_the_rules():
     both = _readme_and_arch()
     for must in ("(R1)", "(R2)", "(R3)", "(R4)", "(R5)", "produced none of them",
                  "has not yet been ratified by a human", "Try to break it", "OCR'd scan",
-                 "Skeptic", "twenty-two known answers", "OCRmyPDF 17.8.0"):
+                 "Skeptic", "forty-four known answers", "OCRmyPDF 17.8.0"):
         assert must in both, must
     # the open backlog moved to Linear; the README must not point at a root ticket file
     assert "(DEMO_TICKETS.md)" not in readme

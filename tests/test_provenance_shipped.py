@@ -167,8 +167,10 @@ def test_backfill_is_idempotent_and_refuses_mismatch(case_copy):
 
     report = backfill(case_copy, verbose=False)
     assert all(d["changed"] for d in report["documents"]) and len(report["documents"]) == 5
-    # the queued vacation tiers (rules_proposed.json) are already bound and report unchanged
-    live_rows = [r for r in report["rules"] if ":vacation_accrual_" not in r["rule_id"]]
+    # the queued rules (rules_proposed.json: vacation tiers, M1 rulebook) are already
+    # bound and report unchanged
+    live_ids = {r["id"] for r in json.loads(rules_before)["rules"]}
+    live_rows = [r for r in report["rules"] if r["rule_id"] in live_ids]
     assert all(r["changed"] for r in live_rows) and len(live_rows) == 5
     assert not any(r["changed"] for r in report["rules"] if r not in live_rows)
     cat_after = open(cat_path, "rb").read()
