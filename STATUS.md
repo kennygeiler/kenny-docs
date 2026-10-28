@@ -42,19 +42,23 @@ land; the headings stay (tests/test_handoff_docs.py checks them).
 
 | Where | Commit | Date | How it got there |
 |---|---|---|---|
-| GitHub `main` and `demo-2026-10-07` | `3233baf` | pushed after 2026-10-07 | both point at the same commit (`main` sat at `3b326a6`, the August build, until then); no tags exist |
-| Production (Railway) | `2802ad9` on `demo-2026-10-07` | deployed 2026-10-07 14:16 | `railway up` from a clean `~/holly`; footer and `/api/case` show `2802ad9` (checked 2026-10-28, `/healthz` ok) |
-| Audit branches | `audit/*` off `3233baf` | 2026-10-28 | local worktrees, not pushed, not deployed |
+| GitHub `main` | `e0dac03` | 2026-10-28 | PR #19 (audit fixes) and PR #20 (admin reads public) merged |
+| Production (Railway) | `e0dac03` | deployed 2026-10-28 ~17:25 ET | `railway up <clean worktree of main> --path-as-root`; footer and `/api/case` show `e0dac03`, `/healthz` ok |
+| `demo-2026-10-07` | `3233baf` | 2026-10-07 | the old demo branch (before it, `main` sat at `3b326a6`, the August build); `~/holly` is still checked out on it |
 
-`3233baf` differs from `2802ad9` only in STATUS.md and README.md, so production runs the
-current code. Production settings (by name, from the 2026-10-07 deploy and the 2026-10-28
-audit): **open posture** (`KENNY_REQUIRE_AUTH` unset, `/admin` reachable by anyone),
-`ANTHROPIC_API_KEY` set and the model on (`/api/case` reports `has_api_key: true`,
-`llm_mode: claude`; `/admin` answers 200 with no credentials, both checked 2026-10-28),
-`KENNY_CHAT_RATE_LIMIT=1000`, `KENNY_LEDGER_KEY` unset (ledger
-unkeyed). The volume was reseeded on 2026-10-07; the August case is archived on it at
-`/data/cases/santacruz.pre-reseed.*`. Its ledger holds every question asked at the public
-link since then; export it before any redeploy.
+Production settings (by name; values are in Railway and, for the two secrets, in the
+owner's `~/.kenny-prod-secrets`, mode 600): **admin-only posture** — `KENNY_REQUIRE_AUTH=1`,
+`KENNY_ADMIN_PASSWORD` set, no viewer password, so chat and every admin page are public to
+read and every admin change needs the password (checked 2026-10-28: `/admin` 200,
+`POST /admin/ratify` and `/admin/upload` 401 without it). `KENNY_LEDGER_KEY` set (ledger
+HMAC-keyed). `KENNY_LLM=off` (badge "LLM: off (deterministic)"; `ANTHROPIC_API_KEY` is still
+set in Railway but unused). `KENNY_CHAT_RATE_LIMIT=1000`. `KENNY_SEED_FORCE=0` and
+`KENNY_SEED_FORCE_CONFIRM=no` (the CLI's `variable delete` has no `--skip-deploys`, so they
+were set off instead of deleted).
+
+The volume was reseeded on 2026-10-28 so the keyed ledger starts clean; the previous case
+and its unkeyed ledger are archived on the volume at `/data/cases/santacruz.pre-reseed.*`,
+and the owner has an export of that ledger (470 events) at `~/kenny-prod-ledger-20261028-*.jsonl`.
 
 ## d. What works (and what proves it)
 
@@ -96,13 +100,6 @@ link since then; export it before any redeploy.
 
 Delete a line when it lands. Items marked *owner* need Kenny.
 
-- ***Owner:* production is open and spends a live key.** Anyone with the URL can use
-  `/admin` (ratify rules, upload or replace PDFs, read the ledger) and every chat question
-  can call the model on the owner's `ANTHROPIC_API_KEY`. The fix is the admin-only mode
-  (being added on `audit/sec`, described in DEPLOY.md): set `KENNY_REQUIRE_AUTH=1`,
-  `KENNY_ADMIN_PASSWORD`, `KENNY_LEDGER_KEY` (`openssl rand -base64 32`) and `KENNY_LLM=off`
-  in Railway, then redeploy (section h). Until then, `KENNY_LLM=off` alone stops the
-  spend.
 - `firefighters_local3535_mou:longevity_10yr` is live with approver
   `analyst (hand-authored 2026-10-07, …)`, a label rather than a person. To ratify it
   honestly: move it to `rules/rules_proposed.json`, approve it in the Review queue with
@@ -146,9 +143,14 @@ the tests work on a scratch copy.
 ## h. Deploy policy and the exact commands
 
 Nothing deploys from a dirty tree, and nothing deploys that is not on GitHub. The last
-deploy ran on 2026-10-07 (`2802ad9`, section c). The next one should move production to
-the admin-only posture; it needs the audit branches merged and pushed first, and the
-owner to choose the admin password.
+deploy ran on 2026-10-28 (`e0dac03`, section c) and moved production to the admin-only
+posture. The commands below are the ones that deploy used; for the next deploy skip the
+reseed flags (the ledger is keyed now) and keep the same secrets.
+
+**Deploy from a clean worktree of the pushed commit, and name it:** `railway up` uploads
+the linked project's folder (`~/holly`), not the current directory. On 2026-10-28 a plain
+`railway up` from a worktree shipped `~/holly`'s old checkout, which crashed on the new
+settings. Use `railway up <worktree path> --path-as-root --detach -m "$SHA"`.
 
 ```bash
 # 1. Merge and push (from ~/holly)
@@ -162,7 +164,7 @@ SHA=$(git rev-parse --short HEAD)
 railway variable set KENNY_BUILD=$SHA KENNY_REQUIRE_AUTH=1 KENNY_ADMIN_PASSWORD='<owner picks>' \
   KENNY_LEDGER_KEY="$(openssl rand -base64 32)" KENNY_LLM=off \
   KENNY_SEED_FORCE=1 KENNY_SEED_FORCE_CONFIRM=yes --skip-deploys   # reseed: the volume's ledger is unkeyed
-railway up --detach -m "$SHA"
+railway up "$PWD" --path-as-root --detach -m "$SHA"   # from a clean worktree of main
 # 4. Check
 curl -s https://kenny-production.up.railway.app/api/case | grep -o '"version":{[^}]*}'   # must show $SHA
 curl -s -o /dev/null -w '%{http_code}\n' https://kenny-production.up.railway.app/admin   # must not be 200 without the password
@@ -198,14 +200,11 @@ removed from this app and their templates kept under `archive/call-screening-leg
 
 ## j. Next
 
-1. Merge the 2026-10-28 audit branches; full suite and `scripts/demo_smoke.py` green.
-2. Owner: pick the admin password, then redeploy production in the admin-only posture
-   (section h). Until then, set `KENNY_LLM=off` on Railway to stop public key spend.
-3. Owner: ratify `longevity_10yr` in the Review queue with your name (section e).
-4. Later, from the archived backlog via Linear: A3/G3 (bounded drafting), I14 (rate
+1. Owner: ratify `longevity_10yr` in the Review queue with your name (section e).
+2. Later, from the archived backlog via Linear: A3/G3 (bounded drafting), I14 (rate
    citation), K3 (HTTP acceptance suite + CI), K6 (pinned deps), B7/B8 (dated rates,
    rounding policy).
 
-Decisions waiting on the owner: the admin password and when to redeploy; whether
-production keeps a live `ANTHROPIC_API_KEY` at all; **a licence for the repo** (none
+Decisions waiting on the owner: whether production should turn the model back on
+(`KENNY_LLM` unset; the key is still in Railway) or drop the key; **a licence for the repo** (none
 chosen; no LICENSE file exists).
