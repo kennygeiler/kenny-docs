@@ -21,7 +21,7 @@ import re
 from typing import Any, Callable
 
 from . import decisions, governance
-from .engine import NoRuleApplies, calculate
+from .engine import NoRuleApplies, calculate, rounding_policy
 from .ruledsl import SHIFT_BASES, Rule, RuleError
 
 # Fallback lexicon when the case's extraction.yaml declares none. The case file wins:
@@ -290,7 +290,9 @@ def cost_by_unit(case, cat, led, qid: str, subjects: list[dict], eng_params: dic
         try:
             # A shift-cost question includes hourly and per-shift pay only — never a
             # year of benefits (see engine.calculate basis_scope).
-            res = calculate(eng_params, members, rules, case.rounding_places(),
+            # The case's whole rounding policy (places, mode, granularity), not just
+            # its places — engine.rounding_policy validates it and defaults safely.
+            res = calculate(eng_params, members, rules, rounding_policy(case.manifest),
                             basis_scope=SHIFT_BASES)
         except (NoRuleApplies, ValueError) as e:
             out["status"] = "no_rule_for_scenario"

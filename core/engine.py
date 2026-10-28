@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from typing import Any
 
-from .ruledsl import Rule, eval_expr
+from .ruledsl import Rule, eval_expr, to_decimal
 
 _IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -25,8 +25,15 @@ def _inputs(expr: str | None, facts: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for name in _IDENT_RE.findall(str(expr or "")):
         if name in facts and name not in out:
-            out[name] = facts[name]
+            out[name] = _plain(facts[name])
     return out
+
+
+def _plain(v: Any) -> Any:
+    """Decimal -> float at the serialisation boundary. Every value the engine hands out
+    (trace, line totals, flags) keeps the float shape it always had, so stored snapshots,
+    their result_sha256 and the ledger replay compare equal across this change."""
+    return float(v) if isinstance(v, Decimal) else v
 
 
 class NoRuleApplies(ValueError):
@@ -42,9 +49,82 @@ class NoRuleApplies(ValueError):
     """
 
 
-def _round(value: float, places: int = 2) -> float:
-    q = Decimal(10) ** -places
-    return float(Decimal(str(value)).quantize(q, rounding=ROUND_HALF_UP))
+# ROUNDING POLICY (case.yaml `rounding:`; defaults below when a case omits it).
+#   places      decimal places of every rounded term (2 = cents)
+#   mode        half_up (payroll convention; 2.675 -> 2.68) | half_even (banker's)
+#   granularity term — each pay TERM is rounded once: the chosen base's extension, each
+#               premium, and a flag's alternate base. A line is the exact sum of its
+#               rounded terms; the total is the exact sum of rounded lines. Nothing is
+#               re-rounded and no intermediate fact (a longevity-adjusted rate) is
+#               rounded by the engine. All arithmetic before that one rounding is
+#               Decimal (ruledsl.to_decimal), never binary float.
+_MODES = {"half_up": ROUND_HALF_UP, "half_even": ROUND_HALF_EVEN}
+_GRANULARITIES = {"term"}
+DEFAULT_ROUNDING = {"places": 2, "mode": "half_up", "granularity": "term"}
+
+
+@dataclass(frozen=True)
+class RoundingPolicy:
+    places: int = 2
+    mode: str = "half_up"
+    granularity: str = "term"
+
+    def __post_init__(self):
+        if self.mode not in _MODES:
+            raise ValueError(f"unsupported rounding mode {self.mode!r} "
+                             f"(supported: {sorted(_MODES)})")
+        if self.granularity not in _GRANULARITIES:
+            raise ValueError(f"unsupported rounding granularity {self.granularity!r} "
+                             f"(supported: {sorted(_GRANULARITIES)})")
+        if not 0 <= int(self.places) <= 6:
+            raise ValueError(f"rounding places must be 0..6, got {self.places!r}")
+
+    @classmethod
+    def from_config(cls, cfg: Any) -> "RoundingPolicy":
+        """From a case manifest's `rounding:` block (dict), a bare int of places (the
+        legacy calculate() argument, and what schema-2 snapshots store), a policy, or
+        None. Missing keys take the safe default (2 places, half_up, per term)."""
+        if isinstance(cfg, RoundingPolicy):
+            return cfg
+        if cfg is None:
+            cfg = {}
+        if isinstance(cfg, bool):
+            raise ValueError(f"invalid rounding policy {cfg!r}")
+        if isinstance(cfg, int):
+            cfg = {"places": cfg}
+        if not isinstance(cfg, dict):
+            raise ValueError(f"invalid rounding policy {cfg!r}")
+        merged = {**DEFAULT_ROUNDING, **{k: v for k, v in cfg.items() if v is not None}}
+        return cls(places=int(merged["places"]), mode=str(merged["mode"]),
+                   granularity=str(merged["granularity"]))
+
+    def round(self, value: Any) -> Decimal:
+        q = Decimal(10) ** -int(self.places)
+        return _dec(value).quantize(q, rounding=_MODES[self.mode])
+
+
+def rounding_policy(manifest: dict | None) -> RoundingPolicy:
+    """The case's declared rounding policy (manifest `rounding:`), safe default if absent."""
+    return RoundingPolicy.from_config((manifest or {}).get("rounding"))
+
+
+def _dec(value: Any) -> Decimal:
+    """A computed term as Decimal. bool is refused: a `when`-shaped expression in a
+    compute slot is a rule bug, not the number 1."""
+    if isinstance(value, bool):
+        raise ValueError(f"expected a number, got {value!r}")
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, int):
+        return Decimal(value)
+    if isinstance(value, float):
+        return to_decimal(value)
+    return Decimal(str(value))
+
+
+def _round(value: Any, places: int = 2) -> float:
+    """Legacy helper: half-up to `places`, as float."""
+    return float(RoundingPolicy(places=places).round(value))
 
 
 @dataclass
@@ -129,8 +209,12 @@ def _precedence(r: Rule):
 
 
 def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
-              rules: list[Rule], rounding_places: int = 2,
+              rules: list[Rule], rounding_places: "int | dict | RoundingPolicy | None" = 2,
               basis_scope: frozenset[str] | None = None) -> Result:
+    # `rounding_places` keeps its name for the existing callers; it accepts the case's
+    # whole `rounding:` block (or a RoundingPolicy) as well as a bare int of places.
+    policy = RoundingPolicy.from_config(rounding_places)
+
     # Compensation is a STACK, not a contest (PRD §7.4):
     #   differentials adjust the base rate, ONE base formula is chosen, premiums ADD.
     # Role defaults (selector->base, modifier->differential) make this identical to the
@@ -157,7 +241,7 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
                       key=lambda r: r.priority, reverse=True)
 
     line_items: list[LineItem] = []
-    grand_total = 0.0
+    grand_total = Decimal(0)
 
     for subject in subjects:
         facts = _base_facts(subject, params)
@@ -175,11 +259,12 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
             for fact_name, expr in m.set.items():
                 ins = _inputs(expr, facts)          # read BEFORE the fact is overwritten
                 new_val = eval_expr(expr, facts)
-                facts[fact_name] = new_val
+                facts[fact_name] = new_val          # carried as Decimal, unrounded
+                shown = _plain(new_val)
                 trace.append(TraceStep(
                     kind="modifier", rule_id=m.id,
-                    detail=f"{fact_name} = {expr} -> {new_val}",
-                    citation=m.citation.to_dict(), value=new_val, inputs=ins))
+                    detail=f"{fact_name} = {expr} -> {shown}",
+                    citation=m.citation.to_dict(), value=shown, inputs=ins))
             if m.citation.clause:
                 citations.append(m.citation.to_dict())
 
@@ -199,7 +284,8 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
         if chosen is None:
             raise NoRuleApplies(f"no base pay rule matched for subject {subj_name!r}")
 
-        base_val = _round(float(eval_expr(chosen.compute, facts)), rounding_places)
+        base_dec = policy.round(eval_expr(chosen.compute, facts))
+        base_val = float(base_dec)
         trace.append(TraceStep(
             kind="selector-chosen", rule_id=chosen.id,
             detail=f"chose {chosen.id} (scope {chosen.scope_rank}, priority {chosen.priority}); "
@@ -214,12 +300,16 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
 
         # 3. ADD every matching premium. Independent, additive terms — a bilingual stipend
         #    and a uniform allowance both apply; neither replaces the base.
-        line_total = base_val
+        # Each premium is rounded once; the line is their exact Decimal sum (no
+        # re-rounding of the running total — see RoundingPolicy).
+        line_dec = base_dec
+        premium_dec = Decimal(0)
         for p in premiums:
             if not bool(eval_expr(p.when, facts)):
                 continue
-            add = _round(float(eval_expr(p.compute, facts)), rounding_places)
-            line_total = _round(line_total + add, rounding_places)
+            add_dec = policy.round(eval_expr(p.compute, facts))
+            premium_dec += add_dec
+            add = float(add_dec)
             trace.append(TraceStep(
                 kind="premium", rule_id=p.id,
                 detail=f"+ {p.compute} = {add} ({p.human_readable or p.topic})",
@@ -227,12 +317,18 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
             if p.citation.clause:
                 citations.append(p.citation.to_dict())
 
-        # 4. Ambiguity flags on the chosen rule.
+        line_dec = base_dec + premium_dec
+        line_total = float(line_dec)
+
+        # 4. Ambiguity flags on the chosen rule. `alternate` is the alternate reading of
+        #    the BASE formula; the same premiums that fired apply under either reading,
+        #    so the alternate line is alternate-base + those premiums. Primary and
+        #    alternate are then like for like (two candidate line totals).
         flags: list[dict] = []
         for fl in chosen.flags:
             if not bool(eval_expr(fl.when, facts)):
                 continue
-            alt = _round(float(eval_expr(fl.alternate, facts)), rounding_places) \
+            alt = float(policy.round(eval_expr(fl.alternate, facts)) + premium_dec) \
                 if fl.alternate else None
             flag = {
                 "rule_id": chosen.id,
@@ -251,6 +347,6 @@ def calculate(params: dict[str, Any], subjects: list[dict[str, Any]],
             subject=subj_name, rule_id=chosen.id, total=line_total,
             result_type=chosen.result_type, topic=chosen.topic,
             citations=citations, trace=trace, flags=flags))
-        grand_total += line_total
+        grand_total += line_dec
 
-    return Result(total=_round(grand_total, rounding_places), line_items=line_items)
+    return Result(total=float(grand_total), line_items=line_items)
