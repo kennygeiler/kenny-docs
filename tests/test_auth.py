@@ -56,6 +56,22 @@ def _app(monkeypatch, **env):
     def ratify():
         return {"ok": True}
 
+    @app.get("/admin/verification")
+    def verification():
+        return {"ok": True}
+
+    @app.post("/admin/try_break")
+    def try_break():
+        return {"ok": True}
+
+    @app.post("/admin/cell_confirm")
+    def cell_confirm():
+        return {"ok": True}
+
+    @app.post("/admin/demo_draft/load")
+    def demo_draft_load():
+        return {"ok": True}
+
     @app.get("/doc/x/file")
     def doc():
         return {"ok": True}
@@ -294,19 +310,24 @@ def test_table_only_page_recovers_rows_not_a_blob():
     assert _from_doc_texts(type("D", (), {"texts": []})()) is None
 
 
-# ---- admin-only mode: public chat, locked /admin (audit 2026-10-28) ----
+# ---- admin-only mode: public chat and admin reads, locked admin writes ----
 
-def test_admin_only_mode_keeps_chat_public_and_locks_admin(monkeypatch):
+def test_admin_only_mode_keeps_chat_and_admin_reads_public_and_locks_writes(monkeypatch):
     c = _app(monkeypatch, KENNY_ADMIN_PASSWORD="decide")
     assert c.get("/").status_code == 200
     assert c.post("/chat").status_code == 200
     assert c.get("/doc/x/file").status_code == 200
-    for method, path in [("get", "/admin"), ("get", "/admin/ledger"),
-                         ("post", "/admin/upload"), ("post", "/admin/ratify"),
-                         ("post", "/admin/draft_scenario")]:
-        assert getattr(c, method)(path).status_code == 401, path
-        assert getattr(c, method)(path, headers=_basic("wrong")).status_code == 401, path
-        assert getattr(c, method)(path, headers=_basic("decide")).status_code == 200, path
+    # A visitor sees the whole trust story: the admin page and its read APIs.
+    for path in ("/admin", "/admin/ledger", "/admin/verification"):
+        assert c.get(path).status_code == 200, path
+    # try_break changes nothing on disk, so the "try to break it" demo stays public.
+    assert c.post("/admin/try_break").status_code == 200
+    # Every write needs the admin password.
+    for path in ("/admin/upload", "/admin/ratify", "/admin/draft_scenario",
+                 "/admin/ingest", "/admin/cell_confirm", "/admin/demo_draft/load"):
+        assert c.post(path).status_code == 401, path
+        assert c.post(path, headers=_basic("wrong")).status_code == 401, path
+        assert c.post(path, headers=_basic("decide")).status_code == 200, path
 
 
 def test_admin_only_mode_still_throttles_and_blocks_csrf(monkeypatch):
@@ -315,8 +336,8 @@ def test_admin_only_mode_still_throttles_and_blocks_csrf(monkeypatch):
                                             "Origin": "https://evil.example"}
                   ).status_code == 403
     for _ in range(6):
-        assert c.get("/admin/ledger", headers=_basic("wrong")).status_code == 401
-    assert c.get("/admin/ledger", headers=_basic("wrong")).status_code == 429
+        assert c.post("/admin/ratify", headers=_basic("wrong")).status_code == 401
+    assert c.post("/admin/ratify", headers=_basic("wrong")).status_code == 429
 
 
 def test_viewer_password_alone_is_refused(monkeypatch):
@@ -331,7 +352,8 @@ def test_require_auth_accepts_admin_only_with_ledger_key(monkeypatch):
     c = _app(monkeypatch, KENNY_REQUIRE_AUTH="1", KENNY_ADMIN_PASSWORD="decide",
              KENNY_LEDGER_KEY="k")
     assert c.post("/chat").status_code == 200
-    assert c.get("/admin").status_code == 401
+    assert c.get("/admin").status_code == 200
+    assert c.post("/admin/ratify").status_code == 401
 
 
 @pytest.mark.parametrize("env", [{}, {"KENNY_ADMIN_PASSWORD": "decide"},

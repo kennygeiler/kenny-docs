@@ -368,7 +368,9 @@ A local run and a shared link are different products. On any shared deploy:
 
 - **Two-role auth, enforced per-path.** *Asking* and *deciding what the contract means* are
   different jobs; the viewer credential reaches Chat and the documents it cites, and only the
-  admin credential reaches `/admin/*` (ratify, upload, ingest, ledger). The app **refuses to
+  admin credential reaches `/admin/*` (ratify, upload, ingest, ledger). In admin-only mode (no
+  viewer password) chat and every admin read are public and only admin writes need the
+  password, so a visitor can see the whole trust story. The app **refuses to
   start** misconfigured — including a missing ledger HMAC key — so a silent security failure
   becomes a loud startup failure.
 - **Per-client rate limit** on the chat endpoint (real client IP via `Fly-Client-IP` on Fly) —
