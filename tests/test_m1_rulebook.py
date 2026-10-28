@@ -288,3 +288,15 @@ def test_provisions_inventory_shape_and_rule_ids():
     # every M1 rule and every queued/live Local 3535 rule is accounted for
     listed = {rid for p in inv["provisions"] for rid in p["rules"]}
     assert {r["id"] for r in _live() + _queue() if r["id"].startswith(P)} <= listed
+
+
+def test_a_bare_rank_is_not_summed_across_its_roster_rows(live_all):
+    """'Firefighter/Paramedic' matches the top- and entry-step rows. Sick leave is per
+    person: the answer is 11.08 hours once, not 11.08 times the number of rows."""
+    q = "How many hours of sick leave does a Firefighter/Paramedic accrue per pay period?"
+    res = live_all.post("/chat", json={"prompt": q}).json()
+    assert res.get("mode") == "entitlement", res
+    items = res["result"]["line_items"]
+    assert len(items) == 1, items
+    assert items[0]["total"] == pytest.approx(11.08)
+    assert res["result"]["total"] == pytest.approx(11.08)

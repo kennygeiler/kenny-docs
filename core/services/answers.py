@@ -414,12 +414,17 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
                        and r.id not in {u.id for u in rules_used}]
         rd = _enrich_citations(cat, raw)
         items = rd.get("line_items", [])
-        if not any(s.get("bargaining_unit") == unit for s in named_rows) and items \
-                and len({(li.get("total"), li.get("rule_id")) for li in items}) == 1:
-            # Nobody named: the whole unit gets the same answer, so show one row for
-            # the unit rather than six identical ones.
-            title = _titles(case, scope[:1])[0] if scope else unit
-            items = [dict(items[0], subject=f"Any {title} member")]
+        if items and len({(li.get("total"), li.get("rule_id")) for li in items}) == 1:
+            if not any(s.get("bargaining_unit") == unit for s in named_rows):
+                # Nobody named: the whole unit gets the same answer, so show one row for
+                # the unit rather than six identical ones.
+                title = _titles(case, scope[:1])[0] if scope else unit
+                items = [dict(items[0], subject=f"Any {title} member")]
+            elif len(items) > 1:
+                # A bare rank ("Firefighter/Paramedic") matches several roster rows
+                # (steps, 56/40-hour). Same rule, same value: one row, not a sum.
+                names = [li.get("subject") for li in items if li.get("subject")]
+                items = [dict(items[0], subject=", ".join(dict.fromkeys(names)))]
         for m in found:
             led.append("entitlement.match", {**m, "unit": unit, "scope_how": how},
                        actor="chat", query_id=qid)
@@ -432,8 +437,11 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
                     "units": units}, actor="chat", query_id=qid)
         return _policy_answer(case, led, qid, prompt, department, doc_scope=all_scope)
 
-    total = line_items[0]["total"] if len(line_items) == 1 else \
-        round(sum(float(li.get("total") or 0) for li in line_items), case.rounding_places())
+    # An entitlement is per person: 11.08 sick hours for one classification and 11.08
+    # for another is 11.08, not 22.16. One shared value is the answer; differing values
+    # are shown per row with no combined total.
+    values = {(li.get("total"), li.get("result_type")) for li in line_items}
+    total = line_items[0]["total"] if len(values) == 1 else None
     rd = {"total": total, "line_items": line_items}
     # Same path as the costing branch: schema-2 snapshot bound to the chain. The frozen
     # result is the engine's shape (uncollapsed rows, pre-enrichment) so a replay
