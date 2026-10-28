@@ -48,11 +48,8 @@ live on the volume.
 
 ## What is deployed today
 
-Production runs commit `2802ad9` from `demo-2026-10-07`, deployed 2026-10-07 with `railway
-up` (footer and `/api/case` show `2802ad9`, checked 2026-10-28). It predates the admin-only
-mode: it runs **open** (`KENNY_REQUIRE_AUTH` unset) with a live `ANTHROPIC_API_KEY` and the
-model on. Moving it to the posture above needs the variables set and a redeploy; the steps
-are in `STATUS.md` section h.
+Production runs `e0dac03` (`main`), deployed 2026-10-28 in the admin-only posture above with
+`KENNY_LLM=off` and a keyed ledger. Details and the exact settings: `STATUS.md` section c.
 
 ## Deploy (Railway)
 
@@ -62,7 +59,7 @@ railway volume add -m /data    # persistent case tree: ledger, catalog, ratified
 git status --short             # must print nothing: `railway up` uploads the WORKING TREE, not a commit
 SHA=$(git rev-parse --short HEAD)
 railway variable set KENNY_BUILD=$SHA --skip-deploys   # the footer and /api/case report this hash
-railway up --detach -m "$SHA"  # builds the Dockerfile (~15 min first time: torch + models)
+railway up "$PWD" --path-as-root --detach -m "$SHA"  # name the folder: plain `railway up` ships the linked ~/holly; builds the Dockerfile (~15 min first time: torch + models)
 railway domain                 # mint the public URL
 curl -s https://<app>.up.railway.app/api/case | grep -o '"version":{[^}]*}'   # must show $SHA
 ```
