@@ -394,7 +394,7 @@ def test_mutation_report_over_the_live_library(env):
 # ---------------- E7: every verification sentence literally true ----------------
 def test_admin_page_makes_no_stale_verification_claims(env):
     c, _ = env
-    html = c.get("/admin").text
+    html = (c.get("/admin").text + c.get("/static/admin.js").text)
     for stale in ("Every live rule is exercised by at least one known answer",
                   "They reproduced every known answer",
                   "Checks passed",

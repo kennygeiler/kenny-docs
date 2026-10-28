@@ -204,7 +204,7 @@ def test_admin_page_ships_the_confidence_surfaces(client):
     the box/row tint class, the tooltip wording, the legend entry, and a bumped
     stylesheet version (stale cached CSS would drop the amber signal silently)."""
     c, _ = client
-    html = c.get("/admin").text
+    html = (c.get("/admin").text + c.get("/static/admin.js").text)
     assert "score-lowconf" in html, "scorecard + upload card badge"
     assert "low OCR confidence on this page" in html, "X-ray tooltip / count strip"
     assert "xlow" in html, "box, Compare row and table-row tint class"

@@ -70,7 +70,7 @@ def test_admin_page_ships_the_compare_view(client):
     point, the split-pane containers, and a bumped stylesheet version (stale cached
     CSS would render the split layout as a broken single column)."""
     c, _ = client
-    html = c.get("/admin").text
+    html = (c.get("/admin").text + c.get("/static/admin.js").text)
     assert "openCompare(" in html, "every document card needs a Compare entry point"
     assert 'id="xrayText"' in html and 'class="xsplit"' in html
     css = c.get("/static/styles.css").text
@@ -84,7 +84,7 @@ def test_admin_page_ships_the_table_xray(client):
     table renderer, the count-strip mode indicator — and a bumped stylesheet version
     (stale cached CSS would render the grid unstyled and unhighlightable)."""
     c, _ = client
-    html = c.get("/admin").text
+    html = (c.get("/admin").text + c.get("/static/admin.js").text)
     assert "function tableModel(" in html, "majority-table detection + row-text parsing"
     assert "renderXTable(" in html and 'class="xtable"' in html
     assert "table page —" in html, "count-strip mode indicator"
@@ -98,7 +98,7 @@ def test_admin_page_ships_the_table_xray(client):
 # --------------------------------------------------------------------------- #
 def test_compare_deep_link_opens_requested_page(client):
     c, _ = client
-    html = c.get("/admin").text
+    html = (c.get("/admin").text + c.get("/static/admin.js").text)
     assert "openCompare = (docId, page" in html, "Compare takes a page argument"
     assert "function openViewer(mode, docId, page" in html
     assert "function compareDeepLink(" in html

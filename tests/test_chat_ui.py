@@ -105,6 +105,18 @@ def test_chat_page_pins_fresh_assets(client):
     assert "app.js?v=7" in html and "styles.css?v=13" in html
 
 
+def test_admin_page_loads_its_script_from_a_pinned_file(client):
+    """The admin console's script is a served file, not an inline block."""
+    html = client.get("/admin").text
+    assert '<script src="/static/admin.js?v=1"></script>' in html
+    assert "<script>" not in html, "admin.html must carry no inline script"
+    res = client.get("/static/admin.js")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("application/javascript")
+    assert res.headers["cache-control"] == "no-store, max-age=0"
+    assert "const TABS = [" in res.text
+
+
 # ------------------------------------------------- audit/ui: number + sum + one hint --
 def test_single_answer_shows_the_sum_and_one_hint(client):
     """One classification: the headline figure, the arithmetic right under it, one hint
@@ -148,7 +160,7 @@ def test_tree_marks_reached_but_unapplied_rules(client):
 
 # ------------------------------------------------------------- audit/ui: admin page --
 def _admin(client):
-    return client.get("/admin").text
+    return (client.get("/admin").text + client.get("/static/admin.js").text)
 
 
 def test_admin_builds_no_handler_from_a_string(client):

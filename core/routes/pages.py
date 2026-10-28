@@ -55,6 +55,13 @@ def app_js():
                         media_type="application/javascript", headers=_NOCACHE)
 
 
+@router.get("/static/admin.js")
+def admin_js():
+    """The admin console's script (was inline in admin.html). Served like app.js."""
+    return FileResponse(os.path.join(TEMPLATES, "admin.js"),
+                        media_type="application/javascript", headers=_NOCACHE)
+
+
 @router.get("/static/tour.js")
 def tour_js():
     """Guided demo tour: one shared step engine for both surfaces (chat starts it,

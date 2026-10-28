@@ -246,7 +246,7 @@ def test_citation_round_trips_quote_sha():
 
 def test_admin_reread_asks_before_posting():
     """The first button on the admin page used to POST on a single click."""
-    html = open(os.path.join(ROOT, "core", "templates", "admin.html")).read()
+    html = open(os.path.join(ROOT, "core", "templates", "admin.js")).read()
     start = html.index("function ingest()")
     end = html.index("function ingestConfirmed()")
     first_step = html[start:end]

@@ -200,7 +200,7 @@ import re as _re  # noqa: E402
 
 
 def _admin_tabs(client) -> list[str]:
-    html = client.get("/admin").text
+    html = (client.get("/admin").text + client.get("/static/admin.js").text)
     m = _re.search(r"const TABS = \[([^\]]*)\]", html)
     assert m, "admin.html must declare its tab list"
     return _re.findall(r"'([a-z]+)'", m.group(1))

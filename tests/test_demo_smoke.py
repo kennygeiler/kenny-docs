@@ -142,4 +142,4 @@ def test_both_pages_show_the_build_tag(client):
     # the pages fill it from /api/case with the same text version.label() produces
     js = client.get("/static/app.js").text
     assert "'build ' + CASE.version.sha" in js and "+uncommitted" in js
-    assert "'build ' + c.version.sha" in client.get("/admin").text
+    assert "'build ' + c.version.sha" in (client.get("/admin").text + client.get("/static/admin.js").text)

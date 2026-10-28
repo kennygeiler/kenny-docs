@@ -149,7 +149,7 @@ def test_rule_library_card_reads_the_longevity_approver(case_dir):
     assert row["approval"]["approver"].startswith("analyst (hand-authored 2026-10-07")
     assert row["approval"]["backfilled"] is True
     # the card template renders exactly these fields
-    html = open(os.path.join(ROOT, "core", "templates", "admin.html")).read()
+    html = open(os.path.join(ROOT, "core", "templates", "admin.js")).read()
     assert "Approved by <strong>${esc(ap.approver)}</strong>" in html
 
 

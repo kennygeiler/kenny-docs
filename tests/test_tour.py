@@ -44,7 +44,7 @@ def test_chat_page_ships_the_tour(client):
 
 
 def test_admin_page_ships_the_tour_resume_hook(client):
-    html = client.get("/admin").text
+    html = (client.get("/admin").text + client.get("/static/admin.js").text)
     assert '/static/tour.js?v=' in html, "admin must load the engine so ?tour=1 resumes"
     assert 'data-page="admin"' in html
     assert "styles.css?v=13" in html
@@ -155,7 +155,7 @@ def test_tour_has_the_showcase_try_break_and_gate_steps(client):
 
 
 def test_admin_ships_the_load_demo_draft_button(client):
-    html = client.get("/admin").text
+    html = (client.get("/admin").text + client.get("/static/admin.js").text)
     assert 'id="loadDemoDraft"' in html and "Load the demo draft" in html
     assert "async function loadDemoDraft(" in html and "window.loadDemoDraft" in html
     assert "/admin/demo_draft/load" in html
