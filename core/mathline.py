@@ -202,10 +202,47 @@ def _line_text(pdf_path: str, mtime: float, page: int, top: float, bottom: float
         return ""
 
 
+def bound_rate_source(case, subject: dict, value: float) -> dict | None:
+    """The rate's citation from the case's declared binding (M1.4/I14): the roster row's
+    schedule_ref -> its row in data/salary_schedule.csv, which carries page, row box,
+    cell box and the verbatim line. None when the case binds nothing for this subject
+    (the title search below then runs). A bound row that prints a different figure is
+    reported unsourced, never papered over."""
+    getter = getattr(case, "rate_bindings", None)
+    row = (getter() or {}).get(str(subject.get("name") or "")) if getter else None
+    if row is None:
+        return None
+    src = case.source_by_id(row["doc_id"]) or {}
+    col = f"{row['step'].upper()} HOURLY RATE"
+    want = f"{float(value):,.2f}"
+    printed = f"{float(row['hourly']):,.2f}"
+    out = {"doc_id": row["doc_id"], "title": src.get("title") or row["doc_id"],
+           "page": int(row["page"]), "row": row["title"], "column": col,
+           "schedule_ref": row["schedule_ref"], "effective_date": row.get("effective_date"),
+           "quote": row["quote"]}
+    if printed != want:
+        return {**out, "unsourced": True,
+                "reason": f"schedule row {row['schedule_ref']} prints {col} {printed}, "
+                          f"roster holds {want}"}
+    out.update({"text": "$" + printed, "bbox": list(row["hourly_bbox"]),
+                "context_bbox": list(row["row_bbox"]), "row_bbox": list(row["row_bbox"])})
+    # the citation in the shape a clause citation has, so the trace's rate step cites
+    # like its multiplier does
+    out["citation"] = {"doc_id": row["doc_id"], "page": int(row["page"]),
+                       "bbox": list(row["row_bbox"]), "quote": row["quote"],
+                       "cell_bbox": list(row["hourly_bbox"]),
+                       "clause": f"{row['title']} · {col}"}
+    return out
+
+
 def rate_source(case, cat, subject: dict, value: float) -> dict:
     """Where the subject's hourly rate is printed: {doc_id, title, page, bbox, text,
     row, column, context_bbox} — or {unsourced: True, reason} when no schedule row or
-    cell binds. Never guesses: the cell must be on the same line as the row title."""
+    cell binds. The case's declared binding (schedule_ref) wins; without one the row is
+    found by title. Never guesses: the cell must be on the same line as the row title."""
+    bound = bound_rate_source(case, subject, value)
+    if bound is not None:
+        return bound
     schedules = [s for s in case.manifest.get("sources", [])
                  if s.get("doc_type") == "salary-schedule"]
     if not schedules:

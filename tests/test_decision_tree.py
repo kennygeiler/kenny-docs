@@ -270,6 +270,13 @@ def test_chat_math_line_golden(client, case_dir):
     assert src["text"] == "$53.40" and src["row"] == "FIREFIGHTER/PARAMEDIC- 56 hr"
     assert src["column"] == "MAXIMUM HOURLY RATE" and len(src["bbox"]) == 4
     assert not src.get("unsourced")
+    # M1.4/I14: the rate cites its schedule row (declared binding), like the multiplier
+    # cites its clause — the whole printed line boxed and quoted verbatim.
+    assert src["schedule_ref"] == "firefighter-paramedic-56-hr:max"
+    cit = src["citation"]
+    assert cit["doc_id"] == "master_salary_schedule" and cit["page"] == 1 and len(cit["bbox"]) == 4
+    assert cit["quote"] == ("FIREFIGHTER/PARAMEDIC- 56 hr January 1, 2026 $39.72 $53.40 "
+                            "$9,664.22 $12,993.66")
     assert mult["source"]["doc_id"] == "firefighters_local3535_mou" and mult["source"]["page"] == 8
     assert hours["source"] == {"kind": "question", "param": "hours"}
     # the same facts are in the ledger's rule.math event ...

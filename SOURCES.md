@@ -26,4 +26,16 @@ Because the OCR layer is machine-read, some characters are wrong (for example "1
 numeric cells on Local 3535 p.22 that a second OCR engine read differently are shown in
 amber (ARCHITECTURE §11.1).
 
+## Data derived from the sources
+
+`cases/santacruz/data/salary_schedule.csv` is every row of `master_salary_schedule.pdf`
+(27 titles × MINIMUM/MAXIMUM hourly = 54 rows), read from the PDF's own text layer by
+`scripts/extract_salary_schedule.py` (no OCR, no model) with page, row and cell boxes and
+the verbatim line. The schedule prints no intermediate steps and no annual figure; its
+MINIMUM/MAXIMUM equal the first and last CY2026 step (probationary or step I, and step III)
+of the Local 3535 MOU's Appendix "A" (p.35). `data/schedule_refs.csv` binds each roster
+classification to its row. `data/roster_staged.csv` holds nine more Local 3535 entry/top
+rows (bound and drift-tested); they are not loaded yet because adding them makes a bare
+"firefighter" match four rows. The schedule has no row for Fire Captain Specialist.
+
 The repo itself has no licence yet; see STATUS.md.

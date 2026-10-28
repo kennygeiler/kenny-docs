@@ -73,6 +73,45 @@ class APIAdapter(DataSource):  # pragma: no cover - scale seam, not implemented 
         raise NotImplementedError("APIAdapter is a scale-roadmap seam (PRD §8)")
 
 
+def _case_path(case_dir: str, p: str) -> str:
+    import os
+    return p if os.path.isabs(p) else os.path.join(case_dir, p)
+
+
+def load_rate_bindings(cfg: dict, case_dir: str) -> dict[str, dict]:
+    """{classification: salary-schedule row} from the data block's `rates` entry (M1.4/I14):
+
+        rates:
+          schedule: data/salary_schedule.csv   # one row per title x step, with citation
+          bindings: data/schedule_refs.csv     # classification -> schedule_ref
+
+    The schedule row carries doc_id, page, row_bbox, hourly_bbox and the verbatim quote;
+    bboxes are parsed to float lists. A case without `rates` returns {} (the rate is then
+    looked up by title, or reported unsourced). A binding to a missing ref is dropped here
+    and caught by the case's own tests."""
+    import os
+    rates = (cfg or {}).get("rates") or {}
+    if not rates.get("schedule") or not rates.get("bindings"):
+        return {}
+    sched_path = _case_path(case_dir, rates["schedule"])
+    bind_path = _case_path(case_dir, rates["bindings"])
+    if not (os.path.exists(sched_path) and os.path.exists(bind_path)):
+        return {}
+    with open(sched_path, newline="") as f:
+        by_ref = {}
+        for row in csv.DictReader(f):
+            for k in ("row_bbox", "hourly_bbox"):
+                row[k] = [float(v) for v in (row.get(k) or "").split(",") if v.strip()]
+            by_ref[row["schedule_ref"]] = row
+    out: dict[str, dict] = {}
+    with open(bind_path, newline="") as f:
+        for b in csv.DictReader(f):
+            row = by_ref.get((b.get("schedule_ref") or "").strip())
+            if row is not None:
+                out[(b.get("classification") or "").strip()] = row
+    return out
+
+
 def make_adapter(cfg: dict, case_dir: str) -> DataSource:
     import os
     kind = (cfg or {}).get("adapter", "csv")

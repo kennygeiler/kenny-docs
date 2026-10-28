@@ -500,8 +500,14 @@ What a costing answer contains:
 1. A **single deterministic figure**, with the sum written out ($53.40/hr × 1.5 × 8 h).
 2. The multiplier comes from the governing document for the classification's bargaining unit: the
    1.5× is from the Local 3535 MOU, cited to p.8. The $53.40 rate comes from the classification
-   table (`cases/santacruz/data/roster.csv`), transcribed from the Master Salary Schedule; the
-   rate's own citation to its schedule row is open work (DEMO_TICKETS I14, archived backlog).
+   table (`cases/santacruz/data/roster.csv`) and cites its Master Salary Schedule row (M1.4,
+   old ticket I14): `data/schedule_refs.csv` binds each classification to a row of
+   `data/salary_schedule.csv` (54 rows, 27 titles × minimum/maximum, each with page, row box,
+   cell box and the verbatim line, extracted by `scripts/extract_salary_schedule.py`). The
+   rate in the sum line opens that row boxed on the page; `tests/test_salary_schedule.py`
+   re-reads the PDF and fails if a roster rate drifts from its row. The schedule's
+   minimum/maximum equal the first and last CY2026 step of the Local 3535 MOU's own
+   Appendix "A" (p.35), so the roster rates match both.
 3. **Click any dollar amount** → the audit drawer opens with the decision trace, the citations, the
    source clause boxed on the rendered PDF page, and a panel saying which steps a model performed
    (none, when the model is off).

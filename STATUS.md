@@ -110,9 +110,9 @@ Delete a line when it lands. Items marked *owner* need Kenny.
 - The two skeptic reviews record `code_rev: d84d5f3-dirty` for the session that wrote them
   (an uncommitted tree); they carry a clean re-verification at `f358af6`. A fresh bake on a
   clean commit is optional.
-- From the 2026-10-07 backlog, not re-checked in this audit: the hourly rate has no
-  citation to its salary-schedule row (I14); in-app rule drafting is unbounded and needs a
-  key (A3/G3); effective-dated rates and a declared rounding policy are missing (B7, B8);
+- I14 done (M1.4, branch m1/rates): every roster rate cites its salary-schedule row.
+- From the 2026-10-07 backlog, not re-checked in this audit: in-app rule drafting is
+  unbounded and needs a key (A3/G3); effective-dated rates and a declared rounding policy are missing (B7, B8);
   dependencies are unpinned except docling (K6).
 - No LICENSE (K8; *owner*). SOURCES.md now covers the redistributed district PDFs.
 
@@ -204,9 +204,8 @@ removed from this app and their templates kept under `archive/call-screening-leg
 2. The plan is [`ROADMAP.md`](ROADMAP.md): the core is M1 (full Local 3535 rulebook), M5
    (accuracy score) and M4 (check against real published pay), tracked as milestones in
    Linear project P-KEN-9 (the workspace is at the free plan's issue limit).
-3. Later, from the archived backlog via Linear: A3/G3 (bounded drafting), I14 (rate
-   citation), K3 (HTTP acceptance suite + CI), K6 (pinned deps), B7/B8 (dated rates,
-   rounding policy).
+3. Later, from the archived backlog via Linear: A3/G3 (bounded drafting), K3 (HTTP acceptance
+   suite + CI), K6 (pinned deps), B7/B8 (dated rates, rounding policy).
 
 Decisions waiting on the owner: whether production should turn the model back on
 (`KENNY_LLM` unset; the key is still in Railway) or drop the key; **a licence for the repo** (none

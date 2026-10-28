@@ -536,7 +536,7 @@ def _input_decision(led, qid: str, backend, outcome: dict, rule, inp: dict,
             rr = rate_refs.get(sname) if field == "base_hourly" else None
             if rr and not rr.get("unsourced"):
                 ref = decisions.ref(rr.get("doc_id"), rr.get("page"), rr.get("context_bbox") or rr.get("bbox"),
-                                    f"{rr.get('row')} · {rr.get('column')}", rr.get("text"))
+                                    f"{rr.get('row')} · {rr.get('column')}", rr.get("quote") or rr.get("text"))
             chosen.append({"id": f"roster:{field}:{sname}",
                            "label": f"{field} = {s.get(field)} — roster row {sname}",
                            "value": s.get(field), "ref": ref,
