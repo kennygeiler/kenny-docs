@@ -97,3 +97,84 @@ def test_extractor_reproduces_the_csv():
     assert ex.catalog_disagreements(rows) == []
     with open(CSV) as f:
         assert ex.render(rows) == f.read()
+
+
+# --------------------------------------------------------------------------- #
+# Roster <-> schedule binding (data/schedule_refs.csv)
+# --------------------------------------------------------------------------- #
+STAGED = os.path.join(CASE, "data", "roster_staged.csv")
+REFS = os.path.join(CASE, "data", "schedule_refs.csv")
+
+
+def _bindings():
+    return {r["classification"]: r["schedule_ref"] for r in _rows(REFS)}
+
+
+@pytest.mark.parametrize("path", [ROSTER, STAGED], ids=["roster", "staged"])
+def test_every_roster_row_binds_to_a_schedule_row_with_its_rate(path):
+    """A roster base_hourly that drifts from its schedule row fails here, as does a row
+    bound to the wrong step (entry = MINIMUM, top = MAXIMUM) or the wrong hours."""
+    by_ref = {r["schedule_ref"]: r for r in SCHEDULE}
+    refs = _bindings()
+    bad = []
+    for row in _rows(path):
+        ref = refs.get(row["classification"], "")
+        s = by_ref.get(ref)
+        if s is None:
+            bad.append((row["classification"], f"schedule_ref {ref!r} not in salary_schedule.csv"))
+            continue
+        if f"{float(row['base_hourly']):.2f}" != s["hourly"]:
+            bad.append((row["classification"], f"roster {row['base_hourly']} != schedule {s['hourly']}"))
+        name = row["classification"].lower()
+        want_step = "minimum" if "entry" in name else "maximum"
+        if s["step"] != want_step:
+            bad.append((row["classification"], f"named {want_step} step, bound to {s['step']}"))
+        hr = re.search(r"\b(\d{2}) hr\b", name)
+        if hr and s["basis"] != f"{hr.group(1)}-hr":
+            bad.append((row["classification"], f"named {hr.group(1)} hr, bound to {s['basis']}"))
+        if not s["title"].replace("- ", " ").lower().startswith(row["rank"].lower()):
+            bad.append((row["classification"], f"rank {row['rank']!r} bound to {s['title']!r}"))
+    assert bad == [], bad
+
+
+def test_bindings_name_only_known_rows():
+    names = {r["classification"] for r in _rows(ROSTER) + _rows(STAGED)}
+    assert set(_bindings()) == names
+    assert len(_rows(REFS)) == len(names)
+
+
+def test_staged_rows_are_shaped_like_the_roster_and_not_live():
+    with open(ROSTER) as f, open(STAGED) as g:
+        assert f.readline() == g.readline()
+    live = {r["classification"] for r in _rows(ROSTER)}
+    assert live.isdisjoint(r["classification"] for r in _rows(STAGED))
+
+
+def test_local_3535_classifications_have_entry_and_top_rows_on_both_schedules():
+    refs = _bindings()
+    rows = [r for r in _rows(ROSTER) + _rows(STAGED) if r["bargaining_unit"] == "firefighters-local-3535"]
+    bound = {refs[r["classification"]] for r in rows}
+    for title in ("firefighter", "firefighter-paramedic", "fire-captain", "battalion-chief"):
+        for basis in ("56-hr", "40-hr"):
+            for step in ("min", "max"):
+                assert f"{title}-{basis}:{step}" in bound, (title, basis, step)
+
+
+def test_case_loads_the_binding_and_the_rate_cites_its_row():
+    from core import mathline
+    from core.caseio import load_case
+    case = load_case(CASE)
+    b = case.rate_bindings()
+    assert set(b) == {r["classification"] for r in _rows(ROSTER) + _rows(STAGED)}
+    for s in case.subjects():
+        src = mathline.rate_source(case, None, s, float(s["base_hourly"]))
+        assert not src.get("unsourced"), (s["name"], src.get("reason"))
+        cit = src["citation"]
+        row = b[s["name"]]
+        assert cit == {"doc_id": "master_salary_schedule", "page": 1, "bbox": row["row_bbox"],
+                       "quote": row["quote"], "cell_bbox": row["hourly_bbox"],
+                       "clause": f"{row['title']} · {row['step'].upper()} HOURLY RATE"}
+    # drift is reported, not hidden
+    ff = next(s for s in case.subjects() if s["name"] == "Firefighter/Paramedic (56 hr, top step)")
+    bad = mathline.rate_source(case, None, ff, 53.41)
+    assert bad["unsourced"] and "roster holds 53.41" in bad["reason"]

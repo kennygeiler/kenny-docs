@@ -1,0 +1,23 @@
+classification,schedule_ref
+"Firefighter (56 hr, top step)",firefighter-56-hr:max
+"Firefighter/Paramedic (56 hr, top step)",firefighter-paramedic-56-hr:max
+"Firefighter/Paramedic (56 hr, entry step)",firefighter-paramedic-56-hr:min
+Fire Captain (56 hr top step),fire-captain-56-hr:max
+Fire Captain (40 hr top step),fire-captain-40-hr:max
+Fire Apparatus Technician (top step),fire-apparatus-technician:max
+Battalion Chief (56 hr top step),battalion-chief-56-hr:max
+Battalion Chief (40 hr top step),battalion-chief-40-hr:max
+Division Chief (top step),division-chief:max
+Fire Marshal (top step),fire-marshal:max
+Administrative Analyst (top step),administrative-analyst:max
+Administrative Assistant (top step),administrative-assistant:max
+Fire Inspector (top step),fire-inspector:max
+"Firefighter (56 hr, entry step)",firefighter-56-hr:min
+"Firefighter (40 hr, top step)",firefighter-40-hr:max
+"Firefighter (40 hr, entry step)",firefighter-40-hr:min
+"Firefighter/Paramedic (40 hr, top step)",firefighter-paramedic-40-hr:max
+"Firefighter/Paramedic (40 hr, entry step)",firefighter-paramedic-40-hr:min
+Fire Captain (56 hr entry step),fire-captain-56-hr:min
+Fire Captain (40 hr entry step),fire-captain-40-hr:min
+Battalion Chief (56 hr entry step),battalion-chief-56-hr:min
+Battalion Chief (40 hr entry step),battalion-chief-40-hr:min

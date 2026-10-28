@@ -1,0 +1,10 @@
+classification,department,rank,base_hourly,shift,bargaining_unit
+"Firefighter (56 hr, entry step)",fire,Firefighter,36.11,Suppression,firefighters-local-3535
+"Firefighter (40 hr, top step)",fire,Firefighter,71.56,Day,firefighters-local-3535
+"Firefighter (40 hr, entry step)",fire,Firefighter,64.90,Day,firefighters-local-3535
+"Firefighter/Paramedic (40 hr, top step)",fire,Firefighter/Paramedic,78.71,Day,firefighters-local-3535
+"Firefighter/Paramedic (40 hr, entry step)",fire,Firefighter/Paramedic,71.39,Day,firefighters-local-3535
+Fire Captain (56 hr entry step),fire,Fire Captain,55.34,Suppression,firefighters-local-3535
+Fire Captain (40 hr entry step),fire,Fire Captain,81.57,Day,firefighters-local-3535
+Battalion Chief (56 hr entry step),fire,Battalion Chief,68.33,Suppression,firefighters-local-3535
+Battalion Chief (40 hr entry step),fire,Battalion Chief,95.93,Day,firefighters-local-3535

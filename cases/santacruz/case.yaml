@@ -84,6 +84,16 @@ data:
     base_hourly: float
     shift: str
     bargaining_unit: str
+  # M1.4 / I14: every roster rate cites its Master Salary Schedule row. The schedule CSV
+  # is extracted from the PDF (scripts/extract_salary_schedule.py) with page, row box and
+  # verbatim line; the bindings map each classification to a schedule_ref. A binding is
+  # kept outside roster.csv so binding a rate does not change the roster's bytes (the
+  # skeptic reviews are pinned to its hash). data/roster_staged.csv holds the remaining
+  # Local 3535 entry/top rows, bound and tested but not loaded (see SOURCES.md).
+  # tests/test_salary_schedule.py fails if a roster rate drifts from its row.
+  rates:
+    schedule: data/salary_schedule.csv
+    bindings: data/schedule_refs.csv
 
 rules: rules/rules_ratified.json
 proposed_rules: rules/rules_proposed.json
