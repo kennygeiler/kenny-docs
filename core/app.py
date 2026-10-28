@@ -1610,6 +1610,13 @@ async def admin_upload(file: UploadFile = File(...)):
         _JOBS.pop(job_id, None)  # a rejected upload never ran — leave no ghost job
         return resp
 
+    # An upload must never REPLACE a document: a file named like a declared contract
+    # used to overwrite sources/<name>.pdf and re-bind its doc_id to new bytes, silently
+    # changing what ratified rules cite. Checked inside the single-flight slot.
+    clash = _upload_collision(case, fname, doc_id)
+    if clash:
+        return _reject(JSONResponse({"error": clash}, status_code=409))
+
     # Stream to a temp file with a hard size cap (TICKETS.md C5): reading the whole
     # upload into RAM let any credential holder OOM the 2GB instance, and writing the
     # destination directly could leave a half-written PDF over a good one.
@@ -1642,6 +1649,24 @@ async def admin_upload(file: UploadFile = File(...)):
     threading.Thread(target=_upload_worker, args=(job_id, dest, doc_id, title, fname),
                      daemon=True).start()
     return {"job_id": job_id, "status": "running", "doc_id": doc_id, "filename": fname}
+
+
+def _upload_collision(case, fname: str, doc_id: str) -> str | None:
+    """Why this upload would clobber an existing document, or None if it is new."""
+    base = fname.lower()
+    for src in case.manifest.get("sources", []) or []:
+        sid = str(src.get("id") or "")
+        sfile = os.path.basename(str(src.get("file") or "")).lower()
+        if base == sfile or doc_id in (sid, _slug(sid), _slug(os.path.splitext(sfile)[0])):
+            return (f"'{fname}' collides with declared source '{sid}' in case.yaml — an "
+                    f"upload cannot replace a declared contract. Rename the file, or "
+                    f"replace the source through case.yaml and a re-ingest.")
+    if _catalog(case).get(doc_id) is not None:
+        return (f"a document with id '{doc_id}' is already in the library — rename the "
+                f"file to upload it as a new document.")
+    if os.path.exists(os.path.join(case.dir, "sources", fname)):
+        return f"sources/{fname} already exists — rename the file to upload it."
+    return None
 
 
 def _slug(name: str) -> str:

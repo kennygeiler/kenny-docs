@@ -141,3 +141,29 @@ def test_non_pdf_extension_is_rejected(client, tmp_path):
     f = tmp_path / "notes.txt"
     f.write_text("plain text")
     assert _upload(c, str(f)).status_code == 400
+
+
+@pytest.mark.parametrize("name", ["firefighters_local3535_mou.pdf",
+                                  "Firefighters Local3535 MOU.pdf",
+                                  "ADMIN_GROUP_MOU.pdf"])
+def test_upload_cannot_overwrite_a_declared_source(client, mini_pdf, name):
+    """A file named like a declared contract used to overwrite sources/<name>.pdf."""
+    c, case = client
+    target = os.path.join(case, "sources", "firefighters_local3535_mou.pdf")
+    before = open(target, "rb").read() if os.path.exists(target) else None
+    res = _upload(c, mini_pdf, name=name)
+    assert res.status_code == 409
+    assert "collides" in res.json()["error"] or "already" in res.json()["error"]
+    if before is not None:
+        assert open(target, "rb").read() == before
+    assert not any(j.get("status") == "running" for j in core_app._JOBS.values())
+
+
+def test_upload_cannot_reuse_an_existing_catalog_id(client, mini_pdf, monkeypatch):
+    monkeypatch.setattr(ingest, "_parse_with_docling", lambda p, d: None)
+    c, _ = client
+    first = _upload(c, mini_pdf)
+    assert _poll_done(c, first.json()["job_id"])["status"] == "done"
+    again = _upload(c, mini_pdf, name="Mini MOU.pdf")     # slug mini_mou again
+    assert again.status_code == 409
+    assert "already in the library" in again.json()["error"]
