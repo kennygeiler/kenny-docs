@@ -4,8 +4,11 @@
 **not** a production posture — see "What this deploy is not" below, and say so out loud
 when you share the link.
 
-**Default posture: admin-only.** Chat is public; `/admin/*` (ratify, upload, re-read, the
-ledger) needs a password. The Dockerfile sets `KENNY_REQUIRE_AUTH=1`, so an image deployed
+**Default posture: admin-only.** Chat and every admin page are public to read, so a
+visitor can take the tour and see verification, the review queue, the rule library and the
+ledger. Every admin action that changes something (approve, upload, re-read, draft, confirm
+a cell, load the demo draft) needs the admin password. "Try to break it" stays public: it
+changes nothing on disk. The Dockerfile sets `KENNY_REQUIRE_AUTH=1`, so an image deployed
 without the secrets below refuses to boot rather than coming up open.
 
 | Variable | Required | What it does |

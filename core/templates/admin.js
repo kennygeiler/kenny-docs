@@ -355,7 +355,7 @@
             `<code>${esc(i)}</code> → ${esc((pb[i] || []).join('; ') || '?')}`).join('<br>')}
           <br>They are live — see the <strong>Rule library</strong>.`);
       } else {
-        msg('reviewMsg', 'bad', esc(res.warning || 'Nothing was approved.'));
+        msg('reviewMsg', 'bad', esc(res.warning || res.error || 'Nothing was approved.'));
       }
       loadRules(); loadVerify(); loadDocs(); loadLedger();
     }

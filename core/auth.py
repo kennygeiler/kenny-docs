@@ -17,7 +17,7 @@ internet it needs four things it does not otherwise have:
      cached Basic credentials to cross-site form POSTs, so without this a hostile page
      could replace a contract PDF via /admin/upload using the admin's own browser.
 
-Modes: with only KENNY_ADMIN_PASSWORD set, chat/docs stay public and every /admin path
+Modes: with only KENNY_ADMIN_PASSWORD set, chat/docs and /admin reads stay public and every /admin write path
 needs the admin credential (admin-only, for a public demo); with both passwords set,
 everything needs a credential and /admin needs the admin one (two-password).
 
@@ -36,9 +36,12 @@ import time
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
-_UNAUTHORIZED = Response(
+# JSON so the admin page can show the message in place when a visitor cancels the
+# browser's sign-in prompt (admin.js reads every reply as JSON).
+_UNAUTHORIZED = JSONResponse(
+    {"error": "Sign-in required. Only the site owner can change rules, documents or "
+              "the review queue; everything here can be viewed without signing in."},
     status_code=401,
-    content="Authentication required.",
     headers={"WWW-Authenticate": 'Basic realm="Kenny", charset="UTF-8"'},
 )
 
@@ -182,7 +185,12 @@ class FailureThrottle:
 # mode — open, admin-only, two-password — these are rate limited per client: removing
 # a password must never remove the spend cap.
 _CHAT_PATHS = {"/chat"}
-_COSTLY_ADMIN_PATHS = {"/admin/draft_scenario", "/admin/ingest", "/admin/upload"}
+_COSTLY_ADMIN_PATHS = {"/admin/draft_scenario", "/admin/ingest", "/admin/upload",
+                       "/admin/try_break"}
+# Admin POSTs a public visitor may run in admin-only mode: they change nothing on disk.
+# try_break mutates a rule in memory and reports which known answers catch it.
+_PUBLIC_ADMIN_POSTS = {"/admin/try_break"}
+_READ_METHODS = ("GET", "HEAD", "OPTIONS")
 _TOO_MANY = ("Too many questions in the last minute. Wait a moment and ask again.")
 _TOO_MANY_ADMIN = ("Too many drafting / ingest requests in the last minute. Wait a "
                    "moment and try again.")
@@ -229,9 +237,11 @@ class AccessMiddleware(BaseHTTPMiddleware):
 
       * two-password (viewer_pw set): every path but /healthz needs a credential; the
         viewer password opens chat and documents, only the admin password opens /admin.
-      * admin-only (viewer_pw empty): chat, documents and pages are PUBLIC; every
-        /admin path — the page and all /admin/* APIs, GET and POST — needs the admin
-        password. For a public demo whose ratify gate must stay locked.
+      * admin-only (viewer_pw empty): chat, documents, pages and every READ of /admin
+        (the page, verification, review queue, rule library, ledger) are PUBLIC, so a
+        visitor can see the whole trust story and take the tour. Every /admin WRITE —
+        ratify, upload, ingest, draft, cell confirm, demo-draft load — needs the admin
+        password. try_break stays public: it changes nothing on disk.
     """
 
     def __init__(self, app, viewer_pw: str | None, admin_pw: str, chat_limit: int,
@@ -259,7 +269,11 @@ class AccessMiddleware(BaseHTTPMiddleware):
 
         ip = _client_ip(request)
         admin_path = _is_admin_path(path)
-        needs_auth = admin_path or self.viewer_pw is not None
+        if self.viewer_pw is not None:
+            needs_auth = True
+        else:
+            needs_auth = (admin_path and request.method not in _READ_METHODS
+                          and path not in _PUBLIC_ADMIN_POSTS)
 
         if needs_auth:
             remaining = self.failures.locked_for(ip)
@@ -317,7 +331,7 @@ def _truthy(name: str) -> bool:
 def install(app, ledger_factory=None) -> None:
     """Attach access control if configured. Raises if a deploy asks for auth and can't have it.
 
-    KENNY_ADMIN_PASSWORD only        -> admin-only: chat public, /admin locked.
+    KENNY_ADMIN_PASSWORD only        -> admin-only: chat and /admin reads public, /admin writes locked.
     KENNY_ADMIN_PASSWORD + VIEWER    -> two-password: everything locked, role split.
     neither                          -> open (local dev); refused under KENNY_REQUIRE_AUTH.
     KENNY_VIEWER_PASSWORD alone      -> refused: it would lock chat yet leave /admin open.
