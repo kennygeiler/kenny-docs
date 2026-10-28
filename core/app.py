@@ -25,7 +25,7 @@ from . import version as _version  # handoff (K1): the commit this process runs
 from . import qid as qid_mod
 from .caseio import default_case_dir, load_case
 from .catalog import Catalog
-from .engine import NoRuleApplies, calculate
+from .engine import NoRuleApplies, calculate, rounding_policy
 from . import pdfview
 from .pdfview import page_dims, render_page_with_bbox
 from .retriever import CatalogLLMRetriever
@@ -708,7 +708,7 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
         subjects = [s for s in named_rows if s.get("bargaining_unit") == unit] \
             or [s for s in subjects_all if s.get("bargaining_unit") == unit]
         try:
-            result = calculate(eng, subjects, rules, case.rounding_places())
+            result = calculate(eng, subjects, rules, rounding_policy(case.manifest))
         except (ValueError, RuleError, ArithmeticError) as e:   # A4: a rule error is not a 500
             led.append("costing.blocked", {"reason": "rule evaluation error", "unit": unit,
                                            "error": f"{type(e).__name__}: {e}"},
@@ -1811,7 +1811,7 @@ def _check_golden(case, rule_dicts: list[dict], golden: dict) -> tuple[bool, dic
         # up with a year of benefits. Non-currency scenarios (days/hours entitlements) are
         # not periodic pay and are not filtered.
         scope = SHIFT_BASES if want == "currency" else None
-        res = calculate(params, subs, rules, case.rounding_places(), basis_scope=scope)
+        res = calculate(params, subs, rules, rounding_policy(case.manifest), basis_scope=scope)
         expected = float(golden["expected_total"])
         actual = float(res.total)
         ok = abs(actual - expected) < 0.005
