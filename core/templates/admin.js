@@ -57,6 +57,7 @@
         case 'reread-go':     ingestConfirmed(); break;
         case 'reread-cancel': $('rereadMsg').textContent = ''; $('rereadBtn').focus(); break;
         case 'approve-section': approveSection((d.ids || '').split(' ').filter(Boolean)); break;
+        case 'confirm-cell': confirmCell(b, d); break;
       }
     });
 
@@ -232,6 +233,66 @@
           ${PROV.available ? reviewSections(doc, rules) : rules.map(reviewCard).join('')}
         </section>`).join('');
       $('reviewBtns').hidden = false;
+      loadCellBlocks();
+    }
+
+    /* Disputed cells that block queued rules: one line each, above the queue, with the
+       second OCR read pre-filled (editable), a link to the page image and a Confirm
+       button. Confirm posts /admin/cell_confirm signed with the approver name; the gate
+       then lets the section through on the next Approve. */
+    async function loadCellBlocks() {
+      let res;
+      try { res = await fetch('/admin/cell_gate?queue=1').then(r => r.json()); } catch (e) { return; }
+      const seen = new Map();
+      (res.rules || []).forEach(r => {
+        const c = r.cell || {}, ref = r.cell_ref || {};
+        if (r.approvable || c.status !== 'disputed' || c.confirmed) return;
+        const key = [r.doc_id, ref.page || r.page, ref.row, ref.col].join(':');
+        if (!seen.has(key)) seen.set(key, {r, c, ref, rules: []});
+        seen.get(key).rules.push(String(r.rule_id || '').split(':').pop());
+      });
+      const box = $('cellBlocks');
+      if (!box) return;
+      if (!seen.size) { box.hidden = true; box.innerHTML = ''; return; }
+      box.innerHTML = `<p><strong>Confirm ${seen.size} table cell${seen.size === 1 ? '' : 's'} before approving.</strong>
+        The scanned text and a second reading disagree. Check each value on the page image, correct it if needed, then confirm.</p>`
+        + [...seen.values()].map(({r, c, ref, rules}, i) => {
+          const page = ref.page || r.page;
+          // OCR'd headers stack the table title and the column ("...Members.| Hours
+          // Accrued per .| pay period"): keep the column words, drop stray periods.
+          const parts = String(c.header || '').split('|').map(x => x.trim()).filter(Boolean);
+          const col = (parts.length > 1 ? parts.slice(1) : parts).join(' ')
+            .replace(/\s*\.\s*/g, ' ').replace(/\s+/g, ' ').trim() || 'column ' + ref.col;
+          return `<p class="cell-block">p.${esc(page)} row ${esc(ref.row)}, ${esc(col)}:
+            scan reads <code>${esc(c.stored)}</code>, second reading <code>${esc(c.reread ?? '—')}</code>
+            (${esc(rules.join(', '))}) · ${pageLink(r.doc_id, page)}
+            <input type="text" id="cellVal${i}" value="${esc(c.reread ?? '')}" aria-label="Value on the page image" size="7">
+            <button type="button" class="ghost small" data-act="confirm-cell" data-doc="${esc(r.doc_id)}"
+              data-page="${esc(page)}" data-row="${esc(ref.row)}" data-col="${esc(ref.col)}" data-input="cellVal${i}">Confirm</button></p>`;
+        }).join('');
+      box.hidden = false;
+    }
+
+    async function confirmCell(btn, d) {
+      const by = approverName();
+      if (!by) { msg('reviewMsg', 'bad', 'Type your name in the approver box first; it is recorded with the confirmation.'); $('approverName')?.focus(); return; }
+      const value = ($(d.input) || {}).value || '';
+      if (!value.trim()) { msg('reviewMsg', 'bad', 'Type the value you see on the page image.'); return; }
+      btn.disabled = true;
+      let res;
+      try {
+        res = await fetch('/admin/cell_confirm', {method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({doc_id: d.doc, page: +d.page, row: +d.row, col: +d.col, value: value.trim(), by,
+                                note: 'confirmed against the page image in the Review queue'})}).then(r => r.json());
+      } catch (e) { res = {error: 'The confirmation did not reach the server.'}; }
+      btn.disabled = false;
+      if (res.ok) {
+        msg('reviewMsg', 'ok', `Confirmed ${esc(value.trim())} on p.${esc(d.page)}.${(res.unblocked || []).length
+          ? ' Now approvable: ' + res.unblocked.map(id => `<code>${esc(String(id).split(':').pop())}</code>`).join(', ') + '.' : ''}`);
+        loadCellBlocks(); loadDocs();
+      } else {
+        msg('reviewMsg', 'bad', esc(res.error || 'Not confirmed.'));
+      }
     }
 
     /* Per-section approval (ROADMAP M1.3): with a provisions.yaml, queued rules are
