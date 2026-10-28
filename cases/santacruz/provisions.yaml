@@ -1,0 +1,1741 @@
+# Local 3535 MOU provision inventory (ROADMAP M1). Every provision a member, HR or
+# payroll might ask about: modelled (with the live or queued rule ids that answer it)
+# or not_modelled (with the reason). Drafted 2026-10-28 in a Claude Code session from
+# the catalog text, numbers checked against the page images. Quotes are verbatim
+# catalog text (OCR spelling kept). The coverage meter reads this file;
+# tests/test_m1_rulebook.py checks its shape, quotes and rule ids.
+doc_id: firefighters_local3535_mou
+label: Local 3535 MOU
+generated: '2026-10-28'
+provisions:
+- id: l3535.preamble
+  title: 'Preamble: parties and authority (Meyers-Milias-Brown Act)'
+  article: I. Preamble
+  pages:
+  - 3
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: This Memorandum of Understanding (MOU) is entered into by and between the Central Fire District
+- id: l3535.recognition
+  title: 'Recognition: the positions in the Local 3535 bargaining unit'
+  article: II. Recognition and Dues Deductions
+  pages:
+  - 3
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: 'the firefighter bargaining unit, which consists of the following full-time positions: Battalion
+    Chief, Fire Captain, Fire Captain Specialist'
+- id: l3535.dues_deduction
+  title: Union dues and contributions deducted from pay
+  article: II. Recognition and Dues Deductions
+  pages:
+  - 3
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The District shall deduct from a represented employee's pay Union membership dues
+- id: l3535.dues_revocation
+  title: Revoking a dues authorization; Union notice to the District within 14 days
+  article: II. Recognition and Dues Deductions
+  pages:
+  - 3
+  category: procedure
+  value_kind: days
+  status: not_modelled
+  rules: []
+  reason: A notice period between the Union and the District, not a member entitlement; answered by quoting
+    the clause.
+  quote: the Union shall notify the District in writing within fourteen (14) days
+- id: l3535.dues_indemnity
+  title: Union indemnifies the District for dues deductions
+  article: II. Recognition and Dues Deductions
+  pages:
+  - 3
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The Union shall defend, indemnify, and hold the District
+- id: l3535.orientation_presentation
+  title: Union presentation at new-employee orientation (20 minutes, 30 days' notice)
+  article: II. Recognition and Dues Deductions
+  pages:
+  - 4
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: A Union-District arrangement, not a member entitlement; answered by quoting the clause.
+  quote: Union representatives shall be allowed twenty (20) minutes to make a presentation
+- id: l3535.dues_remittance_reports
+  title: Dues remittance each pay period and quarterly member reports to the Union
+  article: II. Recognition and Dues Deductions
+  pages:
+  - 4
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: each pay period, the District shall remit all sums so deducted to the Union
+- id: l3535.management_rights
+  title: Management rights
+  article: III. Management Rights
+  pages:
+  - 4
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The District has exclusive and inherent management rights with respect to matters of policy.
+- id: l3535.maintenance_of_benefits
+  title: Maintenance of benefits and meet and confer
+  article: IV. Maintenance of Benefits
+  pages:
+  - 5
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The Distriet agrees to maintain all benefits for the duration of this contract.
+- id: l3535.discrimination
+  title: No discrimination; Union-activity complaints go through the grievance procedure
+  article: V. Discrimination
+  pages:
+  - 5
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: There shall be no discrimination by the Union, the District, or any District employee
+- id: l3535.legacy_employees
+  title: Definition of Central and Aptos/La Selva legacy employees (hired before 4 Feb 2021)
+  article: VI. Definition of Legacy Employees
+  pages:
+  - 5
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: those members hired by the Central Fire Protection District of Santa Cruz County prior to the
+    date of consolidation, February 4, 2021.
+- id: l3535.regular_pay
+  title: Regular pay at the hourly rate (56-hour annual salary / 2920)
+  article: VII. Wages and Hours
+  pages:
+  - 6
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:regular_straight_time
+  reason: ''
+  quote: For purposes of determining the hourly rate for 56-hour employees, the annual salary Is divided
+    by 2920.
+- id: l3535.salary_schedule_structure
+  title: 'How the schedule is built: 5% steps, probationary 18% below Step 1, 14% and 12% between ranks'
+  article: VII. Wages and Hours
+  pages:
+  - 6
+  category: pay
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Describes how the Appendix A schedule was built; the schedule's own rates are the figures, which
+    the roster carries.
+  quote: The agreed difference between steps Is 5%. The agreed difference between the ranks of Firefighter
+    3 and Captain 1 is 14%.
+- id: l3535.gross_salary_increase
+  title: General salary increase of 5% in the pay period including 1 January 2026, 2027 and 2028
+  article: VII. Wages and Hours
+  pages:
+  - 6
+  category: pay
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Already applied in the dated Appendix A tables (p.35-37); choosing the table by date is roadmap
+    M2.
+  quote: Pay period including January 1, 2026- 5%
+- id: l3535.step_increases
+  title: Annual step increases on the hire or promotion anniversary
+  article: VII. Wages and Hours
+  pages:
+  - 6
+  category: pay
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Needs each member's hire or promotion date; the roster has none.
+  quote: All step Increments in salary occur annually based on the employees' date of hire.
+- id: l3535.work_schedule
+  title: 'Work schedule: 56-hour (48 on / 96 off) or 40-hour weeks'
+  article: VII. Wages and Hours
+  pages:
+  - 6
+  category: time
+  value_kind: hours
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: the work schedule for 56-hour employees will remain 48 hours on and 96 hours off shift pattern
+- id: l3535.out_of_class_upward
+  title: Out of class (acting) pay upward at the higher position's rate
+  article: VII. Wages and Hours
+  pages:
+  - 6
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs the higher classification a member is acting in; only the acting-Captain rows of the p.38
+    per-diem table are modelled (see l3535.acting_captain_per_diem).
+  quote: Those employees required to work out of class (upward) shall be compensated at the same rate
+    of pay that they would receive if appointed to that position
+- id: l3535.out_of_class_time_off_rate
+  title: 'Out of class more than four consecutive shifts: time off paid at the higher rate'
+  article: VII. Wages and Hours
+  pages:
+  - 6
+  category: pay
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Needs the member's out-of-class shift history; the roster has none.
+  quote: employees who are scheduled to work out of class for more than four (4) consecutive shifts shall
+    receive the higher pay rate
+- id: l3535.out_of_class_calpers
+  title: Out of class pay reported to CalPERS as Temporary Upgrade Pay (not for overtime or PEPRA)
+  article: VII. Wages and Hours
+  pages:
+  - 7
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: as Temporary Upgrade Pay. Premlum compensation for Upgrade Pay for overtime hours is not reportable.
+- id: l3535.out_of_class_downward
+  title: 'Out of class downward: paid at the regular rate'
+  article: VII. Wages and Hours
+  pages:
+  - 7
+  category: pay
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Those employees electing to work out of class (downward) shall be compensated at thelr regular
+    rate of pay
+- id: l3535.out_of_class_chief_officer
+  title: 'Acting in a Chief Officers Association classification: that classification''s pay and benefits'
+  article: VII. Wages and Hours
+  pages:
+  - 7
+  category: pay
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Needs the Chief Officers classification being filled; the Chief Officers MOU governs that pay.
+    Answered by quoting the clause.
+  quote: shall receive the same pay and benefits of the higher classification while in the assignment.
+- id: l3535.acting_captain_per_diem
+  title: 'Acting Captain (out of class) pay: +$6.80/hr for a Firefighter, +$1.94/hr for a Firefighter/Paramedic
+    (CY2026)'
+  article: Appendix "A" Local 3535
+  pages:
+  - 38
+  - 6
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:acting_captain_ff_top_step
+  - firefighters_local3535_mou:acting_captain_ffpm_top_step
+  reason: ''
+  quote: 'PER DIEM STRUCTURE:: ACT''G CAPT - FF | Hourly Regular: $6.80 | OT Rate: $10.19'
+- id: l3535.acting_captain_overtime_per_diem
+  title: 'Acting Captain overtime add-on: $10.19/hr (Firefighter), $2.91/hr (Firefighter/Paramedic), CY2026'
+  article: Appendix "A" Local 3535
+  pages:
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Overtime worked while acting combines two pay branches (out of class and overtime), which the
+    engine does not stack yet (roadmap M3).
+  quote: 'ACT''G CAPT - FF/PM | Hourly Regular: $1.94 | OT Rate: $2.91'
+- id: l3535.flsa_threshold
+  title: FLSA overtime after 182 hours in a 24-day work period
+  article: VII. Wages and Hours
+  pages:
+  - 7
+  - 8
+  category: time
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:flsa_overtime_threshold
+  reason: ''
+  quote: employees are entitled to FLSA-overtime for hours worked (n excess of 182 hours
+- id: l3535.flsa_half_time
+  title: FLSA half-time overtime premium on the 10 scheduled hours between 182 and 192
+  article: VII. Wages and Hours
+  pages:
+  - 7
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:flsa_scheduled_overtime_half_time
+  reason: ''
+  quote: the overtime premium for the hours between 182 and 192 Is at half-time of the employee's 'Regular
+    Rate of Pay'.
+- id: l3535.flsa_constants
+  title: 'Payroll constants: 15.208 FLSA cycles and 26 pay periods a year; 2920 or 2080 hours'
+  article: VII. Wages and Hours
+  pages:
+  - 7
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: There are typically 26 pay periods per year.
+- id: l3535.regular_rate_definition
+  title: What the regular rate of pay includes (special-assignment pay, education incentive; not holiday
+    pay or uniform allowance)
+  article: VII. Wages and Hours
+  pages:
+  - 8
+  category: pay
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Needs each member's incentive and special-assignment pay; the roster has base rates only, so
+    the overtime rules use the base rate and say so.
+  quote: Holiday Pay and Uniform Allowance are not included tn the regular rate of pay.
+- id: l3535.overtime_premium
+  title: Overtime premium at 1.5x the regular rate beyond 182 hours in a 24-day period
+  article: VII. Wages and Hours
+  pages:
+  - 8
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:overtime_premium_rate
+  reason: ''
+  quote: Employees shall be entitled to premium overtime compensation at the rate of one and one half
+    (1,5) times the employee's 'regular rate of pay'
+- id: l3535.overtime_increment
+  title: Overtime accumulated in half-hour increments
+  article: VII. Wages and Hours
+  pages:
+  - 8
+  category: time
+  value_kind: hours
+  status: not_modelled
+  rules: []
+  reason: A recording increment, not an amount owed; answered by quoting the clause.
+  quote: Overtime compensation shall be accumulated in one-half hour Increments.
+- id: l3535.compensatory_time_max
+  title: Compensatory time off (CTO) balance capped at 120 hours
+  article: VII. Wages and Hours
+  pages:
+  - 8
+  category: leave
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:compensatory_time_max
+  reason: ''
+  quote: The maximum accumulated compensatory hours will not exceed 120 hours,
+- id: l3535.compensatory_time_use
+  title: Using CTO through the vacation time-off process
+  article: VII. Wages and Hours
+  pages:
+  - 8
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Employees may use accrued CTO hours as time off in accordance with the vacation time off process
+- id: l3535.compensatory_time_promotion_payout
+  title: Half of accrued CTO paid off on promotion
+  article: VII. Wages and Hours
+  pages:
+  - 8
+  category: pay
+  value_kind: hours
+  status: not_modelled
+  rules: []
+  reason: Needs the member's CTO balance; the roster has none.
+  quote: shall have one half of their . acérued CTO hours paid off at the time of the promotional appointment
+- id: l3535.education_incentive_degree
+  title: 'Education incentive: $200 (associate), $300 (bachelor''s), $400 (master''s) a month'
+  article: VII. Wages and Hours
+  pages:
+  - 9
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs each member's degree on file; the roster has none.
+  quote: Associate Degree shall receive $200 per month.
+- id: l3535.certification_incentive
+  title: 'Certification incentives for Firefighters and Captains: $50-$150 a month'
+  article: VII. Wages and Hours
+  pages:
+  - 9
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs each member's certifications on file; the roster has none.
+  quote: Company OfÏcer Certification shall receive $50.00 per month.
+- id: l3535.battalion_chief_officer_incentive
+  title: 'Battalion Chief degree plus California Chief Officer certification: $300 a month'
+  article: VII. Wages and Hours
+  pages:
+  - 9
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs each Battalion Chief's degree and certification on file; the roster has none.
+  quote: California Certified Chief OfÏcer certificate shall receive $300 per month.
+- id: l3535.education_incentive_calpers
+  title: Education incentive is reportable to CalPERS
+  article: VII. Wages and Hours
+  pages:
+  - 9
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Education Incentive is reportable special compensation to CalPERS
+- id: l3535.special_assignment_requirements
+  title: 'Special assignments: appointment, training and certification requirements, removal'
+  article: VII. Wages and Hours
+  pages:
+  - 9
+  - 10
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Bargaining unit employees may be appointed to perform the duties of one or more special assignments
+- id: l3535.special_assignment_off_duty_training
+  title: Off-duty training required for a special assignment is paid as overtime
+  article: VII. Wages and Hours
+  pages:
+  - 9
+  category: pay
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Needs the training event and its hours; once known it is ordinary overtime. Answered by quoting
+    the clause.
+  quote: required to attend training off duty to meet this requirement will be paid overtime compensation
+    for such work.
+- id: l3535.special_assignment_hazmat
+  title: 'Hazardous Materials Technician special assignment pay: $500 a month'
+  article: VII. Wages and Hours
+  pages:
+  - 10
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs each member's special assignment; the roster has none.
+  quote: Employees appointed to this position will be eligible to receive special assignment pay, which
+    will be equal to $500 per month,
+- id: l3535.special_assignment_fire_investigator
+  title: 'Fire Investigator special assignment pay: $500 a month'
+  article: VII. Wages and Hours
+  pages:
+  - 10
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs each member's special assignment; the roster has none.
+  quote: Fire Investigator incentive pay is reported as special compensation to CalPERS
+- id: l3535.special_assignment_aquatic_rescue
+  title: 'Aquatic Response Rescue Team special assignment pay: $500 a month'
+  article: VII. Wages and Hours
+  pages:
+  - 11
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs each member's special assignment; the roster has none.
+  quote: Aquatic Response Rescue Team incentive pay is reported as special compensation to CalPERS
+- id: l3535.special_assignment_truck_operator
+  title: 'Truck Operator special assignment pay: $500 a month'
+  article: VII. Wages and Hours
+  pages:
+  - 11
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs each member's special assignment; the roster has none.
+  quote: Truck Operator Incentive pay is reported as special compensation to CalPERS
+- id: l3535.special_assignment_rescue_technician
+  title: 'Rescue Technician special assignment pay: $500 a month'
+  article: VII. Wages and Hours
+  pages:
+  - 11
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs each member's special assignment; the roster has none.
+  quote: Rescue Technician incentive pay is reported as special compensation to CalPERS
+- id: l3535.special_assignment_training_instructor
+  title: 'Training Instructor special assignment pay: 5% of base pay'
+  article: VII. Wages and Hours
+  pages:
+  - 12
+  category: pay
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Needs each member's special assignment; the roster has none.
+  quote: special assignment compensation, which will be equal to 5% of the employee's base pay.
+- id: l3535.special_assignment_administrative
+  title: 'Special Administrative Assignment pay: 10% of base pay (not reportable to CalPERS)'
+  article: VII. Wages and Hours
+  pages:
+  - 12
+  category: pay
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Needs each member's special assignment; the roster has none.
+  quote: the employee will be compensated an amount equal to 10% of the employee's base pay.
+- id: l3535.special_assignment_light_duty
+  title: No special assignment pay on temporary light duty
+  article: VII. Wages and Hours
+  pages:
+  - 12
+  category: pay
+  value_kind: boolean
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Employees working a temporary light duty assignment are not eligible for Special Assignment pay.
+- id: l3535.longevity
+  title: 'Longevity pay: 2.5% after ten years of service'
+  article: VII. Wages and Hours
+  pages:
+  - 12
+  - 38
+  category: pay
+  value_kind: percent
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:longevity_10yr
+  reason: ''
+  quote: Upon completion of ten (10) years of service to the District employees shall receive a 2.5% general
+    salary increase,
+- id: l3535.paramedic_pay
+  title: 'Paramedic pay: 10% above a Firefighter of equal step'
+  article: VII. Wages and Hours
+  pages:
+  - 12
+  category: pay
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Already inside the Firefighter/Paramedic rates of Appendix A; which Firefighters hold a paramedic
+    license is not on the roster.
+  quote: shall be compensated an additional ten percent (10%) above the base salary of a Firefighter of
+    equal stap.
+- id: l3535.captain_paramedic_pay
+  title: 'Captain who keeps a paramedic license: 3.5% of Step 3 Firefighter pay a month ($413.43, CY2026)'
+  article: VII. Wages and Hours
+  pages:
+  - 12
+  - 38
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs to know which Captains keep a paramedic license; the roster has none.
+  quote: Any Captain wishing to maintain their paramedic license will be compensated 3.5% for step 3 firefighter
+    pay per month,
+- id: l3535.forty_hour_positions
+  title: '40-hour safety positions: Captain Specialist slots, eligible ranks, selection'
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 13
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The positions of Firefighter and Firefighter/Paramedic are eligible to be assigned to a 40-hour
+    position.
+- id: l3535.forty_hour_pay
+  title: '40-hour pay: annual salary / 2080, 5% above 56-hour; holiday pay at the 40-hour rate'
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 13
+  - 14
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:regular_straight_time
+  - firefighters_local3535_mou:holiday_pay_base_rate
+  reason: ''
+  quote: For purposes of determining the hourly rate for the 40-hour safety employee, the annual salary
+    is divided by 2080.
+- id: l3535.forty_hour_callback_overtime
+  title: Callback overtime for the 40-hour safety employee at the 40-hour overtime rate
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 13
+  - 14
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:overtime_premium_rate
+  reason: ''
+  quote: Overtime earned on a shift call back shall be at the 40-hour overtime rate of pay.
+- id: l3535.forty_hour_workweek
+  title: '40-hour work week: five 8-hour or four 10-hour days'
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 14
+  category: time
+  value_kind: hours
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The 40-hour work week will consist of either five (5) 8-hour days or four (4) 10hour days
+- id: l3535.forty_hour_admin_holiday
+  title: 'Administrative holiday leave for the 40-hour safety employee: 40 hours a year'
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 14
+  category: leave
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:administrative_holiday_40hr_safety
+  reason: ''
+  quote: The 40-hour safety employee shall receive forty hours of administrative holiday leave
+- id: l3535.forty_hour_leave_accrual
+  title: 40-hour members accrue vacation and sick leave at the 56-hour rate
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 14
+  - 16
+  category: leave
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:sick_leave_accrual
+  - firefighters_local3535_mou:vacation_accrual_1_5
+  - firefighters_local3535_mou:vacation_accrual_6_10
+  - firefighters_local3535_mou:vacation_accrual_11_13
+  - firefighters_local3535_mou:vacation_accrual_14_16
+  - firefighters_local3535_mou:vacation_accrual_17_plus
+  reason: ''
+  quote: The 40-hour safety employee shall accrue vacation and sick leave at the same rate as employees
+    assigned to a 56-hour schedule.
+- id: l3535.forty_hour_after_hours_response
+  title: After-hours Incident Safety Officer response paid at the 40-hour overtime rate
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 14
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:overtime_premium_rate
+  reason: ''
+  quote: Compensation for after hour response js at their 40-hour overtime rate of pay.
+- id: l3535.forty_hour_discontinuance
+  title: 'Leaving the 40-hour assignment: 10 months served, up to 30 days'' transition'
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 14
+  - 15
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The employee must have served a minimum of 10 months In the position before a letter of intent
+    can be submitted
+- id: l3535.forty_hour_bc_callback_overtime
+  title: 40-hour Battalion Chief callback overtime at the 40-hour rate
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 15
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:overtime_premium_rate
+  reason: ''
+  quote: Overtime earned will be at the 40-hour rate of pay.
+- id: l3535.forty_hour_bc_pay
+  title: '40-hour Battalion Chief: same bi-weekly pay as the 56-hour step; hourly rate = annual / 2080'
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 15
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:regular_straight_time
+  - firefighters_local3535_mou:holiday_pay_base_rate
+  reason: ''
+  quote: shall receive the same bi-weekly pay and benefits, as an employee of the same step working a
+    56-hour shift.
+- id: l3535.forty_hour_bc_admin_holiday
+  title: 'Administrative holiday leave for the 40-hour Battalion Chief: 40 hours a year'
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 16
+  category: leave
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:administrative_holiday_40hr_battalion_chief
+  reason: ''
+  quote: The Battalion Chief assigned to the Training Division shall receive forty hours of administrative
+    holiday leave
+- id: l3535.forty_hour_bc_standby
+  title: 40-hour Battalion Chief standby paid at the Article IX rate, off-duty hours only
+  article: VIII. 40 Hour Safety Employee/40 Hour Battalion Chief
+  pages:
+  - 16
+  category: pay
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Paid per week of assigned standby (see l3535.duty_chief_standby_pay); no record of who covered
+    which week.
+  quote: Standby is defined as off duty hours,
+- id: l3535.duty_chief_standby_pay
+  title: 'Standby pay for Duty Chief coverage: $550 a week'
+  article: IX. Duty Chief Standby Coverage
+  pages:
+  - 16
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Paid per week of assigned Duty Coverage; the engine prices shifts and has no record of who covered
+    which week.
+  quote: If an employee Is assigned Duty Coverage, they will be compensated $550/week for the assignment.
+- id: l3535.duty_chief_standby_rules
+  title: Duty coverage weeks (0700 Monday to 0700 Monday), trades, qualifications and equipment
+  article: IX. Duty Chief Standby Coverage
+  pages:
+  - 16
+  - 17
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: A one week increment for the purposes of thls MOU is defined as 0700 Monday until 0700 on the
+    following Monday.
+- id: l3535.standby_activation_overtime
+  title: 'Standby activated to duty: overtime rate, one-hour minimum, partial hours rounded up'
+  article: IX. Duty Chief Standby Coverage
+  pages:
+  - 17
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs the activation event, and the one-hour minimum rounds hours up, which the overtime rule
+    does not do; answered by quoting the clause.
+  quote: the employee Is compensated at the employee's Overtime Rate of Pay for all hours activated, with
+    a minimum of one-hour increments,
+- id: l3535.standby_voluntary
+  title: Standby is voluntary; no uniform required; District vehicle may be used
+  article: IX. Duty Chief Standby Coverage
+  pages:
+  - 17
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Employees shall not be forced/mandated to accept standby coverage
+- id: l3535.standby_not_pensionable
+  title: Standby pay is not counted by CalPERS
+  article: IX. Duty Chief Standby Coverage
+  pages:
+  - 18
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Standby compensation is not Included by CalPERS when calculating pension benefits.
+- id: l3535.staffing
+  title: Minimum daily staffing of 24 line personnel
+  article: X. Staffing
+  pages:
+  - 18
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: 'maintain a minimum daily stafÏng of 24-line personne! consisting of:'
+- id: l3535.retirement_classic_central
+  title: 'Retirement: Classic members 3% @ 50, 12% member contribution (Central legacy)'
+  article: XI. Retirement
+  pages:
+  - 18
+  category: benefit
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Needs each member's CalPERS tier and legacy agency; the roster has none.
+  quote: Classic members 3% @ 50, as determined by CalPERS, shall pay 12% contribution to CalPERS,
+- id: l3535.retirement_classic_aptos_ctl
+  title: 'Retirement: Classic members 3% @ 55, 12% member contribution (APT and CTL legacy)'
+  article: XI. Retirement
+  pages:
+  - 19
+  category: benefit
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Needs each member's CalPERS tier and legacy agency; the roster has none.
+  quote: Classic members 3% @ 55, as determined by CalPERS, shall pay 12% contribution to CalPERS.
+- id: l3535.retirement_pepra
+  title: 'Retirement: PEPRA members 2.7% @ 57, paying 50% of normal cost'
+  article: XI. Retirement
+  pages:
+  - 19
+  category: benefit
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Needs each member's CalPERS tier; the roster has none.
+  quote: PERS 'PEPRA' Employees are under a '2.7% at 57' PERS contract and will contribute fifty percent
+    (50%) of the 'normal cost'
+- id: l3535.retirement_optional_benefits
+  title: Optional CalPERS contract benefits (final compensation, sick leave credit, survivor benefits)
+  article: XI. Retirement
+  pages:
+  - 18
+  - 19
+  - 20
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Gov. Code 20965 - Sick Leave Credit
+- id: l3535.holiday_pay
+  title: Holiday pay at the base hourly rate (13 designated holidays, 312 hours)
+  article: XII. Holidays
+  pages:
+  - 20
+  category: pay
+  value_kind: currency
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:holiday_pay_base_rate
+  reason: ''
+  quote: shall be paid at the employees' base hourly rate.
+- id: l3535.holiday_hours
+  title: 'Designated holidays: 13 a year, 312 hours'
+  article: XII. Holidays
+  pages:
+  - 20
+  category: leave
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:holiday_hours_per_year
+  reason: ''
+  quote: There are 13 designated holidays (312 hours),
+- id: l3535.holiday_list
+  title: The list of designated holidays
+  article: XII. Holidays
+  pages:
+  - 20
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: 'Designated Holidays are as follows:'
+- id: l3535.holiday_not_leave
+  title: Holiday compensation is not converted to paid leave
+  article: XII. Holidays
+  pages:
+  - 20
+  category: narrative
+  value_kind: boolean
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Holiday for compensation shall not be converted to paid leave.
+- id: l3535.battalion_chief_admin_holidays
+  title: 'Battalion Chiefs: five administrative holidays a year, no carryover or cash value'
+  article: XII. Holidays
+  pages:
+  - 20
+  category: leave
+  value_kind: days
+  status: not_modelled
+  rules: []
+  reason: The clause gives five administrative holidays without saying whether a holiday is a 24-hour
+    shift or a day, so no number of hours or shifts can be stated.
+  quote: Battalion Chiefs shall receive five administrative holidays,
+- id: l3535.sick_accrual
+  title: 'Sick leave accrual: 11.08 hours per pay period'
+  article: XIII. Sick Leave
+  pages:
+  - 20
+  category: leave
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:sick_leave_accrual
+  reason: ''
+  quote: 56-hour employees shall accrue sick leave at the rate of 11.08 hours per pay period.
+- id: l3535.sick_use
+  title: What sick leave may be used for
+  article: XIII. Sick Leave
+  pages:
+  - 20
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Sick leave may be used for personal illness, physical incapacity, or the fllness of a family
+    member,
+- id: l3535.sick_medical_excuse
+  title: Doctor's note after more than two consecutive shifts (56-hour) or work days (40-hour)
+  article: XIII. Sick Leave
+  pages:
+  - 20
+  category: procedure
+  value_kind: shifts
+  status: not_modelled
+  rules: []
+  reason: A threshold ('more than two consecutive') that lets a supervisor ask for a note; answered by
+    quoting the clause.
+  quote: for more than two consecutive twenty four hour shifts or more than two consecutive work days
+    for 40 hour employees
+- id: l3535.sick_cash_out
+  title: 'Annual sick leave cash-out: up to 144 hours above a 2,400-hour balance'
+  article: XIII. Sick Leave
+  pages:
+  - 21
+  category: pay
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:sick_leave_annual_cash_out_max
+  reason: ''
+  quote: a maximum of 144 hours of the annual accumulated sick leave in excess of 2400 hours may be paid
+- id: l3535.sick_unpaid_leave_accrual
+  title: Sick leave keeps accruing during unpaid leave
+  article: XIII. Sick Leave
+  pages:
+  - 21
+  category: leave
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Employees on an unpaid leave of absence shall continue to accrue sick leave hours at their normal
+    rate.
+- id: l3535.sick_unlimited
+  title: Unlimited sick leave accumulation
+  article: XIII. Sick Leave
+  pages:
+  - 21
+  category: leave
+  value_kind: boolean
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Employees may accumutate an unlimited amount of sick leave hours.
+- id: l3535.sick_retirement_options
+  title: 'At retirement: convert sick leave to service credit, or be paid up to 894 hours plus half the
+    year''s accrual'
+  article: XIII. Sick Leave
+  pages:
+  - 21
+  category: pay
+  value_kind: hours
+  status: not_modelled
+  rules: []
+  reason: The payout adds half the current year's accrual, which depends on the retirement date and the
+    member's balance; the roster has none.
+  quote: Raceive compensation for up to a maximum of 894 hours of unused sick leave plus one half of the
+    employee's current calendar year accrual,
+- id: l3535.sick_extend_retirement
+  title: Up to 8 pay periods of sick leave to extend the retirement date
+  article: XIII. Sick Leave
+  pages:
+  - 21
+  category: leave
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Counted in pay periods, a unit the engine does not return; answered by quoting the clause.
+  quote: employees may use up to a maximum of 8 pay periods of sick leave as time off in order to extend
+    their retirement date.
+- id: l3535.sick_separation_payout
+  title: 'Sick leave paid on separation (not termination): up to 894 hours'
+  article: XIII. Sick Leave
+  pages:
+  - 21
+  category: pay
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:sick_leave_separation_payout_max
+  reason: ''
+  quote: may receive compensation for any unused sick leave hours earned up to a maximum of 894 hours,
+- id: l3535.bereavement
+  title: 'Bereavement leave: three shifts'
+  article: XIV. Bereavement Leave
+  pages:
+  - 21
+  category: leave
+  value_kind: shifts
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:bereavement_shifts
+  reason: ''
+  quote: the employee shall be granted three (3) shifts paid bereavement leave.
+- id: l3535.bereavement_family
+  title: Who counts as immediate family for bereavement leave
+  article: XIV. Bereavement Leave
+  pages:
+  - 21
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Immediate famlly members.are the Employee's spouse or domestic partner,
+- id: l3535.vacation_minimum_days
+  title: At least sixteen consecutive calendar days of vacation a year
+  article: XV. Vacation Leave
+  pages:
+  - 22
+  category: leave
+  value_kind: days
+  status: not_modelled
+  rules: []
+  reason: A vacation question reaches the accrual tiers, which share the topic; this minimum is answered
+    by quoting the clause.
+  quote: Employees shall be entitled to at least sixteen (16) consecutive calendar days of vacation per
+    year,
+- id: l3535.vacation_accrual
+  title: Vacation accrual per pay period by years of service (7.38 to 14.78 hours)
+  article: XV. Vacation Leave
+  pages:
+  - 22
+  category: leave
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:vacation_accrual_1_5
+  - firefighters_local3535_mou:vacation_accrual_6_10
+  - firefighters_local3535_mou:vacation_accrual_11_13
+  - firefighters_local3535_mou:vacation_accrual_14_16
+  - firefighters_local3535_mou:vacation_accrual_17_plus
+  reason: ''
+  quote: 'Years of Service: 1-5 | Vacation Accrual Schedule for all Union Members.| Hours Accrued per
+    .| pay period: 7,38'
+- id: l3535.vacation_max_annual
+  title: Maximum annual vacation accrual by years of service (192 to 384 hours)
+  article: XV. Vacation Leave
+  pages:
+  - 22
+  category: leave
+  value_kind: hours
+  status: not_modelled
+  rules: []
+  reason: A per-tier figure in the same p.22 table row as the accrual rate; a vacation question reaches
+    the accrual tier, so the maximum is answered by quoting the table.
+  quote: 'Maximum annual accrual (in hours): 264'
+- id: l3535.vacation_max_balance
+  title: Maximum vacation balance at year end by years of service (288 to 576 hours); accrual stops at
+    the cap
+  article: XV. Vacation Leave
+  pages:
+  - 22
+  category: leave
+  value_kind: hours
+  status: not_modelled
+  rules: []
+  reason: A per-tier figure in the same p.22 table row as the accrual rate (one cell, 'A468', is misread
+    by the OCR); answered by quoting the table.
+  quote: 'Maximum accrual (end of calendar year): 288'
+- id: l3535.vacation_no_advance
+  title: No using more vacation than earned
+  article: XV. Vacation Leave
+  pages:
+  - 22
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Employees may not use more vacation than they have earned.
+- id: l3535.vacation_cash_out
+  title: Vacation cash-out up to four times a year, at most half the maximum annual accrual
+  article: XV. Vacation Leave
+  pages:
+  - 22
+  category: pay
+  value_kind: hours
+  status: not_modelled
+  rules: []
+  reason: The cap is half the tier's maximum annual accrual (answered by quoting the p.22 table) and the
+    four cash-outs are a count the engine does not return.
+  quote: The combined total annual vacation cash out will not exceed one half of the Maximum Annual! Accrual.
+- id: l3535.vacation_separation_payout
+  title: Unused vacation paid on separation
+  article: XV. Vacation Leave
+  pages:
+  - 22
+  category: pay
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Needs the member's vacation balance; the roster has none.
+  quote: Employees separating for any reason will receive compensation for any unused vacation leave hours
+    earned,
+- id: l3535.vacation_hospitalization
+  title: Vacation days changed to sick leave if hospitalized on vacation
+  article: XV. Vacation Leave
+  pages:
+  - 22
+  category: leave
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: may have those days changed to sick leave with pay and vacation days restored accordingly,
+- id: l3535.vacation_payout_not_pensionable
+  title: Vacation payout not reportable to CalPERS
+  article: XV. Vacation Leave
+  pages:
+  - 22
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Vacation Leave-Payout shall not be reportable to CalPERS for pension calculation.
+- id: l3535.vacation_part_time
+  title: No paid vacation for part-time, relief, seasonal or hourly-only employees
+  article: XV. Vacation Leave
+  pages:
+  - 23
+  category: leave
+  value_kind: boolean
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: No vacation with pay is allowable to part-time, emergency, relief, seasonal, or extra help employees,
+- id: l3535.vacation_unpaid_leave_accrual
+  title: Vacation keeps accruing during unpaid leave
+  article: XV. Vacation Leave
+  pages:
+  - 23
+  category: leave
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Employees on an unpaid leave of absence shall continue to accrue vacation leave hours at their
+    normal rate.
+- id: l3535.union_leave_contribution
+  title: 'Union Leave Bank: 4 vacation hours donated each January'
+  article: XVI. Union Leave Bank
+  pages:
+  - 23
+  category: leave
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:union_leave_bank_contribution
+  reason: ''
+  quote: each active L3535 bargaining unit employee will contribute to the Union Leave Bank by donating
+    4 hours of their accrued vacation leave.
+- id: l3535.union_leave_carryover
+  title: Unused Union Leave Bank hours carry over
+  article: XVI. Union Leave Bank
+  pages:
+  - 23
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: these amounts will carry over to the following year.
+- id: l3535.union_leave_usage
+  title: 'Using the Union Leave Bank: hour for hour, cover paid at the regular rate'
+  article: XVI. Union Leave Bank
+  pages:
+  - 23
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: time shalt be transferred from the Bank on an hour for hour basis regardless of rank.
+- id: l3535.union_leave_request_notice
+  title: Union leave requests at least 7 days before the event
+  article: XVI. Union Leave Bank
+  pages:
+  - 23
+  category: procedure
+  value_kind: days
+  status: not_modelled
+  rules: []
+  reason: A union-leave question reaches the yearly contribution rule, which shares the topic; this notice
+    period is answered by quoting the clause.
+  quote: present the request In advance to the Flre Chief or designee at least (7) days prior to the event.
+- id: l3535.union_leave_reports
+  title: Union Leave Bank status reports, disclaimer, no waiver of management control
+  article: XVI. Union Leave Bank
+  pages:
+  - 24
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The Fire District shall provide reports of time available in the Union Leave Bank
+- id: l3535.life_insurance_employee
+  title: 'Life insurance: $100,000 to age 64, $65,000 at 65-69, $50,000 at 70+'
+  article: XVII. Benefits
+  pages:
+  - 24
+  category: benefit
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs the member's age; the roster has none.
+  quote: Allemployees to age 64 $100,000.00
+- id: l3535.life_insurance_dependents
+  title: 'Life insurance for dependents: $10,000 spouse, $5,000 per child'
+  article: XVII. Benefits
+  pages:
+  - 24
+  category: benefit
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: A fixed benefit amount; the engine prices pay and leave, so it is answered by quoting the clause.
+  quote: the life insurance plan will provide-a death benefit of $10,000 for a spouse, and $5,000 per
+    child.
+- id: l3535.disability_waiting_period
+  title: 'Long-term disability: benefits after a 60-day waiting period'
+  article: XVII. Benefits
+  pages:
+  - 24
+  category: benefit
+  value_kind: days
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:disability_waiting_period
+  reason: ''
+  quote: after a sixty (60) day waiting period,
+- id: l3535.medical_contribution
+  title: 'District medical contribution per month by coverage tier (2026: $1,290 / $2,580 / $3,354; +5%
+    in 2027 and 2028)'
+  article: XVII. Benefits
+  pages:
+  - 25
+  category: benefit
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs the member's coverage tier (number of dependents) and the plan year; the roster has none.
+  quote: 'For the 2026 medical insurance plan year, the District''s contribution to the monthly premium
+    will be as follows:'
+- id: l3535.dental
+  title: Dental insurance premium paid by the District ($2,000 annual maximum plan)
+  article: XVII. Benefits
+  pages:
+  - 25
+  category: benefit
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: A plan feature, not pay or leave; answered by quoting the clause.
+  quote: which provides for $2000.00 maximum per year for all active employees and dependents.
+- id: l3535.vision
+  title: Vision insurance premium paid by the District
+  article: XVII. Benefits
+  pages:
+  - 25
+  category: benefit
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The Employer shall provide vision insurance to employees and their dependents.
+- id: l3535.retiree_life_dental_vision
+  title: 'Retiree life, dental and vision: buy in at 100% of premium (Central legacy dental 2.5% a year
+    of service)'
+  article: XVII. Benefits
+  pages:
+  - 26
+  category: benefit
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Needs the retiree's retirement date, legacy agency and years of service; the roster is current
+    classifications only.
+  quote: the Employer shall pay 2.5% of the premium foreach full year of service, up to 100% of the premium.
+- id: l3535.retiree_health_legacy
+  title: 'Retiree health (HRA) for legacy retirees: 85% of third-highest plan, $350, or $1,800/$900 a
+    month by group'
+  article: XVII. Benefits
+  pages:
+  - 26
+  - 27
+  category: benefit
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Needs the retiree's legacy agency, retirement date and age; the roster is current classifications
+    only.
+  quote: the District shall contribute $350 per month to a retiree Health Reimbursement Arrangement (HRA)
+    plan.
+- id: l3535.retiree_health_new_hires
+  title: 'Retiree health for hires on or after 5 Feb 2021: 75% of the employee-only rate at 15 years,
+    +5% a year to 100%'
+  article: XVII. Benefits
+  pages:
+  - 27
+  category: benefit
+  value_kind: percent
+  status: not_modelled
+  rules: []
+  reason: Needs the member's hire date (the tiers apply only to hires on or after 5 Feb 2021), and the
+    engine returns no percentage type.
+  quote: Aminimum of 15 years of service to the District is required to be eligible for 75% of the amployee
+    only rate of retiree health care,
+- id: l3535.uniform_allowance
+  title: 'Uniform allowance: $300 a year in 26 installments of $11.54 (Classic reported, PEPRA paid)'
+  article: XVIII. Clothing
+  pages:
+  - 27
+  - 28
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: A fixed allowance paid each pay period regardless of hours; the engine prices shifts, so it
+    is answered by quoting the clause.
+  quote: The uniform allowance will be reported in twenty-six (26) equal installments of $11.54,
+- id: l3535.clothing
+  title: District provides safety and non-safety attire; members maintain non-safety clothing
+  article: XVIII. Clothing
+  pages:
+  - 27
+  - 28
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: The District will provide non-safety and safety attire,
+- id: l3535.professionalization
+  title: Related duties must be fire-service tasks
+  article: XIX. Professionalization
+  pages:
+  - 28
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: are to be tasks directly related to the fire service, as determined by the Fire Chief,
+- id: l3535.grievance_definition
+  title: What a grievance is; right to representation
+  article: XX. Grievance Procedures
+  pages:
+  - 28
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: A grievance shall be any dispute concerning the interpretation, application, or compliance with
+    this Agreement
+- id: l3535.grievance_step1
+  title: 'Grievance Step 1: raise it with the supervisor within 10 calendar days'
+  article: XX. Grievance Procedures
+  pages:
+  - 28
+  category: procedure
+  value_kind: days
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:grievance_filing_deadline
+  reason: ''
+  quote: shall within ten (10) calendar days of the. events giving rise to the grievance
+- id: l3535.grievance_step2
+  title: 'Grievance Step 2: written grievance within 10 calendar days; supervisor decides within 10'
+  article: XX. Grievance Procedures
+  pages:
+  - 28
+  - 29
+  category: procedure
+  value_kind: days
+  status: not_modelled
+  rules: []
+  reason: Each later step has its own ten-day limit; a 'grievance deadline' question reaches the Step
+    1 rule, so later steps are answered by quoting the clause.
+  quote: within ten (10) calendar days of the occurrence, the aggrieved employee shall present the grievance
+    in writing
+- id: l3535.grievance_step3
+  title: 'Grievance Step 3: to the Fire Chief within 10 calendar days; decision within 10 days'
+  article: XX. Grievance Procedures
+  pages:
+  - 29
+  category: procedure
+  value_kind: days
+  status: not_modelled
+  rules: []
+  reason: Each later step has its own ten-day limit; a 'grievance deadline' question reaches the Step
+    1 rule, so later steps are answered by quoting the clause.
+  quote: refer the matter to the Fire Chief in writing.
+- id: l3535.grievance_step4
+  title: 'Grievance Step 4: to a four-member panel within 10 calendar days'
+  article: XX. Grievance Procedures
+  pages:
+  - 29
+  category: procedure
+  value_kind: days
+  status: not_modelled
+  rules: []
+  reason: Each later step has its own ten-day limit; a 'grievance deadline' question reaches the Step
+    1 rule, so later steps are answered by quoting the clause.
+  quote: refer the matter to a panel. The pane! will consist of four (4} members;
+- id: l3535.grievance_bypass
+  title: Disputes over the Fire Chief's own action skip Steps 1-2; Union grievances start at Step 3
+  article: XX. Grievance Procedures
+  pages:
+  - 29
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: the aggrieved employee may bypass STEP 1 & STEP 2, aforementioned.
+- id: l3535.arbitration_request
+  title: 'Step 5: request arbitration within 14 calendar days of the panel''s recommendation'
+  article: XX. Grievance Procedures
+  pages:
+  - 29
+  category: procedure
+  value_kind: days
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:arbitration_request_deadline
+  reason: ''
+  quote: This must be completed no later than fourteen (14) calendar days after receiving the recarmmendation
+    from the panel,
+- id: l3535.arbitrator_selection
+  title: Choosing the arbitrator (mutual choice, else strike from a list of seven)
+  article: XX. Grievance Procedures
+  pages:
+  - 29
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: request that a list of seven (7) possible arbitrators be provided.
+- id: l3535.arbitration_costs_and_limits
+  title: Arbitration is final and binding; costs shared equally; award limited to lost wages from the
+    grievance date
+  article: XX. Grievance Procedures
+  pages:
+  - 30
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Decisions by the arbitrator shall be final and binding.
+- id: l3535.grievance_time_limits_waivable
+  title: Grievance time limits may be extended or waived by mutual written agreement
+  article: XX. Grievance Procedures
+  pages:
+  - 30
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: All time limits as noted in any step of the grievance procedure may be extended or waived by
+    mutual written agreement
+- id: l3535.arbitration_compliance
+  title: Comply with the arbitrator's decision within 30 calendar days
+  article: XX. Grievance Procedures
+  pages:
+  - 30
+  category: procedure
+  value_kind: days
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:arbitration_compliance_deadline
+  reason: ''
+  quote: Compliance with the arbitrator's final decision must occur within thirty (30) calendar days
+- id: l3535.no_reprisal
+  title: No reprisal for presenting a grievance
+  article: XX. Grievance Procedures
+  pages:
+  - 30
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: No reprisal shall result to any employee or organization that prepares or presents any grievance
+- id: l3535.binding_arbitration_voters
+  title: Requests for binding arbitration go to the District's voters
+  article: XX. Grievance Procedures
+  pages:
+  - 30
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Requests for binding arbitration must go before the voters of the Central Fire District.
+- id: l3535.layoff
+  title: Layoff by strict seniority (last hired, first laid off)
+  article: XXI. Layoff and Rehire Procedures
+  pages:
+  - 30
+  - 31
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: shall be laid off on a strict seniority basis, with the last employee hired to be the first laid
+    off,
+- id: l3535.rehire
+  title: Rehire in reverse order of layoff, with a physical exam at District cost
+  article: XXI. Layoff and Rehire Procedures
+  pages:
+  - 31
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Tha [The] last employee laid off shall be the first to be rehired.
+- id: l3535.emt_certification
+  title: EMT certificate required (except paramedics); training at District expense
+  article: XXII. Certification
+  pages:
+  - 31
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: shall have a valid-EMT certificate and thereafter maintain their EMT certificate.
+- id: l3535.paramedic_ce_compensation
+  title: 'Paramedic continuing education off duty: paid or CTO; on duty: administrative time off'
+  article: XXII. Certification
+  pages:
+  - 31
+  category: pay
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Needs the training event and its hours; paid as ordinary hours or CTO at the member's choice.
+    Answered by quoting the clause.
+  quote: the paramedic shall be compensated by either pay or CTO at the option of the employee, for hours
+    of attendance.
+- id: l3535.paramedic_ce_costs
+  title: District pays paramedic tuition, textbooks, mileage, lodging and license renewal
+  article: XXII. Certification
+  pages:
+  - 31
+  - 32
+  category: benefit
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: the District shall pay the cost of tuition, as well as any associated costs,
+- id: l3535.paramedic_training_travel_time
+  title: 'Out-of-area paramedic training: one hour of travel time each direction'
+  article: XXII. Certification
+  pages:
+  - 31
+  category: time
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:paramedic_training_travel_time
+  reason: ''
+  quote: One-hour travel time shall be allowed each direction.
+- id: l3535.captain_paramedic_discontinue
+  title: 'Captains ending paramedic duties: letter of intent'
+  article: XXII. Certification
+  pages:
+  - 32
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: Captains wishing to discontinue their paramedic dutles must submit a letter of intent
+- id: l3535.education_time_off
+  title: 'Education time off: 36 hours a fiscal year'
+  article: XXIII. Education Time Off
+  pages:
+  - 32
+  category: leave
+  value_kind: hours
+  status: modelled
+  rules:
+  - firefighters_local3535_mou:education_time_off
+  reason: ''
+  quote: All employees are entitled to thirty-six (36) hours of leave per fiscal year for educational
+    purposes
+- id: l3535.education_time_off_rules
+  title: 'Education time off: fire-service classes, forfeited if unused, 4-hour minimum increments'
+  article: XXIII. Education Time Off
+  pages:
+  - 32
+  category: leave
+  value_kind: hours
+  status: not_modelled
+  rules: []
+  reason: Use conditions and a minimum increment, not an allowance; answered by quoting the clause.
+  quote: The thirty-six{36} hours shall be used In no less than four (4) hour increments.
+- id: l3535.compliance_correction
+  title: Compliance and correction clause
+  article: XXIV. Compliance and Correction Clause
+  pages:
+  - 32
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: the parties shall meet and confer in good faith as soon as practicable to correct, amend, or
+    replace the affected language
+- id: l3535.commencement_of_negotiations
+  title: Negotiations start no later than four months before expiry
+  article: XXV. Commencement of Negotiations
+  pages:
+  - 33
+  category: procedure
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: not later than four months before the expiration of this agreement.
+- id: l3535.effective_date
+  title: 'Effective date: prior agreement through 31 Dec 2025 except Holidays from 20 Dec 2025; side letter
+    of April 2026 stays'
+  article: XXVI. Effective Date
+  pages:
+  - 33
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: section XII 'Holidays' of this Agreement shall apply as of December 20, 2025;
+- id: l3535.term
+  title: 'Term: 20 December 2025 through 31 December 2028'
+  article: XXVII. Term
+  pages:
+  - 33
+  category: narrative
+  value_kind: none
+  status: not_modelled
+  rules: []
+  reason: Answered by quoting the clause.
+  quote: this Agreement shall be effective December 20, 2025, through December 31, 2028,
+- id: l3535.salary_schedule_rates
+  title: Appendix A hourly, bi-weekly, monthly and annual rates by step (CY2026, 2027, 2028)
+  article: Appendix "A" Local 3535
+  pages:
+  - 35
+  - 36
+  - 37
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: 'Rates are data, not rules: the roster carries each classification''s hourly rate and its schedule
+    citation; choosing the year''s table by date is roadmap M2.'
+  quote: 'POSITION: III | Hourly: $53.40 | Bi-Weekly: $5,997.07'
+- id: l3535.incentive_table
+  title: Appendix A incentive and specialty pay tables (education, certification, Captain medic, longevity,
+    special assignments)
+  article: Appendix "A" Local 3535
+  pages:
+  - 38
+  - 39
+  - 40
+  category: pay
+  value_kind: currency
+  status: not_modelled
+  rules: []
+  reason: Each column needs a member's degree, certification, license or assignment, which the roster
+    does not carry; longevity and acting Captain are modelled from their own provisions.
+  quote: Members must meet certain eligibility requirements or be assigned to certain specialites in order
+    to receive the pay listed below.

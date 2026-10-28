@@ -15,7 +15,7 @@ from .. import (
     queryfacts,
     rulematch,
 )
-from ..engine import calculate, rounding_policy
+from ..engine import NoRuleApplies, calculate, rounding_policy
 from ..ruledsl import RuleError
 from .sources import _doc_meta, _enrich_citations, _source_entry
 from .state import DEFAULT_YEAR, _backend, _catalog, _extraction
@@ -352,7 +352,41 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
                          detail={"query": query or prompt, "scope": scope, "unit": unit})
         candidates = [r for r in case.rules()
                       if r.result_type != "currency" and r.citation.doc_id in scope]
-        rules, found, ambiguous = rulematch.select_rules(candidates, hits, stems)
+        subjects = [s for s in named_rows if s.get("bargaining_unit") == unit] \
+            or [s for s in subjects_all if s.get("bargaining_unit") == unit]
+        # M1: with a full rulebook a neighbouring clause can outrank the one asked about
+        # ("how many holiday hours" retrieves the 40-hour administrative-holiday clause
+        # first). A topic whose rules fit none of these subjects is not the answer for
+        # them, so it is set aside and the next-best topic is tried, unless the question
+        # named it; a topic that fits still wins on rank exactly as before. Bounded by
+        # the number of topics.
+        skipped: list[str] = []
+        while True:
+            rules, found, ambiguous = rulematch.select_rules(candidates, hits, stems)
+            if ambiguous or not rules:
+                break
+            try:
+                calculate(eng, subjects, rules, rounding_policy(case.manifest))
+                break
+            except NoRuleApplies:
+                # Only a topic the search surfaced is set aside. A topic the question
+                # NAMES ("administrative holiday hours" for a 56-hour member) keeps its
+                # refusal: answering it with another entitlement would be a wrong number.
+                if not subjects or any(rulematch.topic_in_prompt(r, stems) for r in rules):
+                    break
+                tried = {r.topic for r in rules}
+                rest = [r for r in candidates if r.topic not in tried]
+                if not rest:
+                    break
+                skipped += sorted(tried)
+                candidates = rest
+            except (ValueError, RuleError, ArithmeticError):
+                break                      # reported by the calculate below, as before
+        if skipped:
+            led.append("entitlement.topic_skipped",
+                       {"unit": unit, "topics": skipped,
+                        "reason": "no rule of this topic fits the named classification"},
+                       actor="chat", query_id=qid)
         if ambiguous:
             led.append("entitlement.clarify", {"reason": "several topics match",
                                                "options": ambiguous},
@@ -362,8 +396,6 @@ def _entitlement_answer(case, led, qid: str, prompt: str,
         if not rules:
             not_covered.append({"unit": unit, "docs": scope})
             continue
-        subjects = [s for s in named_rows if s.get("bargaining_unit") == unit] \
-            or [s for s in subjects_all if s.get("bargaining_unit") == unit]
         try:
             result = calculate(eng, subjects, rules, rounding_policy(case.manifest))
         except (ValueError, RuleError, ArithmeticError) as e:   # A4: a rule error is not a 500

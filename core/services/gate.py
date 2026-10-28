@@ -46,6 +46,17 @@ def _check_golden(case, rule_dicts: list[dict], golden: dict) -> tuple[bool, dic
         # here and not there (E2).
         want = golden.get("result_type", "currency")
         rules = [r for r in rules if r.result_type == want]
+        # A known answer that names its `topic` is checked against the base rules of
+        # that topic only, mirroring run time: a costing question reaches only the base
+        # rules of the pay type it asked for (costing.cost_by_unit), and an entitlement
+        # question reaches one topic (rulematch.select_rules). Without this, a unit with
+        # two entitlements of the same type ("11.08 hours of sick leave", "7.38 hours of
+        # vacation") would answer one known answer with the other's rule. Differentials
+        # and premiums are not filtered (longevity still reaches the overtime base).
+        # A known answer with no topic keeps the old behaviour: every base competes.
+        topic = str(golden.get("topic") or "").strip()
+        if topic:
+            rules = [r for r in rules if r.role != "base" or r.topic == topic]
         if units:
             gov = governance.resolve(units, golden.get("params", {}).get("date_iso"),
                                      case.manifest.get("sources", []))

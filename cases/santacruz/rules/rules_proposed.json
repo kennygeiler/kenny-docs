@@ -194,6 +194,1137 @@
       "status": "proposed",
       "_scenario": "vacation accrual per pay period, 20-year member (Local 3535 XV table p.22, OCR-corrected cell)",
       "note": "agent-drafted 2026-10-07 from the p.22 vacation table; the 6-10, 14-16 and 17+ tiers cite cells the OCR re-read disputes \u2014 confirm the cell in Compare, then approve"
+    },
+    {
+      "id": "firefighters_local3535_mou:regular_straight_time",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "currency",
+      "topic": "regular",
+      "pay_basis": "hourly",
+      "when": "hours > 0",
+      "compute": "effective_base * hours",
+      "human_readable": "Regular (straight-time) hours are paid at the employee's hourly rate from the Appendix A salary schedule \u2014 the annual salary divided by 2920 for 56-hour employees (Local 3535 MOU, VII. Wages and Hours, p.6) or by 2080 for 40-hour employees (VIII, p.14). No multiplier.",
+      "assumptions": [
+        "Hours are regular scheduled hours, not overtime, holiday or out-of-class hours",
+        "The hourly rate is the roster's salary-schedule rate (annual / 2920 for 56-hour, / 2080 for 40-hour employees); incentives and special-assignment pay are not on the roster and not included"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "VII. Wages and Hours \u2014 hourly rate (p.6)",
+        "page": 6,
+        "bbox": [
+          110.52,
+          647.52552,
+          493.199853912,
+          624.4045199999999
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "253a086920071dec",
+        "quote": "For purposes of determining the hourly rate for 56-hour employees, the annual  salary Is divided by 2920."
+      },
+      "status": "proposed",
+      "_scenario": "8-hour regular shift at the hourly rate, Firefighter/Paramedic top step (Local 3535 VII p.6)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "hourly_rate_divisor",
+          "kind": "definition",
+          "source": "clause",
+          "query": "hourly rate 56-hour employees annual salary divided by 2920",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 6,
+            "bbox": [
+              110.52,
+              647.52552,
+              493.199853912,
+              624.4045199999999
+            ],
+            "clause": "VII. Wages and Hours (p.6)"
+          }
+        },
+        {
+          "name": "base_hourly",
+          "kind": "fact",
+          "source": "roster",
+          "field": "base_hourly",
+          "query": "salary schedule appendix A",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 6,
+            "bbox": [
+              110.88,
+              526.56552,
+              510.48033033599995,
+              489.33072
+            ],
+            "clause": "Salary Schedule set forth in Appendix A (p.6)"
+          }
+        },
+        {
+          "name": "hours",
+          "kind": "fact",
+          "source": "question"
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:holiday_pay_base_rate",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "currency",
+      "topic": "holiday",
+      "pay_basis": "hourly",
+      "when": "hours > 0",
+      "compute": "effective_base * hours",
+      "human_readable": "Holiday compensation is paid at the employee's base hourly rate, 13 designated holidays a year (312 hours) (Local 3535 MOU, XII. Holidays, p.20); 40-hour employees are paid holiday pay at the 40-hour rate (VIII, p.14). It is not a premium for working the holiday, and it is not part of the regular rate of pay (VII.B.2, p.8).",
+      "assumptions": [
+        "Hours are holiday-compensation hours: 312 a year over 13 designated holidays, i.e. 24 hours per holiday",
+        "Paid at the base hourly rate (1.0x), whether or not the holiday is worked; the clause does not pay a premium for working it",
+        "Whether longevity (p.12) raises the 'base hourly rate' for holiday pay is not settled by the clause; with years of service stated the live longevity differential applies"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XII. Holidays (p.20)",
+        "page": 20,
+        "bbox": [
+          109.44,
+          509.62248,
+          508.32058363199997,
+          473.83776
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "0ef4ce51b8dc7c82",
+        "quote": "There are  13  designated holidays (312 hours),  Compensation for holidays will  be  paid In the pay period the holiday occurs and shall  be  paid at  the employees' base hourly rate.  Holiday for com"
+      },
+      "status": "proposed",
+      "_scenario": "holiday pay for one designated holiday (24 of the 312 holiday hours), Firefighter/Paramedic top step (Local 3535 XII p.20)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "holiday_hours",
+          "kind": "definition",
+          "source": "clause",
+          "query": "13 designated holidays 312 hours paid at base hourly rate",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 20,
+            "bbox": [
+              109.44,
+              509.62248,
+              508.32058363199997,
+              473.83776
+            ],
+            "clause": "XII. Holidays (p.20)"
+          }
+        },
+        {
+          "name": "base_hourly",
+          "kind": "fact",
+          "source": "roster",
+          "field": "base_hourly",
+          "query": "salary schedule appendix A",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 6,
+            "bbox": [
+              110.88,
+              526.56552,
+              510.48033033599995,
+              489.33072
+            ],
+            "clause": "Salary Schedule set forth in Appendix A (p.6)"
+          }
+        },
+        {
+          "name": "hours",
+          "kind": "fact",
+          "source": "question"
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:flsa_scheduled_overtime_half_time",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "currency",
+      "topic": "flsa",
+      "pay_basis": "hourly",
+      "when": "subject_shift == 'Suppression' and hours > 0 and hours <= 10",
+      "compute": "effective_base * 0.5 * hours",
+      "human_readable": "The ten scheduled hours between 182 and 192 in each 24-day FLSA work period are paid an overtime premium at half-time of the employee's regular rate, because the salary already pays for the 192 scheduled hours (Local 3535 MOU, VII.B.1 FLSA Work Period, p.7). Shift (56-hour) employees only; at most 10 hours per work period.",
+      "assumptions": [
+        "Hours are the scheduled hours between 182 and 192 in one 24-day FLSA work period (at most 10); hours beyond 192 are premium overtime at 1.5x (p.8), a different rule",
+        "Regular rate is taken as the salary-schedule base rate; special-assignment pay and education incentive (p.8 s.2) are not on the roster and not included",
+        "Applies to 56-hour shift employees (roster shift 'Suppression'); the 192-hour schedule is theirs"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "VII.B.1 FLSA Work Period (p.7)",
+        "page": 7,
+        "bbox": [
+          142.92,
+          352.32552,
+          516.239910504,
+          247.22426706912006
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "7cfb24d7250d28f8",
+        "quote": "Central  Fire  District has established a  24-day work periad and therefore employees are entitled to FLSA-overtime for hours worked  (n excess of 182 hours, The regular scheduled hours worked for our"
+      },
+      "status": "proposed",
+      "_scenario": "FLSA half-time on the 10 scheduled hours between 182 and 192 in a 24-day work period, Firefighter/Paramedic top step (Local 3535 VII.B.1 p.7)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "half_time",
+          "kind": "multiplier",
+          "source": "clause",
+          "query": "overtime premium hours between 182 and 192 half-time regular rate of pay",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 7,
+            "bbox": [
+              142.92,
+              352.32552,
+              516.239910504,
+              247.22426706912006
+            ],
+            "clause": "VII.B.1 FLSA Work Period (p.7)"
+          }
+        },
+        {
+          "name": "base_hourly",
+          "kind": "fact",
+          "source": "roster",
+          "field": "base_hourly",
+          "query": "salary schedule appendix A",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 6,
+            "bbox": [
+              110.88,
+              526.56552,
+              510.48033033599995,
+              489.33072
+            ],
+            "clause": "Salary Schedule set forth in Appendix A (p.6)"
+          }
+        },
+        {
+          "name": "hours",
+          "kind": "fact",
+          "source": "question"
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:acting_captain_ff_top_step",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "currency",
+      "topic": "out_of_class",
+      "pay_basis": "hourly",
+      "when": "subject_classification == 'Firefighter (56 hr, top step)' and hours > 0",
+      "compute": "(effective_base + 6.80) * hours",
+      "human_readable": "A Firefighter working out of class as acting Captain is paid $6.80/hr above their hourly rate (Local 3535 MOU, Appendix A CY2026 per diem structure, 'ACT'G CAPT - FF' Hourly Regular $6.80, p.38). Out of class (upward) is paid the rate of the higher position (VII.A, p.6); at top step this lands on the Captain I rate ($55.34, p.35).",
+      "assumptions": [
+        "Hours are regular hours worked as acting Captain; overtime while acting has its own per-diem column ($10.19/hr) and is not modelled",
+        "The per-diem add-on equals Captain I minus Firefighter step III, so it is applied to the top-step classification only; other steps would get a different add-on",
+        "CY2026 figure; the 2027 and 2028 tables (p.39, p.40) print different amounts and rules carry no dates yet"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "Appendix A CY2026 Per Diem Structure, acting captain row ACTG CAPT - FF (p.38)",
+        "page": 38,
+        "bbox": [
+          37.63302993774414,
+          250.75006103515625,
+          343.64892578125,
+          131.58316040039062
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "2b5b7f62689143d3",
+        "quote": "All Members Receive Base and Holiday Pay \u2014 PER DIEM STRUCTURE:: ACT'G CAPT - FF | Hourly Regular: $6.80 | OT Rate: $10.19"
+      },
+      "status": "proposed",
+      "_scenario": "8-hour acting Captain shift (out of class), Firefighter top step (Local 3535 Appendix A p.38 per diem, VII.A p.6)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "out_of_class_rate",
+          "kind": "definition",
+          "source": "clause",
+          "query": "out of class upward compensated at the same rate as if appointed",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 6,
+            "bbox": [
+              144.0,
+              229.20551999999998,
+              523.4385373712377,
+              96.29728
+            ],
+            "clause": "VII.A Out of Class Compensation (p.6)"
+          }
+        },
+        {
+          "name": "base_hourly",
+          "kind": "fact",
+          "source": "roster",
+          "field": "base_hourly",
+          "query": "salary schedule appendix A",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 6,
+            "bbox": [
+              110.88,
+              526.56552,
+              510.48033033599995,
+              489.33072
+            ],
+            "clause": "Salary Schedule set forth in Appendix A (p.6)"
+          }
+        },
+        {
+          "name": "hours",
+          "kind": "fact",
+          "source": "question"
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:acting_captain_ffpm_top_step",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "currency",
+      "topic": "out_of_class",
+      "pay_basis": "hourly",
+      "when": "subject_classification == 'Firefighter/Paramedic (56 hr, top step)' and hours > 0",
+      "compute": "(effective_base + 1.94) * hours",
+      "human_readable": "A Firefighter/Paramedic working out of class as acting Captain is paid $1.94/hr above their hourly rate (Local 3535 MOU, Appendix A CY2026 per diem structure, 'ACT'G CAPT - FF/PM' Hourly Regular $1.94, p.38). Out of class (upward) is paid the rate of the higher position (VII.A, p.6); at top step this lands on the Captain I rate ($55.34, p.35).",
+      "assumptions": [
+        "Hours are regular hours worked as acting Captain; overtime while acting has its own per-diem column ($2.91/hr) and is not modelled",
+        "The per-diem add-on equals Captain I minus Firefighter/Paramedic step III, so it is applied to the top-step classification only; other steps would get a different add-on",
+        "CY2026 figure; the 2027 and 2028 tables (p.39, p.40) print different amounts and rules carry no dates yet"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "Appendix A CY2026 Per Diem Structure, acting captain row ACTG CAPT - FF/PM (p.38)",
+        "page": 38,
+        "bbox": [
+          37.63302993774414,
+          250.75006103515625,
+          343.64892578125,
+          131.58316040039062
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "b62f70c49a6b877c",
+        "quote": "All Members Receive Base and Holiday Pay \u2014 PER DIEM STRUCTURE:: ACT'G CAPT - FF/PM | Hourly Regular: $1.94 | OT Rate: $2.91"
+      },
+      "status": "proposed",
+      "_scenario": "8-hour acting Captain shift (out of class), Firefighter/Paramedic top step (Local 3535 Appendix A p.38 per diem, VII.A p.6)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "out_of_class_rate",
+          "kind": "definition",
+          "source": "clause",
+          "query": "out of class upward compensated at the same rate as if appointed",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 6,
+            "bbox": [
+              144.0,
+              229.20551999999998,
+              523.4385373712377,
+              96.29728
+            ],
+            "clause": "VII.A Out of Class Compensation (p.6)"
+          }
+        },
+        {
+          "name": "base_hourly",
+          "kind": "fact",
+          "source": "roster",
+          "field": "base_hourly",
+          "query": "salary schedule appendix A",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 6,
+            "bbox": [
+              110.88,
+              526.56552,
+              510.48033033599995,
+              489.33072
+            ],
+            "clause": "Salary Schedule set forth in Appendix A (p.6)"
+          }
+        },
+        {
+          "name": "hours",
+          "kind": "fact",
+          "source": "question"
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:sick_leave_accrual",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "sick",
+      "pay_basis": "per_pay_period",
+      "when": "True",
+      "compute": "11.08",
+      "human_readable": "Sick leave accrues at 11.08 hours per pay period (Local 3535 MOU, XIII. Sick Leave, p.20). The clause names 56-hour employees; 40-hour safety employees and the 40-hour Battalion Chief accrue at the same rate (VIII, p.14 and p.16).",
+      "assumptions": [
+        "40-hour members accrue at the 56-hour rate per VIII (p.14, p.16)"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XIII. Sick Leave (p.20)",
+        "page": 20,
+        "bbox": [
+          109.8,
+          224.86248,
+          507.95994355199997,
+          175.39775999999995
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "c3165a97c43a5020",
+        "quote": "56-hour employees shall accrue sick leave at the rate of 11.08 hours per pay period. Sick leave  may be  used for personal illness,  physical incapacity, or the fllness of a  family member, Sick leave"
+      },
+      "status": "proposed",
+      "_scenario": "sick leave accrual per pay period, Firefighter/Paramedic (Local 3535 XIII p.20)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "accrual",
+          "kind": "definition",
+          "source": "clause",
+          "query": "accrue sick leave hours per pay period",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 20,
+            "bbox": [
+              109.8,
+              224.86248,
+              507.95994355199997,
+              175.39775999999995
+            ],
+            "clause": "XIII. Sick Leave (p.20)"
+          }
+        },
+        {
+          "name": "forty_hour_same_rate",
+          "kind": "definition",
+          "source": "clause",
+          "query": "40-hour safety employee accrue vacation and sick leave at the same rate as 56-hour",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 14,
+            "bbox": [
+              142.56,
+              372.73824,
+              497.5208568,
+              337.03776
+            ],
+            "clause": "VIII.A 40 Hour Safety Employee (p.14)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:sick_leave_annual_cash_out_max",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "sick cash",
+      "when": "True",
+      "compute": "144",
+      "human_readable": "At the end of each calendar year a member may cash out at most 144 hours of sick leave, and only hours above a 2,400-hour balance; below 2,400 hours nothing may be cashed (Local 3535 MOU, XIII. Sick Leave, p.21). Paid at the regular hourly rate in effect on December 31.",
+      "assumptions": [
+        "The figure is the yearly maximum; the member's sick leave balance (it must exceed 2,400 hours) is not on the roster, so eligibility is not checked"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XIII. Sick Leave \u2014 annual cash-out (p.21)",
+        "page": 21,
+        "bbox": [
+          107.28,
+          639.13824,
+          497.87962444799996,
+          576.07776
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "ecdd401aa69cf17f",
+        "quote": "At the end of each calendar year,  a  maximum of 144 hours of the annual accumulated sick leave in excess of 2400 hours may be paid at the member's regular hourly rate of pay in effect on  December 31"
+      },
+      "status": "proposed",
+      "_scenario": "maximum annual sick leave cash-out, Firefighter/Paramedic (Local 3535 XIII p.21)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "cash_out_cap",
+          "kind": "definition",
+          "source": "clause",
+          "query": "maximum 144 hours sick leave in excess of 2400 hours paid",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 21,
+            "bbox": [
+              107.28,
+              639.13824,
+              497.87962444799996,
+              576.07776
+            ],
+            "clause": "XIII. Sick Leave (p.21)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:sick_leave_separation_payout_max",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "sick separation",
+      "when": "True",
+      "compute": "894",
+      "human_readable": "A member separating for any reason other than termination may be paid for unused sick leave up to a maximum of 894 hours, excluding sick leave advanced at hire, at the current regular rate (Local 3535 MOU, XIII. Sick Leave, p.21). Retirement has its own option (894 hours plus half the current year's accrual, p.21), which is not this rule.",
+      "assumptions": [
+        "The figure is a cap; the member's balance and reason for separating are not on the roster"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XIII. Sick Leave \u2014 separation (p.21)",
+        "page": 21,
+        "bbox": [
+          106.92,
+          285.70248000000004,
+          498.599624448,
+          236.23775999999998
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "6c2d6dc941c26165",
+        "quote": "Employees separating for any reason other than termination may receive compensation for any unused sick leave hours earned up to a maximum of 894 hours,  excluding any sick leave advanced  upon hiring"
+      },
+      "status": "proposed",
+      "_scenario": "maximum sick leave payout on separation, Firefighter/Paramedic (Local 3535 XIII p.21)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "separation_cap",
+          "kind": "definition",
+          "source": "clause",
+          "query": "separating unused sick leave maximum 894 hours",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 21,
+            "bbox": [
+              106.92,
+              285.70248000000004,
+              498.599624448,
+              236.23775999999998
+            ],
+            "clause": "XIII. Sick Leave (p.21)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:holiday_hours_per_year",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "holiday",
+      "when": "True",
+      "compute": "312",
+      "human_readable": "Members have 13 designated holidays a year, 312 holiday hours (Local 3535 MOU, XII. Holidays, p.20).",
+      "assumptions": [
+        "Battalion Chiefs' five additional administrative holidays and 40-hour members' administrative holiday leave are separate provisions"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XII. Holidays (p.20)",
+        "page": 20,
+        "bbox": [
+          109.44,
+          509.62248,
+          508.32058363199997,
+          473.83776
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "0ef4ce51b8dc7c82",
+        "quote": "There are  13  designated holidays (312 hours),  Compensation for holidays will  be  paid In the pay period the holiday occurs and shall  be  paid at  the employees' base hourly rate.  Holiday for com"
+      },
+      "status": "proposed",
+      "_scenario": "designated holiday hours per year, Firefighter/Paramedic (Local 3535 XII p.20)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "holiday_hours",
+          "kind": "definition",
+          "source": "clause",
+          "query": "13 designated holidays 312 hours",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 20,
+            "bbox": [
+              109.44,
+              509.62248,
+              508.32058363199997,
+              473.83776
+            ],
+            "clause": "XII. Holidays (p.20)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:administrative_holiday_40hr_safety",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "administrative holiday",
+      "when": "subject_shift == 'Day' and subject_rank != 'Battalion Chief'",
+      "compute": "40",
+      "human_readable": "The 40-hour safety employee receives forty hours of administrative holiday leave a calendar year, used that year with no carry-over and no cash value, prorated by appointment date (Local 3535 MOU, VIII.A 40 Hour Safety Employee, p.14).",
+      "assumptions": [
+        "A 40-hour member is identified by the roster's 'Day' shift",
+        "Full-year figure; proration by appointment date is not modelled"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "VIII.A 40 Hour Safety Employee (p.14)",
+        "page": 14,
+        "bbox": [
+          142.56,
+          480.01824,
+          508.680534672,
+          390.04452000000003
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "f5f5be4a1268a0ea",
+        "quote": "e The 40-hour safety employee shall  receive forty hours of administrative holiday leave, which may be taken off anytime during the calendar year with the approval of their supervisor. All administrat"
+      },
+      "status": "proposed",
+      "_scenario": "administrative holiday leave, 40-hour Fire Captain (Local 3535 VIII.A p.14)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "admin_holiday",
+          "kind": "definition",
+          "source": "clause",
+          "query": "40-hour safety employee forty hours administrative holiday leave",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 14,
+            "bbox": [
+              142.56,
+              480.01824,
+              508.680534672,
+              390.04452000000003
+            ],
+            "clause": "VIII.A (p.14)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:administrative_holiday_40hr_battalion_chief",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "administrative holiday",
+      "when": "subject_shift == 'Day' and subject_rank == 'Battalion Chief'",
+      "compute": "40",
+      "human_readable": "The Battalion Chief assigned to the Training Division (40-hour) receives forty hours of administrative holiday leave a calendar year, no carry-over, no cash value (Local 3535 MOU, VIII.C 40 Hour Battalion Chief, p.16).",
+      "assumptions": [
+        "A 40-hour Battalion Chief is identified by the roster's 'Day' shift",
+        "Full-year figure; proration by appointment date is not modelled",
+        "Whether the five administrative holidays of XII (p.20) also apply to the 40-hour Battalion Chief is not settled; this rule covers the p.16 hours only"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "VIII.C 40 Hour Battalion Chief (p.16)",
+        "page": 16,
+        "bbox": [
+          142.92,
+          680.70672,
+          494.63973396,
+          590.9245199999999
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "2a2cae30b1e69e2b",
+        "quote": "The Battalion Chief assigned to the Training Division shall  receive forty hours of administrative holiday leave, which may be taken off anytime during the calendar year with the approval of the Fire "
+      },
+      "status": "proposed",
+      "_scenario": "administrative holiday leave, 40-hour Battalion Chief (Local 3535 VIII.C p.16)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "admin_holiday",
+          "kind": "definition",
+          "source": "clause",
+          "query": "battalion chief training division forty hours administrative holiday leave",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 16,
+            "bbox": [
+              142.92,
+              680.70672,
+              494.63973396,
+              590.9245199999999
+            ],
+            "clause": "VIII.C (p.16)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:education_time_off",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "education",
+      "when": "True",
+      "compute": "36",
+      "human_readable": "All employees are entitled to thirty-six (36) hours of leave per fiscal year for educational purposes not related to required certifications or licensing, used in increments of at least four hours, forfeited if unused, never paid out (Local 3535 MOU, XXIII. Education Time Off, p.32).",
+      "assumptions": [
+        "Use still needs Fire Chief approval, staffing and funding (p.32); the figure is the yearly entitlement"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XXIII. Education Time Off (p.32)",
+        "page": 32,
+        "bbox": [
+          108.0,
+          516.654,
+          491.4003501,
+          494.271
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "7845c13bc6b3d72e",
+        "quote": "All  employees are entitled to thirty-six (36) hours of leave per fiscal year for educational purposes not related to required certifications and/or licensing."
+      },
+      "status": "proposed",
+      "_scenario": "education time off per fiscal year, Firefighter/Paramedic (Local 3535 XXIII p.32)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "education_leave",
+          "kind": "definition",
+          "source": "clause",
+          "query": "thirty-six hours leave per fiscal year educational purposes",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 32,
+            "bbox": [
+              108.0,
+              516.654,
+              491.4003501,
+              494.271
+            ],
+            "clause": "XXIII (p.32)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:compensatory_time_max",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "compensatory",
+      "when": "True",
+      "compute": "120",
+      "human_readable": "Overtime may be taken as compensatory time off; the accumulated balance may not exceed 120 hours (Local 3535 MOU, VII.B.4 Compensatory Time Off, p.8).",
+      "assumptions": [
+        "A cap on the balance, not an accrual"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "VII.B.4 Compensatory Time Off (p.8)",
+        "page": 8,
+        "bbox": [
+          141.07002260000002,
+          367.50661079904,
+          495.7171106528,
+          331.99775999999997
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "a11371ec87c57ffe",
+        "quote": "Bargaining-unit employees are eligible to receive earned overtime in the form of compensatory time off. The maximum accumulated compensatory hours will not exceed 120 hours,"
+      },
+      "status": "proposed",
+      "_scenario": "maximum compensatory time off balance, Firefighter/Paramedic (Local 3535 VII.B.4 p.8)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "cto_cap",
+          "kind": "definition",
+          "source": "clause",
+          "query": "maximum accumulated compensatory hours 120",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 8,
+            "bbox": [
+              141.07002260000002,
+              367.50661079904,
+              495.7171106528,
+              331.99775999999997
+            ],
+            "clause": "VII.B.4 (p.8)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:union_leave_bank_contribution",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "union leave",
+      "when": "True",
+      "compute": "4",
+      "human_readable": "In the first full pay period of January each year, every active Local 3535 member contributes 4 hours of accrued vacation to the Union Leave Bank (Local 3535 MOU, XVI. Union Leave Bank, p.23). The Union may change the number by written notice.",
+      "assumptions": [
+        "The contract's figure; the Union may adjust it year to year by written notice (p.23), which the engine cannot see"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XVI. Union Leave Bank (p.23)",
+        "page": 23,
+        "bbox": [
+          107.5900226,
+          541.3024800000001,
+          492.8278365496,
+          492.28452
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "319bae35a0ca6f92",
+        "quote": "in  the first full  pay period of January of each year, each active L3535 bargaining unit employee will contribute to the  Union Leave Bank by donating 4 hours of their accrued vacation  leave. The ti"
+      },
+      "status": "proposed",
+      "_scenario": "yearly vacation hours donated to the Union Leave Bank, Firefighter/Paramedic (Local 3535 XVI p.23)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "contribution",
+          "kind": "definition",
+          "source": "clause",
+          "query": "donating 4 hours accrued vacation union leave bank",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 23,
+            "bbox": [
+              107.5900226,
+              541.3024800000001,
+              492.8278365496,
+              492.28452
+            ],
+            "clause": "XVI (p.23)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:grievance_filing_deadline",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "days",
+      "topic": "grievance",
+      "when": "True",
+      "compute": "10",
+      "human_readable": "A grievance must be raised with the immediate supervisor within ten (10) calendar days of the events giving rise to it, or of when the grievant became or should have become aware of them (Local 3535 MOU, XX. Grievance Procedures, Step 1, p.28).",
+      "assumptions": [
+        "Calendar days; later steps carry their own ten-day limits (p.28-29), and all limits may be extended by mutual written agreement (p.30)"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XX. Grievance Procedures \u2014 Step 1 (p.28)",
+        "page": 28,
+        "bbox": [
+          110.16,
+          282.654,
+          502.55931816000003,
+          219.31776000000002
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "2289988e876f5de2",
+        "quote": "STEP 1: An employee who.believes he/she has a grievance shall within ten  (10) calendar days of the. events giving rise to the grievance or within ten (10) calendar days of the time the grievant becam"
+      },
+      "status": "proposed",
+      "_scenario": "deadline to raise a grievance (Step 1), Firefighter/Paramedic (Local 3535 XX p.28)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "step1",
+          "kind": "definition",
+          "source": "clause",
+          "query": "grievance within ten calendar days immediate supervisor",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 28,
+            "bbox": [
+              110.16,
+              282.654,
+              502.55931816000003,
+              219.31776000000002
+            ],
+            "clause": "XX Step 1 (p.28)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:arbitration_request_deadline",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "days",
+      "topic": "arbitration",
+      "when": "True",
+      "compute": "14",
+      "human_readable": "A request for arbitration must be made in writing no later than fourteen (14) calendar days after receiving the Step 4 panel's recommendation, with approval of at least three members of the Union's Executive Board (Local 3535 MOU, XX. Grievance Procedures, Step 5, p.29).",
+      "assumptions": [
+        "Calendar days from receipt of the panel recommendation; extendable by mutual written agreement (p.30)"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XX. Grievance Procedures \u2014 Step 5 Arbitration (p.29)",
+        "page": 29,
+        "bbox": [
+          107.28,
+          301.90248,
+          504.36054457200004,
+          239.20452
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "4d3ae44bb905b6b7",
+        "quote": "If the aggrieved employee is dissatisfied with the recommendation under STEP 4,  the aggrieved employee may request arbitration with approval of at least three members of the Union's Executive Board. "
+      },
+      "status": "proposed",
+      "_scenario": "deadline to request arbitration (Step 5), Firefighter/Paramedic (Local 3535 XX p.29)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "step5",
+          "kind": "definition",
+          "source": "clause",
+          "query": "arbitration request fourteen calendar days panel recommendation",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 29,
+            "bbox": [
+              107.28,
+              301.90248,
+              504.36054457200004,
+              239.20452
+            ],
+            "clause": "XX Step 5 (p.29)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:arbitration_compliance_deadline",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "days",
+      "topic": "arbitrator compliance",
+      "when": "True",
+      "compute": "30",
+      "human_readable": "Compliance with the arbitrator's final decision must occur within thirty (30) calendar days of receipt of the written notice of the decision (Local 3535 MOU, XX. Grievance Procedures, p.30).",
+      "assumptions": [
+        "Calendar days from receipt of the written decision"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XX. Grievance Procedures \u2014 compliance (p.30)",
+        "page": 30,
+        "bbox": [
+          110.16,
+          461.65824000000003,
+          508.6812816000001,
+          439.27776
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "70ec13c6973e2350",
+        "quote": "NOTE: Compliance with the arbitrator's final  decision must occur within thirty (30) calendar days of receipt of the written notice of the decision."
+      },
+      "status": "proposed",
+      "_scenario": "deadline to comply with an arbitrator's decision, Firefighter/Paramedic (Local 3535 XX p.30)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "compliance",
+          "kind": "definition",
+          "source": "clause",
+          "query": "compliance arbitrator final decision thirty calendar days",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 30,
+            "bbox": [
+              110.16,
+              461.65824000000003,
+              508.6812816000001,
+              439.27776
+            ],
+            "clause": "XX (p.30)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:disability_waiting_period",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "days",
+      "topic": "disability",
+      "when": "True",
+      "compute": "60",
+      "human_readable": "The District-paid long-term disability plan pays after a sixty (60) day waiting period (Local 3535 MOU, XVII.B Salary Continuance Insurance, p.24).",
+      "assumptions": [
+        "The benefit amount follows the C.A.P.F.F. Plan A, which is not in the MOU and not modelled"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XVII.B Salary Continuance Insurance (p.24)",
+        "page": 24,
+        "bbox": [
+          109.03002260000001,
+          153.22240389024,
+          480.60016128,
+          116.16574267010003
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "b77fe8ea6ae059b6",
+        "quote": "The District shall  pay, on behalf  of current employees, the premlum for a  long-term disabllity plan that provides, after a  sixty (60) day waiting period, a  maximum payout benefit based on the C.A"
+      },
+      "status": "proposed",
+      "_scenario": "long-term disability waiting period, Firefighter/Paramedic (Local 3535 XVII.B p.24)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "waiting_period",
+          "kind": "definition",
+          "source": "clause",
+          "query": "long-term disability sixty day waiting period",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 24,
+            "bbox": [
+              109.03002260000001,
+              153.22240389024,
+              480.60016128,
+              116.16574267010003
+            ],
+            "clause": "XVII.B (p.24)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:flsa_overtime_threshold",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "flsa",
+      "when": "True",
+      "compute": "182",
+      "human_readable": "The District uses a 24-day FLSA work period; FLSA overtime is owed for hours worked in excess of 182 hours in it (Local 3535 MOU, VII.B.1 FLSA Work Period, p.7; repeated in VII.B.3, p.8).",
+      "assumptions": [
+        "Hours worked include time 'deemed' worked, i.e. all paid leave (p.7, p.8)"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "VII.B.1 FLSA Work Period (p.7)",
+        "page": 7,
+        "bbox": [
+          142.92,
+          352.32552,
+          516.239910504,
+          247.22426706912006
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "7cfb24d7250d28f8",
+        "quote": "Central  Fire  District has established a  24-day work periad and therefore employees are entitled to FLSA-overtime for hours worked  (n excess of 182 hours, The regular scheduled hours worked for our"
+      },
+      "status": "proposed",
+      "_scenario": "FLSA overtime threshold in a 24-day work period, Firefighter/Paramedic (Local 3535 VII.B.1 p.7)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "threshold",
+          "kind": "definition",
+          "source": "clause",
+          "query": "24-day work period FLSA overtime in excess of 182 hours",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 7,
+            "bbox": [
+              142.92,
+              352.32552,
+              516.239910504,
+              247.22426706912006
+            ],
+            "clause": "VII.B.1 (p.7)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firefighters_local3535_mou:paramedic_training_travel_time",
+      "kind": "selector",
+      "role": "base",
+      "result_type": "hours",
+      "topic": "travel",
+      "when": "subject_rank == 'Firefighter/Paramedic'",
+      "compute": "1",
+      "human_readable": "When paramedic continuing-education training is outside the immediate area, one hour of travel time is allowed each direction (Local 3535 MOU, XXII. Certification, p.31).",
+      "assumptions": [
+        "Per direction; a round trip is two hours",
+        "Applied to the Firefighter/Paramedic rank; a Captain who keeps a paramedic license is not identifiable from the roster"
+      ],
+      "citation": {
+        "doc_id": "firefighters_local3535_mou",
+        "clause": "XXII. Certification \u2014 paramedic continuing education (p.31)",
+        "page": 31,
+        "bbox": [
+          107.64,
+          207.49824,
+          482.040713088,
+          158.11775999999998
+        ],
+        "doc_sha256": "b30076962d29c424864fbe8b05a048911356f7b807b3472f83104aeb921ee800",
+        "quote_sha256": "b49fadd7c1260922",
+        "quote": "If the training Is  at a  location outside of the immediate area, reimbursement for costs incurred.  shall  be  made to the employee in accordance with Employer's Policies and Procedures Manual and/or"
+      },
+      "status": "proposed",
+      "_scenario": "travel time each direction for out-of-area paramedic training, Firefighter/Paramedic (Local 3535 XXII p.31)",
+      "note": "agent-drafted 2026-10-28 (M1 full rulebook, Claude Code session, no API spend); value read off the page image, not only the OCR text; approve by contract section",
+      "inputs": [
+        {
+          "name": "travel_time",
+          "kind": "definition",
+          "source": "clause",
+          "query": "one-hour travel time each direction paramedic training",
+          "citation": {
+            "doc_id": "firefighters_local3535_mou",
+            "page": 31,
+            "bbox": [
+              107.64,
+              207.49824,
+              482.040713088,
+              158.11775999999998
+            ],
+            "clause": "XXII (p.31)"
+          }
+        }
+      ]
     }
   ],
   "needs_data": []
