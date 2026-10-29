@@ -108,7 +108,7 @@ def test_chat_page_pins_fresh_assets(client):
 def test_admin_page_loads_its_script_from_a_pinned_file(client):
     """The admin console's script is a served file, not an inline block."""
     html = client.get("/admin").text
-    assert '<script src="/static/admin.js?v=3"></script>' in html
+    assert '<script src="/static/admin.js?v=4"></script>' in html
     assert "<script>" not in html, "admin.html must carry no inline script"
     res = client.get("/static/admin.js")
     assert res.status_code == 200

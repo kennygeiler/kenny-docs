@@ -321,3 +321,21 @@ def test_a_refused_holiday_question_names_one_provision_the_holiday_pay_one(ship
     named = res.get("provisions") or []
     assert [p["id"] for p in named] == ["l3535.holiday_pay"], named
     assert named[0]["state"] == "awaiting"
+
+
+def test_cell_gate_reports_the_queued_rules_a_disputed_cell_blocks(shipped):
+    """The Review queue's confirm strip reads /admin/cell_gate?queue=1: the three vacation
+    tiers that cite disputed p.22 cells are listed as blocked with the cell to confirm."""
+    res = shipped.get("/admin/cell_gate?queue=1").json()
+    blocked = {r["rule_id"].split(":")[1] for r in res["rules"] if not r["approvable"]}
+    assert {"vacation_accrual_6_10", "vacation_accrual_14_16",
+            "vacation_accrual_17_plus"} <= blocked
+    row = next(r for r in res["rules"] if r["rule_id"].endswith("vacation_accrual_6_10"))
+    assert row["cell"]["status"] == "disputed" and row["cell"]["reread"] == "10.15"
+    assert row["cell_ref"]["row"] == 2 and row["cell_ref"]["col"] == 1
+
+
+def test_admin_script_offers_the_cell_confirm_step():
+    js = open(os.path.join(os.path.dirname(__file__), "..", "core", "templates", "admin.js")).read()
+    assert "/admin/cell_gate?queue=1" in js and "data-act=\"confirm-cell\"" in js
+    assert "case 'confirm-cell': confirmCell(b, d)" in js

@@ -503,7 +503,7 @@ def admin_demo_draft_load():
 
 
 @router.get("/admin/cell_gate")
-def admin_cell_gate(rule_id: str = ""):
+def admin_cell_gate(rule_id: str = "", queue: bool = False):
     """What the cell-evidence gate says about the live library (or one rule, proposed
     queue first): [{rule_id, cell_ref, cell: {stored, reread, status, confirmed},
     errors, approvable}]. Read-only, no ledger event — the demo's 'before' and
@@ -515,6 +515,11 @@ def admin_cell_gate(rule_id: str = ""):
             return JSONResponse({"error": f"no proposed or live rule with id {rule_id!r}"},
                                 status_code=404)
         rules = [rule]
+    elif queue:
+        # The Review queue (not yet live): which queued rules a disputed cell blocks, so
+        # the admin page can offer the confirm step next to the section it blocks.
+        rules = [r for r in _proposed_queue().get("rules", [])
+                 if r.get("id") not in {x.id for x in case.rules()}]
     else:
         rules = _live_dicts(case)
     rows = _cell_gate_rows(case, rules)
